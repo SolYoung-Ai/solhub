@@ -19,16 +19,26 @@ export function isCloudBaseConfigured(): boolean {
   return Boolean(ENV_ID && PUBLISHABLE_KEY);
 }
 
-/** 懒加载并返回 { app, db }；仅在浏览器端且已配置时可用。 */
+/** 懒加载并返回 { app, db }；仅在浏览器端且已配置时可用。带 10 秒超时，防止 SDK init 挂起。 */
 async function getClient(): Promise<{ app: any; db: any } | null> {
   if (typeof window === "undefined" || !isCloudBaseConfigured()) return null;
-  const cloudbase = await import("@cloudbase/js-sdk");
-  const app = cloudbase.init({
-    env: ENV_ID,
-    accessKey: PUBLISHABLE_KEY,
-    auth: { detectSessionInUrl: true },
-  });
-  return { app, db: app.rdb() };
+  try {
+    const cloudbase = await Promise.race([
+      import("@cloudbase/js-sdk"),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("CloudBase SDK init timeout")), 10000),
+      ),
+    ]);
+    const app = cloudbase.init({
+      env: ENV_ID,
+      accessKey: PUBLISHABLE_KEY,
+      auth: { detectSessionInUrl: true },
+    });
+    return { app, db: app.rdb() };
+  } catch (e) {
+    console.error("[SolHub] getClient failed", e);
+    return null;
+  }
 }
 
 export interface CommunitySubmissionRow {
@@ -97,7 +107,7 @@ export async function submitToCloudbase(
   payload: CloudbaseSubmissionPayload,
 ): Promise<{ ok: boolean; message: string; row?: CommunitySubmissionRow }> {
   const client = await getClient();
-  if (!client) return { ok: false, message: "CloudBase 未配置，无法提交。" };
+  if (!client) return { ok: false, message: "无法连接 CloudBase（初始化超时或网络不可达），请稍后重试。" };
   try {
     const insertPayload: Record<string, unknown> = {
       kind: payload.kind,
