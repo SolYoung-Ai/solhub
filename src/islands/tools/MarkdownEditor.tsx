@@ -3,6 +3,9 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { countText } from "@/lib/tools/text";
 import { CopyButton, DownloadButton, ResetButton } from "@/components/tool-ui";
+import type { Locale } from "@/i18n";
+import { getDict } from "@/i18n";
+import { t } from "@/i18n/data";
 
 const SAMPLE = `# 你好，SolHub
 
@@ -22,7 +25,8 @@ console.log("Hello, SolHub");
 \`\`\`
 `;
 
-export default function MarkdownEditor() {
+export default function MarkdownEditor({ locale = "zh" }: { locale?: Locale }) {
+  const dict = getDict(locale);
   const [text, setText] = useState(SAMPLE);
 
   const html = useMemo(() => {
@@ -39,28 +43,28 @@ export default function MarkdownEditor() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <CopyButton getText={() => text} label="复制 Markdown" />
-        <DownloadButton filename="document.md" getContent={() => text} mime="text/markdown;charset=utf-8" label="下载 .md" />
-        <ResetButton onClick={() => setText(SAMPLE)} label="载入示例" />
+        <CopyButton getText={() => text} label={locale === "en" ? "Copy Markdown" : "复制 Markdown"} />
+        <DownloadButton filename="document.md" getContent={() => text} mime="text/markdown;charset=utf-8" label={locale === "en" ? "Download .md" : "下载 .md"} />
+        <ResetButton onClick={() => setText(SAMPLE)} label={locale === "en" ? "Load sample" : "载入示例"} />
         <span className="ml-auto text-xs text-muted-foreground">
-          {stats.characters.toLocaleString()} 字符 · {stats.words.toLocaleString()} 词
+          {stats.characters.toLocaleString()} {locale === "en" ? "chars" : "字符"} · {stats.words.toLocaleString()} {locale === "en" ? "words" : "词"}
         </span>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div>
-          <p className="label">编辑</p>
+          <p className="label">{locale === "en" ? "Edit" : "编辑"}</p>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={22}
             spellCheck={false}
             className="input scroll-x w-full resize-y font-mono !text-[13px] leading-6"
-            aria-label="Markdown 编辑"
+            aria-label={locale === "en" ? "Markdown editor" : "Markdown 编辑"}
           />
         </div>
         <div>
-          <p className="label">预览</p>
+          <p className="label">{locale === "en" ? "Preview" : "预览"}</p>
           <div
             className="prose-solhub scroll-x min-h-[560px] w-full rounded-[3px] border border-border bg-card p-4"
             dangerouslySetInnerHTML={{ __html: html }}
@@ -69,10 +73,9 @@ export default function MarkdownEditor() {
       </div>
 
       <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
-        <p className="font-semibold text-foreground/80">安全说明</p>
+        <p className="font-semibold text-foreground/80">{locale === "en" ? "Security note" : "安全说明"}</p>
         <p className="mt-1.5">
-          预览输出经过 DOMPurify 净化，脚本、内联事件与危险标签会被移除，不可信 HTML
-          不会在预览中执行。内容只在浏览器本地处理。
+          {locale === "en" ? "Preview output is sanitized with DOMPurify: scripts, inline events and dangerous tags are removed, so untrusted HTML never executes. Everything runs locally." : "预览输出经过 DOMPurify 净化，脚本、内联事件与危险标签会被移除，不可信 HTML 不会在预览中执行。内容只在浏览器本地处理。"}
         </p>
       </div>
     </div>

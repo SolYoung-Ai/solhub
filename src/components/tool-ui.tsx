@@ -1,24 +1,31 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Check, Copy, Download, Eraser, RotateCcw, X } from "lucide-react";
-import { copyText, cx } from "@/lib/utils";
+import { copyText, cx, getLocale } from "@/lib/utils";
 
 /** 统一的操作反馈：复制 / 下载 / 重置 / 清空 / 状态消息 / 结果区 */
 
 export function CopyButton({
   getText,
   label = "复制",
+  copiedLabel,
+  failedLabel,
   onStatus,
   className,
   disabled = false,
 }: {
   getText: () => string;
   label?: string;
+  copiedLabel?: string;
+  failedLabel?: string;
   onStatus?: (ok: boolean) => void;
   className?: string;
   disabled?: boolean;
 }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const en = getLocale() === "en";
+  const copiedText = copiedLabel ?? (en ? "Copied" : "已复制");
+  const failedText = failedLabel ?? (en ? "Copy failed" : "复制失败");
 
   const onClick = async () => {
     if (disabled) return;
@@ -44,11 +51,11 @@ export function CopyButton({
     >
       {state === "copied" ? (
         <>
-          <Check className="h-3.5 w-3.5" aria-hidden="true" /> 已复制
+          <Check className="h-3.5 w-3.5" aria-hidden="true" /> {copiedText}
         </>
       ) : state === "failed" ? (
         <>
-          <X className="h-3.5 w-3.5" aria-hidden="true" /> 复制失败
+          <X className="h-3.5 w-3.5" aria-hidden="true" /> {failedText}
         </>
       ) : (
         <>

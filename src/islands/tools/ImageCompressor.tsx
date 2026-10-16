@@ -1,6 +1,9 @@
 import { useRef, useState } from "react";
 import { Download, ImagePlus, Upload } from "lucide-react";
 import { Message, ToolSection } from "@/components/tool-ui";
+import type { Locale } from "@/i18n";
+import { getDict } from "@/i18n";
+import { t } from "@/i18n/data";
 
 interface CompressState {
   name: string;
@@ -12,7 +15,8 @@ interface CompressState {
   height: number;
 }
 
-export default function ImageCompressor() {
+export default function ImageCompressor({ locale = "zh" }: { locale?: Locale }) {
+  const dict = getDict(locale);
   const [file, setFile] = useState<File | null>(null);
   const [quality, setQuality] = useState(80);
   const [format, setFormat] = useState<"auto" | "jpeg" | "webp" | "png">("auto");
@@ -23,7 +27,7 @@ export default function ImageCompressor() {
 
   const compress = async (f: File) => {
     if (!/^image\/(png|jpe?g|webp|gif|avif|bmp)/i.test(f.type) && !/\.(png|jpe?g|webp|gif|avif|bmp)$/i.test(f.name)) {
-      setError("请选择常见图片格式（PNG / JPEG / WebP / GIF 等）。");
+      setError(locale === "en" ? "Please choose a common image format (PNG / JPEG / WebP / GIF etc.)." : "请选择常见图片格式（PNG / JPEG / WebP / GIF 等）。");
       return;
     }
     setBusy(true);
@@ -54,7 +58,7 @@ export default function ImageCompressor() {
       ctx.drawImage(img, 0, 0);
       const blob = await canvasToBlob(canvas, outMime, quality / 100);
       if (!blob) {
-        setError("压缩失败：浏览器无法以所选格式输出。");
+        setError(locale === "en" ? "Compression failed: your browser can't output that format." : "压缩失败：浏览器无法以所选格式输出。");
         setBusy(false);
         return;
       }
@@ -71,7 +75,7 @@ export default function ImageCompressor() {
         height: img.naturalHeight,
       });
     } catch {
-      setError("图片处理失败：图片可能已损坏或尺寸过大。");
+      setError(locale === "en" ? "Image processing failed: the image may be corrupted or too large." : "图片处理失败：图片可能已损坏或尺寸过大。");
     } finally {
       setBusy(false);
     }
@@ -108,11 +112,15 @@ export default function ImageCompressor() {
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
         }}
-        aria-label="选择或拖入图片"
+        aria-label={locale === "en" ? "Choose or drop an image" : "选择或拖入图片"}
       >
         <Upload className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-        <p className="text-sm font-medium text-foreground">点击选择图片，或拖拽到此处</p>
-        <p className="text-xs text-muted-foreground">支持 PNG / JPEG / WebP / GIF，图片不会上传</p>
+        <p className="text-sm font-medium text-foreground">
+          {locale === "en" ? "Click to choose an image, or drop it here" : "点击选择图片，或拖拽到此处"}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {locale === "en" ? "PNG / JPEG / WebP / GIF supported — image never leaves your device" : "支持 PNG / JPEG / WebP / GIF，图片不会上传"}
+        </p>
         <input
           ref={inputRef}
           type="file"
@@ -130,20 +138,20 @@ export default function ImageCompressor() {
 
       {file && (
         <div className="grid gap-4 sm:grid-cols-2">
-          <ToolSection label="输出格式" hint="auto 保留源格式">
+          <ToolSection label={locale === "en" ? "Output format" : "输出格式"} hint={locale === "en" ? "auto keeps source format" : "auto 保留源格式"}>
             <select
               value={format}
               onChange={(e) => setFormat(e.target.value as typeof format)}
               className="input"
-              aria-label="输出格式"
+              aria-label={locale === "en" ? "Output format" : "输出格式"}
             >
-              <option value="auto">自动（保留源格式）</option>
-              <option value="jpeg">JPEG（无透明通道）</option>
+              <option value="auto">{locale === "en" ? "Auto (keep source format)" : "自动（保留源格式）"}</option>
+              <option value="jpeg">{locale === "en" ? "JPEG (no transparency)" : "JPEG（无透明通道）"}</option>
               <option value="webp">WebP</option>
-              <option value="png">PNG（保留透明）</option>
+              <option value="png">{locale === "en" ? "PNG (keeps transparency)" : "PNG（保留透明）"}</option>
             </select>
           </ToolSection>
-          <ToolSection label="质量" hint={`${quality}%`}>
+          <ToolSection label={t(locale, "tools.image-compressor.qualityLabel")} hint={`${quality}%`}>
             <input
               type="range"
               min={10}
@@ -151,7 +159,7 @@ export default function ImageCompressor() {
               value={quality}
               onChange={(e) => setQuality(Number(e.target.value))}
               className="w-full accent-[var(--color-accent)]"
-              aria-label="压缩质量"
+              aria-label={locale === "en" ? "Compression quality" : "压缩质量"}
             />
           </ToolSection>
         </div>
@@ -165,10 +173,10 @@ export default function ImageCompressor() {
             disabled={busy}
             className="btn btn-accent !h-8 px-3 text-xs"
           >
-            <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" /> {busy ? "处理中…" : "重新压缩"}
+            <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" /> {busy ? (locale === "en" ? "Processing…" : "处理中…") : (locale === "en" ? "Re-compress" : "重新压缩")}
           </button>
           <button type="button" onClick={download} disabled={!state} className="btn btn-outline !h-8 px-3 text-xs">
-            <Download className="h-3.5 w-3.5" aria-hidden="true" /> 下载结果
+            <Download className="h-3.5 w-3.5" aria-hidden="true" /> {locale === "en" ? "Download result" : "下载结果"}
           </button>
         </div>
       )}
@@ -177,38 +185,38 @@ export default function ImageCompressor() {
 
       {state && (
         <div className="grid gap-4 lg:grid-cols-2">
-          <ToolSection label="压缩预览">
-            <img src={state.outputUrl} alt="压缩结果预览" className="max-h-[360px] w-full rounded-[3px] border border-border object-contain" />
+          <ToolSection label={locale === "en" ? "Preview" : "压缩预览"}>
+            <img src={state.outputUrl} alt={locale === "en" ? "Compressed result preview" : "压缩结果预览"} className="max-h-[360px] w-full rounded-[3px] border border-border object-contain" />
           </ToolSection>
           <div className="space-y-3">
-            <ToolSection label="压缩统计">
+            <ToolSection label={locale === "en" ? "Compression stats" : "压缩统计"}>
               <dl className="card divide-y divide-border text-sm">
                 <div className="flex justify-between px-4 py-2.5">
-                  <dt className="text-muted-foreground">原始大小</dt>
+                  <dt className="text-muted-foreground">{locale === "en" ? "Original size" : "原始大小"}</dt>
                   <dd className="font-mono font-medium text-foreground">{formatSize(state.originalSize)}</dd>
                 </div>
                 <div className="flex justify-between px-4 py-2.5">
-                  <dt className="text-muted-foreground">输出大小</dt>
+                  <dt className="text-muted-foreground">{locale === "en" ? "Output size" : "输出大小"}</dt>
                   <dd className="font-mono font-medium text-foreground">{formatSize(state.outputSize)}</dd>
                 </div>
                 <div className="flex justify-between px-4 py-2.5">
-                  <dt className="text-muted-foreground">压缩率</dt>
+                  <dt className="text-muted-foreground">{locale === "en" ? "Reduction" : "压缩率"}</dt>
                   <dd className={ratio > 0 ? "font-mono font-semibold text-success" : "font-mono font-semibold text-muted-foreground"}>
                     {ratio > 0 ? `-${ratio}%` : "0%"}
                   </dd>
                 </div>
                 <div className="flex justify-between px-4 py-2.5">
-                  <dt className="text-muted-foreground">尺寸</dt>
+                  <dt className="text-muted-foreground">{locale === "en" ? "Dimensions" : "尺寸"}</dt>
                   <dd className="font-mono text-foreground">{state.width} × {state.height}</dd>
                 </div>
               </dl>
             </ToolSection>
             <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
-              <p className="font-semibold text-foreground/80">限制说明</p>
+              <p className="font-semibold text-foreground/80">{locale === "en" ? "Limits" : "限制说明"}</p>
               <ul className="mt-1.5 list-disc space-y-1 pl-5">
-                <li>PNG（含透明通道）转为 JPEG 时会填充白色背景。</li>
-                <li>输出格式为 PNG 时压缩率通常有限（无损格式）。</li>
-                <li>超大图片受浏览器 Canvas 尺寸限制，可能处理失败。</li>
+                <li>{locale === "en" ? "PNG (with transparency) is flattened to white when converting to JPEG." : "PNG（含透明通道）转为 JPEG 时会填充白色背景。"}</li>
+                <li>{locale === "en" ? "PNG output usually compresses little (lossless format)." : "输出格式为 PNG 时压缩率通常有限（无损格式）。"}</li>
+                <li>{locale === "en" ? "Very large images may fail due to browser Canvas size limits." : "超大图片受浏览器 Canvas 尺寸限制，可能处理失败。"}</li>
               </ul>
             </div>
           </div>

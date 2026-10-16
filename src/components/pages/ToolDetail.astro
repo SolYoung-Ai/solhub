@@ -1,0 +1,147 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import type { Tool } from "@/data/types";
+import { getToolById } from "@/data/tools";
+import { categoryName } from "@/data/categories";
+import { getIcon } from "@/lib/icons";
+import { p, absoluteUrl } from "@/lib/paths";
+import ToolCard from "@/components/ToolCard.astro";
+import ToolRenderer from "@/islands/ToolRenderer.tsx";
+import { getDict, translate } from "@/i18n";
+import type { Locale } from "@/i18n";
+import { toolDescription, toolNote } from "@/i18n/data";
+
+interface Props {
+  tool: Tool;
+  locale?: Locale;
+}
+
+const { tool } = Astro.props;
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+const dict = getDict(locale);
+
+const Icon = getIcon(tool.icon);
+const related = (tool.relatedToolIds ?? [])
+  .map((id) => getToolById(id))
+  .filter((t): t is NonNullable<typeof t> => Boolean(t && t.isImplemented))
+  .slice(0, 3);
+
+const desc = toolDescription(tool.slug, tool.description, locale);
+const note = toolNote(tool.slug, tool.note, locale);
+
+const schemaJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: tool.name,
+  description: desc,
+  url: absoluteUrl(`/tools/${tool.slug}/`, locale),
+  applicationCategory: "UtilityApplication",
+  operatingSystem: "Web",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "CNY" },
+};
+---
+
+<BaseLayout
+  title={tool.name}
+  description={en
+    ? `${desc} Free online tool — data is processed locally in your browser, no signup needed.`
+    : `${desc} 免费在线使用，数据处理在浏览器本地完成，无需注册。`}
+  route={`/tools/${tool.slug}/`}
+  locale={locale}
+>
+  <div class="container-page py-10">
+    <!-- 面包屑 -->
+    <nav class="mb-6 flex items-center gap-1.5 text-xs text-muted-foreground" aria-label={en ? "Breadcrumb" : "面包屑"}>
+      <a href={p("/", locale)} class="hover:text-foreground">Home</a>
+      <span aria-hidden="true">/</span>
+      <a href={p("/tools/", locale)} class="hover:text-foreground">Tools</a>
+      <span aria-hidden="true">/</span>
+      <span class="truncate text-foreground/80">{tool.name}</span>
+    </nav>
+
+    <!-- 工具头部 -->
+    <header class="mb-8 flex flex-wrap items-start justify-between gap-4">
+      <div class="flex items-start gap-4">
+        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] border border-border bg-secondary text-foreground">
+          <Icon className="h-6 w-6" aria-hidden="true" />
+        </span>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+              {tool.name}
+            </h1>
+            <span class="badge border-success/30 bg-success/10 text-success">{translate(dict, "common.free")}</span>
+            <span class="badge border-border-strong bg-secondary/60 text-muted-foreground">
+              {categoryName(tool.category)}
+            </span>
+          </div>
+          <p class="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
+            {desc}
+          </p>
+        </div>
+      </div>
+      <a href={p("/tools/", locale)} class="btn btn-ghost !h-8 text-xs">
+        ← {en ? "Back to toolbox" : "返回工具箱"}
+      </a>
+    </header>
+
+    <!-- 工作区 -->
+    <section class="card p-5 sm:p-6" aria-label={`${tool.name} ${en ? "workspace" : "工作区"}`}>
+      <ToolRenderer client:load component={tool.component} locale={locale} />
+    </section>
+
+    <!-- 说明与 FAQ -->
+    <div class="mt-8 grid gap-6 lg:grid-cols-2">
+      <section class="rounded-[3px] border border-border bg-secondary/30 p-5">
+        <h2 class="font-display text-base font-bold text-foreground">{en ? "How it works & limits" : "功能说明与限制"}</h2>
+        {
+          note && (
+            <p class="mt-2 text-[13px] leading-6 text-muted-foreground">{note}</p>
+          )
+        }
+        <ul class="mt-3 list-disc space-y-1.5 pl-5 text-[13px] leading-6 text-muted-foreground">
+          <li>{en ? "Runs locally in your browser — input is never uploaded to any server." : "工具在浏览器本地运行，输入内容不会上传到任何服务器。"}</li>
+          <li>{en ? "No input history is recorded; refreshing clears everything." : "页面不记录你的输入历史，刷新后内容消失。"}</li>
+          <li>{en ? "Results are for reference — double-check critical data before relying on it." : "结果仅供参考，使用前请自行核对关键数据。"}</li>
+        </ul>
+      </section>
+
+      <section class="rounded-[3px] border border-border bg-secondary/30 p-5">
+        <h2 class="font-display text-base font-bold text-foreground">{en ? "FAQ" : "常见问题"}</h2>
+        <div class="mt-3 space-y-3 text-[13px] leading-6 text-muted-foreground">
+          <div>
+            <p class="font-semibold text-foreground/80">{en ? "Where does my data go?" : "数据会发送到哪里？"}</p>
+            <p>{en ? "Nowhere. All computation happens locally via browser JavaScript." : "不会发送。所有计算与转换都通过浏览器 JavaScript 在本地完成。"}</p>
+          </div>
+          <div>
+            <p class="font-semibold text-foreground/80">{en ? "Why does the result differ from another online tool?" : "为什么结果和某在线工具不同？"}</p>
+            <p>{en ? "Different implementations use slightly different boundary rules (e.g. word counting, encoding). This page documents its rules." : "不同实现的边界规则略有差异（如字数统计、编码方式）。本页面已注明规则。"}</p>
+          </div>
+          <div>
+            <p class="font-semibold text-foreground/80">{en ? "Can I copy or download the result?" : "结果可以复制或下载吗？"}</p>
+            <p>{en ? "Yes. Every tool has a copy button, and some support file downloads." : "可以。每个工具的输入输出区都提供复制按钮，部分工具支持下载文件。"}</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 相关工具 -->
+    {
+      related.length > 0 && (
+        <section class="mt-10 border-t border-border pt-8">
+          <h2 class="font-display text-lg font-bold text-foreground">{en ? "Related tools" : "相关工具"}</h2>
+          <div class="mt-4 grid gap-4 sm:grid-cols-3">
+            {
+              related.map((item) => (
+                <ToolCard tool={item} locale={locale} />
+              ))
+            }
+          </div>
+        </section>
+      )
+    }
+  </div>
+
+  <script type="application/ld+json" set:html={JSON.stringify(schemaJsonLd)} />
+</BaseLayout>

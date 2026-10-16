@@ -1,43 +1,39 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Menu, Search, X } from "lucide-react";
+import {
+  ArrowRight,
+  Languages,
+  Menu,
+  Monitor,
+  Moon,
+  Search,
+  Smartphone,
+  Sun,
+  X,
+} from "lucide-react";
 import type { SearchIndexEntry } from "@/data/types";
 import { searchIndex } from "@/lib/search";
 import { cx } from "@/lib/utils";
 import { p } from "@/lib/paths";
+import { getDict, translate } from "@/i18n";
+import type { Locale } from "@/i18n";
 
 interface Props {
   currentRoute: string;
   searchIndex: SearchIndexEntry[];
+  locale?: Locale;
 }
 
-const NAV: { label: string; path: string; match: (r: string) => boolean }[] = [
-  { label: "Discover", path: "/", match: (r) => r === "/" },
-  { label: "Launches", path: "/launches/", match: (r) => r.startsWith("/launches/") },
-  { label: "Tools", path: "/tools/", match: (r) => r.startsWith("/tools/") },
-  { label: "About", path: "/about/", match: (r) => r.startsWith("/about/") },
-];
-
-function Logo({ size = 22 }: { size?: number }) {
-  return (
-    <a href={p("/")} className="inline-flex items-center gap-2 leading-none" aria-label="SolHub 首页">
-      <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true" className="shrink-0 text-foreground">
-        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="1.4" opacity="0.35" />
-        <line x1="16" y1="16" x2="9.4" y2="9.4" stroke="currentColor" strokeWidth="1" opacity="0.5" />
-        <line x1="16" y1="16" x2="22.6" y2="22.6" stroke="currentColor" strokeWidth="1" opacity="0.5" />
-        <line x1="16" y1="16" x2="23.9" y2="11.7" stroke="currentColor" strokeWidth="1" opacity="0.5" />
-        <circle cx="16" cy="16" r="4.4" fill="var(--color-accent)" />
-        <circle cx="9.4" cy="9.4" r="2" fill="currentColor" />
-        <circle cx="22.6" cy="22.6" r="2" fill="currentColor" />
-        <circle cx="23.9" cy="11.7" r="1.6" fill="var(--color-accent)" />
-      </svg>
-      <span className="font-display text-[17px] font-bold tracking-tight text-foreground">SolHub</span>
-    </a>
-  );
-}
-
-export default function HeaderApp({ currentRoute, searchIndex }: Props) {
+export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const dict = getDict(locale);
+
+  const NAV: { label: string; path: string; match: (r: string) => boolean }[] = [
+    { label: translate(dict, "nav.discover"), path: "/", match: (r) => r === "/" },
+    { label: translate(dict, "nav.launches"), path: "/launches/", match: (r) => r.startsWith("/launches/") },
+    { label: translate(dict, "nav.tools"), path: "/tools/", match: (r) => r.startsWith("/tools/") },
+    { label: translate(dict, "nav.about"), path: "/about/", match: (r) => r.startsWith("/about/") },
+  ];
 
   // 全局搜索打开事件：首页 Hero 搜索条等位置触发
   useEffect(() => {
@@ -71,15 +67,22 @@ export default function HeaderApp({ currentRoute, searchIndex }: Props) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
-      <div className="container-page flex h-14 items-center justify-between gap-4">
-        <Logo />
+      <div className="container-page flex h-14 items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5">
+          {/* 左上角：语言 / 主题 / 视口 三个控件 */}
+          <LangButton locale={locale} currentRoute={currentRoute} />
+          <ThemeButton />
+          <ViewportButton />
+          <span className="mx-1 hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
+          <Logo locale={locale} />
+        </div>
 
         {/* 桌面导航 */}
-        <nav className="hidden items-center gap-1 md:flex" aria-label="主导航">
+        <nav className="hidden items-center gap-1 md:flex" aria-label={translate(dict, "nav.mainNav")}>
           {NAV.map((item) => (
             <a
               key={item.path}
-              href={p(item.path)}
+              href={p(item.path, locale)}
               aria-current={item.match(currentRoute) ? "page" : undefined}
               className={cx(
                 "rounded-[2px] px-3 py-1.5 text-sm font-medium transition-colors",
@@ -98,17 +101,17 @@ export default function HeaderApp({ currentRoute, searchIndex }: Props) {
             type="button"
             onClick={() => setSearchOpen(true)}
             className="inline-flex h-8 items-center gap-2 rounded-[2px] border border-border-strong bg-card px-2.5 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-            aria-label="搜索产品或工具"
+            aria-label={translate(dict, "nav.search")}
           >
             <Search className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="hidden sm:inline">搜索</span>
+            <span className="hidden sm:inline">{translate(dict, "nav.search")}</span>
             <kbd className="hidden rounded-[2px] border border-border bg-secondary px-1 text-[10px] font-medium text-muted-foreground lg:inline">
               /
             </kbd>
           </button>
 
-          <a href={p("/submit/")} className="btn btn-accent hidden !h-8 px-3 sm:inline-flex">
-            Submit a Product
+          <a href={p("/submit/", locale)} className="btn btn-accent hidden !h-8 px-3 sm:inline-flex">
+            {translate(dict, "nav.submit")}
           </a>
 
           {/* 移动端菜单按钮 */}
@@ -117,7 +120,7 @@ export default function HeaderApp({ currentRoute, searchIndex }: Props) {
             className="inline-flex h-8 w-8 items-center justify-center rounded-[2px] text-foreground hover:bg-secondary md:hidden"
             onClick={() => setMenuOpen((v) => !v)}
             aria-expanded={menuOpen}
-            aria-label={menuOpen ? "关闭菜单" : "打开菜单"}
+            aria-label={menuOpen ? translate(dict, "nav.menuClose") : translate(dict, "nav.menuOpen")}
           >
             {menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
@@ -128,13 +131,13 @@ export default function HeaderApp({ currentRoute, searchIndex }: Props) {
       {menuOpen && (
         <nav
           className="animate-fade-in border-t border-border bg-background md:hidden"
-          aria-label="移动端导航"
+          aria-label={translate(dict, "nav.mobileNav")}
         >
           <div className="container-page flex flex-col py-2">
             {NAV.map((item) => (
               <a
                 key={item.path}
-                href={p(item.path)}
+                href={p(item.path, locale)}
                 onClick={() => setMenuOpen(false)}
                 aria-current={item.match(currentRoute) ? "page" : undefined}
                 className={cx(
@@ -149,11 +152,11 @@ export default function HeaderApp({ currentRoute, searchIndex }: Props) {
               </a>
             ))}
             <a
-              href={p("/submit/")}
+              href={p("/submit/", locale)}
               onClick={() => setMenuOpen(false)}
               className="btn btn-accent mt-2 w-full"
             >
-              Submit a Product
+              {translate(dict, "nav.submit")}
             </a>
           </div>
         </nav>
@@ -163,6 +166,7 @@ export default function HeaderApp({ currentRoute, searchIndex }: Props) {
       {searchOpen && (
         <SearchDialog
           index={searchIndex}
+          locale={locale}
           onClose={() => setSearchOpen(false)}
         />
       )}
@@ -170,22 +174,168 @@ export default function HeaderApp({ currentRoute, searchIndex }: Props) {
   );
 }
 
+/* ---------------- 左上角三个控件 ---------------- */
+
+function IconButton({
+  label,
+  onClick,
+  children,
+  ariaPressed,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  ariaPressed?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      aria-pressed={ariaPressed}
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] border border-border bg-card text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
+    >
+      {children}
+    </button>
+  );
+}
+
+/** 中英翻译按钮：点击跳转到另一语言版本的当前页面 */
+function LangButton({ locale, currentRoute }: { locale: Locale; currentRoute: string }) {
+  const other: Locale = locale === "zh" ? "en" : "zh";
+  const target = p(currentRoute, other);
+  const label = other === "en" ? "Switch to English" : "切换到中文";
+  return (
+    <a
+      href={target}
+      onClick={() => {
+        try {
+          localStorage.setItem("solhub:lang", other);
+        } catch {
+          /* 忽略 */
+        }
+      }}
+      aria-label={label}
+      title={label}
+      className="inline-flex h-8 items-center gap-1 rounded-[2px] border border-border bg-card px-2 text-xs font-semibold text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
+    >
+      <Languages className="h-3.5 w-3.5" aria-hidden="true" />
+      {locale === "zh" ? "EN" : "中"}
+    </a>
+  );
+}
+
+/** 深浅色切换按钮 */
+function ThemeButton() {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    try {
+      setDark(document.documentElement.classList.contains("dark"));
+    } catch {
+      /* 忽略 */
+    }
+  }, []);
+  const toggle = () => {
+    const next = !dark;
+    setDark(next);
+    const root = document.documentElement;
+    root.classList.add("theme-transition");
+    if (next) root.classList.add("dark");
+    else root.classList.remove("dark");
+    try {
+      localStorage.setItem("solhub:theme", next ? "dark" : "light");
+    } catch {
+      /* 忽略 */
+    }
+    // 过渡结束后移除类，避免持续拦截过渡
+    window.setTimeout(() => root.classList.remove("theme-transition"), 350);
+  };
+  const label = dark ? "切换到浅色" : "切换到深色";
+  return (
+    <IconButton label={label} onClick={toggle} ariaPressed={dark}>
+      {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+    </IconButton>
+  );
+}
+
+/** 手机 / 电脑视口切换按钮 */
+function ViewportButton() {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    try {
+      setMobile(document.documentElement.classList.contains("viewport-mobile"));
+    } catch {
+      /* 忽略 */
+    }
+  }, []);
+  const toggle = () => {
+    const next = !mobile;
+    setMobile(next);
+    const root = document.documentElement;
+    if (next) root.classList.add("viewport-mobile");
+    else root.classList.remove("viewport-mobile");
+    try {
+      localStorage.setItem("solhub:viewport", next ? "mobile" : "desktop");
+    } catch {
+      /* 忽略 */
+    }
+  };
+  const label = mobile ? "切换到电脑视图" : "切换到手机视图";
+  return (
+    <IconButton label={label} onClick={toggle} ariaPressed={mobile}>
+      {mobile ? <Monitor className="h-3.5 w-3.5" /> : <Smartphone className="h-3.5 w-3.5" />}
+    </IconButton>
+  );
+}
+
+function Logo({ size = 22, locale = "zh" }: { size?: number; locale?: Locale }) {
+  return (
+    <a
+      href={p("/", locale)}
+      className="inline-flex items-center gap-2 leading-none"
+      aria-label={translate(getDict(locale), "nav.homeAria")}
+    >
+      <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true" className="shrink-0 text-foreground">
+        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="1.4" opacity="0.35" />
+        <line x1="16" y1="16" x2="9.4" y2="9.4" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+        <line x1="16" y1="16" x2="22.6" y2="22.6" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+        <line x1="16" y1="16" x2="23.9" y2="11.7" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+        <circle cx="16" cy="16" r="4.4" fill="var(--color-accent)" />
+        <circle cx="9.4" cy="9.4" r="2" fill="currentColor" />
+        <circle cx="22.6" cy="22.6" r="2" fill="currentColor" />
+        <circle cx="23.9" cy="11.7" r="1.6" fill="var(--color-accent)" />
+      </svg>
+      <span className="font-display text-[17px] font-bold tracking-tight text-foreground">SolHub</span>
+    </a>
+  );
+}
+
 /* ---------------- 搜索浮层 ---------------- */
 
-function SearchDialog({ index, onClose }: { index: SearchIndexEntry[]; onClose: () => void }) {
+function SearchDialog({
+  index,
+  locale,
+  onClose,
+}: {
+  index: SearchIndexEntry[];
+  locale: Locale;
+  onClose: () => void;
+}) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const [results, setResults] = useState<SearchIndexEntry[]>([]);
+  const dict = getDict(locale);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
   useEffect(() => {
-    setResults(searchIndex(query, index));
+    setResults(searchIndex(query, index, locale));
     setActive(0);
-  }, [query, index]);
+  }, [query, index, locale]);
 
   const onKeyDown = (e: import("react").KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
@@ -198,13 +348,13 @@ function SearchDialog({ index, onClose }: { index: SearchIndexEntry[]; onClose: 
       e.preventDefault();
       const target = results[active];
       if (target) {
-        window.location.href = resultHref(target);
+        window.location.href = resultHref(target, locale);
       }
     }
   };
 
-  const resultHref = (r: SearchIndexEntry) =>
-    r.kind === "tool" ? p(`/tools/${r.slug}/`) : p(`/products/${r.slug}/`);
+  const resultHref = (r: SearchIndexEntry, loc: Locale) =>
+    r.kind === "tool" ? p(`/tools/${r.slug}/`, loc) : p(`/products/${r.slug}/`, loc);
 
   const grouped = results.reduce<{ products: SearchIndexEntry[]; tools: SearchIndexEntry[] }>(
     (acc, r) => {
@@ -220,7 +370,7 @@ function SearchDialog({ index, onClose }: { index: SearchIndexEntry[]; onClose: 
       className="fixed inset-0 z-50 animate-fade-in"
       role="dialog"
       aria-modal="true"
-      aria-label="全局搜索"
+      aria-label={translate(dict, "search.aria")}
     >
       <div
         className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px]"
@@ -237,16 +387,16 @@ function SearchDialog({ index, onClose }: { index: SearchIndexEntry[]; onClose: 
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onKeyDown}
               type="text"
-              placeholder="搜索产品或工具…"
+              placeholder={translate(dict, "search.placeholder")}
               className="h-12 w-full bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none"
-              aria-label="搜索产品或工具"
+              aria-label={translate(dict, "search.aria")}
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery("")}
                 className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] text-muted-foreground hover:bg-secondary hover:text-foreground"
-                aria-label="清除搜索"
+                aria-label={translate(dict, "search.clear")}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -259,24 +409,24 @@ function SearchDialog({ index, onClose }: { index: SearchIndexEntry[]; onClose: 
           <div className="max-h-[60vh] overflow-y-auto scroll-x py-2">
             {query.trim() === "" && (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                输入关键词，搜索产品与工具。
+                {translate(dict, "search.hint")}
                 <br />
-                <span className="text-xs">提示：试试 “json”“二维码”“视频” 或 “SolYoung”</span>
+                <span className="text-xs">{translate(dict, "search.hintTips")}</span>
               </p>
             )}
 
             {query.trim() !== "" && results.length === 0 && (
               <div className="px-4 py-10 text-center">
-                <p className="text-sm text-foreground/70">没有找到与「{query.trim()}」相关的内容。</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  可以换个关键词，或者去提交一个产品。
+                <p className="text-sm text-foreground/70">
+                  {translate(dict, "search.emptyTitle", { q: query.trim() })}
                 </p>
+                <p className="mt-1 text-xs text-muted-foreground">{translate(dict, "search.emptyHint")}</p>
                 <a
-                  href={p("/submit/")}
+                  href={p("/submit/", locale)}
                   onClick={onClose}
                   className="btn btn-outline mt-4 !h-8 px-3 text-xs"
                 >
-                  Submit a Product
+                  {translate(dict, "nav.submit")}
                 </a>
               </div>
             )}
@@ -284,19 +434,21 @@ function SearchDialog({ index, onClose }: { index: SearchIndexEntry[]; onClose: 
             {grouped.tools.length > 0 && (
               <div>
                 <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Tools
+                  {translate(dict, "search.tools")}
                 </p>
                 {grouped.tools.map((r, i) => (
-                  <SearchRow key={r.slug} entry={r} active={i === active} onMouseEnter={() => setActive(i)} />
+                  <SearchRow key={r.slug} entry={r} active={i === active} locale={locale} onMouseEnter={() => setActive(i)} />
                 ))}
               </div>
             )}
             {grouped.products.length > 0 && (
               <div>
                 <p className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Products
+                  {translate(dict, "search.products")}
                   {grouped.products.some((x) => x.isDemo) && (
-                    <span className="ml-1.5 font-normal normal-case text-muted-foreground/70">（含演示数据）</span>
+                    <span className="ml-1.5 font-normal normal-case text-muted-foreground/70">
+                      {translate(dict, "search.demoNote")}
+                    </span>
                   )}
                 </p>
                 {grouped.products.map((r, i) => (
@@ -304,6 +456,7 @@ function SearchDialog({ index, onClose }: { index: SearchIndexEntry[]; onClose: 
                     key={r.slug}
                     entry={r}
                     active={i + grouped.tools.length === active}
+                    locale={locale}
                     onMouseEnter={() => setActive(i + grouped.tools.length)}
                   />
                 ))}
@@ -312,8 +465,8 @@ function SearchDialog({ index, onClose }: { index: SearchIndexEntry[]; onClose: 
           </div>
 
           <div className="flex items-center justify-between border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
-            <span>↑↓ 选择 · Enter 打开 · Esc 关闭</span>
-            <span className="hidden sm:inline">所有数据在本地匹配，不发送搜索内容</span>
+            <span>{translate(dict, "search.shortcut")}</span>
+            <span className="hidden sm:inline">{translate(dict, "search.localNote")}</span>
           </div>
         </div>
       </div>
@@ -324,15 +477,18 @@ function SearchDialog({ index, onClose }: { index: SearchIndexEntry[]; onClose: 
 function SearchRow({
   entry,
   active,
+  locale,
   onMouseEnter,
 }: {
   entry: SearchIndexEntry;
   active: boolean;
+  locale: Locale;
   onMouseEnter: () => void;
 }) {
+  const dict = getDict(locale);
   return (
     <a
-      href={entry.kind === "tool" ? p(`/tools/${entry.slug}/`) : p(`/products/${entry.slug}/`)}
+      href={entry.kind === "tool" ? p(`/tools/${entry.slug}/`, locale) : p(`/products/${entry.slug}/`, locale)}
       onMouseEnter={onMouseEnter}
       className={cx(
         "mx-1.5 flex items-center justify-between gap-3 rounded-[2px] px-2.5 py-2",
@@ -344,7 +500,7 @@ function SearchRow({
           {entry.name}
           {entry.kind === "product" && entry.isDemo && (
             <span className="ml-1.5 rounded-[2px] border border-border bg-secondary px-1 text-[10px] text-muted-foreground">
-              演示
+              {translate(dict, "common.demo")}
             </span>
           )}
         </span>

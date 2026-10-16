@@ -11,6 +11,9 @@ export interface Product {
   name: string;
   shortDescription: string;
   description: string;
+  /** 英文版一句话介绍 / 描述 */
+  shortDescriptionEn?: string;
+  descriptionEn?: string;
   websiteUrl: string;
   /** 图标 URL；为空时使用首字母占位符 */
   icon?: string;
@@ -36,6 +39,8 @@ export interface Tool {
   slug: string;
   name: string;
   description: string;
+  /** 英文版描述 */
+  descriptionEn?: string;
   category: string;
   tags: string[];
   /** Lucide 图标名 */
@@ -48,6 +53,8 @@ export interface Tool {
   keywords: string[];
   /** 限制 / 隐私说明（用于工具详情页） */
   note?: string;
+  /** 英文版限制 / 隐私说明 */
+  noteEn?: string;
 }
 
 export interface Category {

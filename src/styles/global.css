@@ -54,6 +54,64 @@
   --container-narrow: 48rem;
 }
 
+/* ---------- Dark theme ---------- */
+/* 深色主题覆盖同一套设计令牌（暖黑基调，保持品牌气质） */
+html.dark {
+  --color-background: #17140f;
+  --color-foreground: #ece7db;
+  --color-card: #201c15;
+  --color-card-foreground: #ece7db;
+  --color-secondary: #2a251c;
+  --color-secondary-foreground: #ece7db;
+  --color-muted: #2a251c;
+  --color-muted-foreground: #a39c8a;
+  --color-accent: #f0853f;
+  --color-accent-foreground: #17140f;
+  --color-destructive: #d06a50;
+  --color-destructive-foreground: #fdfbf5;
+  --color-success: #7fa486;
+  --color-success-foreground: #17140f;
+  --color-warning: #c9a25f;
+  --color-warning-foreground: #17140f;
+  --color-border: #ece7db1f;
+  --color-border-strong: #ece7db2e;
+  --color-ring: #f0853f;
+  --color-ink: #ece7db;
+
+  --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 2px 8px -2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 2px 12px -2px rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 2px 4px -1px rgb(0 0 0 / 0.35);
+  --shadow-xl: 0 8px 28px -8px rgb(0 0 0 / 0.55), 0 4px 8px -2px rgb(0 0 0 / 0.4);
+}
+
+/* 主题切换过渡（仅非 reduced-motion 时） */
+@media (prefers-reduced-motion: no-preference) {
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition:
+      background-color 0.25s ease,
+      border-color 0.25s ease,
+      color 0.2s ease,
+      fill 0.2s ease,
+      stroke 0.2s ease;
+  }
+}
+
+/* ---------- Mobile viewport simulation ---------- */
+/* 「手机 / 电脑」切换按钮：html.viewport-mobile 时把内容限制为手机宽度并居中 */
+html.viewport-mobile body {
+  max-width: 430px;
+  margin-inline: auto;
+  box-shadow: 0 0 0 1px var(--color-border), 0 24px 64px -16px rgb(0 0 0 / 0.12);
+}
+html.viewport-mobile .container-page {
+  max-width: 430px;
+}
+
 /* ---------- Base ---------- */
 @layer base {
   * {
@@ -102,7 +160,7 @@
     @apply bg-accent text-accent-foreground hover:brightness-95 active:translate-y-px;
   }
   .btn-outline {
-    @apply border border-[#1d1a1524] bg-card text-foreground hover:bg-secondary active:translate-y-px;
+    @apply border border-border bg-card text-foreground hover:bg-secondary active:translate-y-px;
   }
   .btn-ghost {
     @apply text-foreground hover:bg-secondary active:translate-y-px;
@@ -111,7 +169,7 @@
     @apply rounded-[3px] border border-border bg-card;
   }
   .input {
-    @apply w-full rounded-[2px] border border-[#1d1a1538] bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none focus:ring-2 focus:ring-ring/25;
+    @apply w-full rounded-[2px] border border-border-strong bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none focus:ring-2 focus:ring-ring/25;
   }
   .badge {
     @apply inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-px text-[11px] leading-4 font-medium;

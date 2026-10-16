@@ -1,11 +1,24 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+
+const metaDesc = en
+  ? "SolHub privacy: tools run locally in your browser, inputs are not sent to any server; no ad or tracking SDKs; local drafts stay in this browser only."
+  : "SolHub 隐私说明：工具在浏览器本地运行，输入不发送到服务器；不加入广告与跟踪 SDK；本地收藏只保存在当前浏览器。";
 ---
 
 <BaseLayout
-  title="隐私说明"
-  description="SolHub 隐私说明：工具在浏览器本地运行，输入不发送到服务器；不加入广告与跟踪 SDK；本地收藏只保存在当前浏览器。"
+  title={en ? "Privacy" : "隐私说明"}
+  description={metaDesc}
   route="/privacy/"
+  locale={locale}
 >
   <section class="border-b border-border bg-secondary/30 py-14">
     <div class="container-page">
@@ -13,60 +26,65 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
         Privacy
       </p>
       <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-        隐私说明
+        {en ? "Privacy" : "隐私说明"}
       </h1>
       <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
-        SolHub 的原则是：<strong>尽量减少数据传输</strong>。本页描述我们实际做了什么，不虚构安全承诺。
+        {en ? <>SolHub's principle: <strong>minimize data transfer</strong>. This page describes what we actually do — no invented promises.</> : <>SolHub 的原则是：<strong>尽量减少数据传输</strong>。本页描述我们实际做了什么，不虚构安全承诺。</>}
       </p>
     </div>
   </section>
 
   <section class="py-12">
     <div class="container-page prose-solhub max-w-3xl">
-      <h2>工具数据：只在你的浏览器里</h2>
+      <h2>{en ? "Tool data: only in your browser" : "工具数据：只在你的浏览器里"}</h2>
       <p>
-        所有在线工具（JSON 格式化、文本统计、Base64、UUID、密码生成、颜色转换、图片压缩、二维码等）
-        都在浏览器本地运行。你的输入内容<strong>不会发送到任何服务器</strong>，页面也不通过控制台记录输入。
+        {en ? (
+          <>All online tools (JSON formatting, text counting, Base64, UUID, password generation, color conversion, image compression, QR codes, etc.) run locally in your browser. Your input is <strong>never sent to any server</strong>, and the page does not log input to the console.</>
+        ) : (
+          <>所有在线工具（JSON 格式化、文本统计、Base64、UUID、密码生成、颜色转换、图片压缩、二维码等）都在浏览器本地运行。你的输入内容<strong>不会发送到任何服务器</strong>，页面也不通过控制台记录输入。</>
+        )}
       </p>
       <ul>
-        <li>图片压缩工具中你选择的图片<strong>不会上传</strong>，处理全部在本地完成。</li>
-        <li>密码生成器使用浏览器原生安全随机数，生成的密码不会保存。</li>
-        <li>工具页面不加入广告 SDK、跟踪 SDK 或第三方分析服务。</li>
+        <li>{en ? "Images you pick in the image compressor are <strong>not uploaded</strong> — processing happens entirely on-device." : "图片压缩工具中你选择的图片<strong>不会上传</strong>，处理全部在本地完成。"}</li>
+        <li>{en ? "The password generator uses the browser's native secure random API; generated passwords are never saved." : "密码生成器使用浏览器原生安全随机数，生成的密码不会保存。"}</li>
+        <li>{en ? "Tool pages include no ad SDKs, tracking SDKs or third-party analytics." : "工具页面不加入广告 SDK、跟踪 SDK 或第三方分析服务。"}</li>
       </ul>
 
-      <h2>社区提交与托管工具</h2>
-      <p>SolHub 的社区提交功能使用腾讯云 CloudBase（PostgreSQL）作为数据后端：</p>
+      <h2>{en ? "Community submissions & hosted tools" : "社区提交与托管工具"}</h2>
+      <p>{en ? "SolHub's community submission feature uses Tencent CloudBase (PostgreSQL) as its data backend:" : "SolHub 的社区提交功能使用腾讯云 CloudBase（PostgreSQL）作为数据后端："}</p>
       <ul>
-        <li><strong>提交内容</strong>（名称、介绍、链接、开发者信息）在提交时写入 CloudBase 数据库，并<strong>自动公开</strong>到社区列表，任何访问者都能看到。</li>
-        <li><strong>托管工具</strong>：你上传的自包含 HTML 文件会存入 CloudBase 对象存储（仅限 text/html、≤1MB），并在本站的<strong>沙箱 iframe</strong> 中运行。沙箱限制脚本能力，托管工具无法读取 SolHub 主站数据或其他提交者的内容。</li>
-        <li><strong>未配置后端时的回退</strong>：如果 CloudBase 不可用，提交内容会保存到当前浏览器的 <code>localStorage</code>（仅存在于当前浏览器，不会公开）。</li>
-        <li>提交页不会暴露任何数据库密钥；前端仅使用 CloudBase 的公开匿名身份（Publishable Key）。</li>
+        <li>{en ? "<strong>Submitted content</strong> (name, description, links, developer info) is written to the CloudBase database on submit and <strong>auto-published</strong> to the community list — any visitor can see it." : "<strong>提交内容</strong>（名称、介绍、链接、开发者信息）在提交时写入 CloudBase 数据库，并<strong>自动公开</strong>到社区列表，任何访问者都能看到。"}</li>
+        <li>{en ? "<strong>Hosted tools</strong>: your uploaded self-contained HTML file is stored in CloudBase object storage (text/html only, ≤1MB) and runs in a <strong>sandboxed iframe</strong> here. The sandbox restricts scripts, so a hosted tool cannot read SolHub's main-site data or other submitters' content." : "<strong>托管工具</strong>：你上传的自包含 HTML 文件会存入 CloudBase 对象存储（仅限 text/html、≤1MB），并在本站的<strong>沙箱 iframe</strong> 中运行。沙箱限制脚本能力，托管工具无法读取 SolHub 主站数据或其他提交者的内容。"}</li>
+        <li>{en ? "<strong>Fallback when no backend is configured</strong>: if CloudBase is unavailable, submissions are saved to this browser's <code>localStorage</code> (this browser only, never public)." : "<strong>未配置后端时的回退</strong>：如果 CloudBase 不可用，提交内容会保存到当前浏览器的 <code>localStorage</code>（仅存在于当前浏览器，不会公开）。"}</li>
+        <li>{en ? "The submit page never exposes database keys; the frontend only uses CloudBase's public anonymous identity (Publishable Key)." : "提交页不会暴露任何数据库密钥；前端仅使用 CloudBase 的公开匿名身份（Publishable Key）。"}</li>
       </ul>
 
-      <h2>本地存储</h2>
+      <h2>{en ? "Local storage" : "本地存储"}</h2>
       <ul>
-        <li>提交表单在 CloudBase 不可用或提交失败时，会把草稿保存到当前浏览器的 <code>localStorage</code>。它<strong>只存在于当前浏览器</strong>，不会公开给其他访问者。</li>
-        <li>未来若加入本地收藏功能，同样只保存在当前浏览器。</li>
+        <li>{en ? "When CloudBase is unavailable or submission fails, the form saves a draft to this browser's <code>localStorage</code>. It <strong>exists only in this browser</strong> and is never shown to other visitors." : "提交表单在 CloudBase 不可用或提交失败时，会把草稿保存到当前浏览器的 <code>localStorage</code>。它<strong>只存在于当前浏览器</strong>，不会公开给其他访问者。"}</li>
+        <li>{en ? "If local bookmarks are added later, they will likewise stay in this browser only." : "未来若加入本地收藏功能，同样只保存在当前浏览器。"}</li>
       </ul>
 
-      <h2>需要网络请求的能力</h2>
-      <p>以下情况会发起网络请求，目的与目标均已明确：</p>
+      <h2>{en ? "Capabilities that need network requests" : "需要网络请求的能力"}</h2>
+      <p>{en ? "The following cases trigger network requests; purpose and destination are explicit:" : "以下情况会发起网络请求，目的与目标均已明确："}</p>
       <ul>
-        <li>社区提交写入与读取：请求发送到 CloudBase（腾讯云，ap-shanghai 环境），仅传输你在表单中填写的内容与公开列表数据。</li>
-        <li>托管工具加载：点击「打开工具」时，向 CloudBase 对象存储请求该工具 HTML 的临时访问地址，<strong>该地址 1 小时内有效</strong>。</li>
-        <li>产品官网链接由访问者自行点击打开，SolHub 不会自动抓取或收集其内容。</li>
+        <li>{en ? "Community submission writes & reads: requests go to CloudBase (Tencent Cloud, ap-shanghai environment), transmitting only what you entered in the form plus public list data." : "社区提交写入与读取：请求发送到 CloudBase（腾讯云，ap-shanghai 环境），仅传输你在表单中填写的内容与公开列表数据。"}</li>
+        <li>{en ? "Hosted tool loading: clicking “Open tool” requests a temporary URL for that tool's HTML from CloudBase object storage; <strong>the URL expires within 1 hour</strong>." : "托管工具加载：点击「打开工具」时，向 CloudBase 对象存储请求该工具 HTML 的临时访问地址，<strong>该地址 1 小时内有效</strong>。"}</li>
+        <li>{en ? "Product website links are opened by visitors themselves; SolHub never crawls or collects their content automatically." : "产品官网链接由访问者自行点击打开，SolHub 不会自动抓取或收集其内容。"}</li>
       </ul>
 
-      <h2>页面静态托管</h2>
+      <h2>{en ? "Static hosting" : "页面静态托管"}</h2>
       <p>
-        SolHub 是静态网站，部署于 GitHub Pages 等静态托管平台。托管平台可能出于基础设施目的记录标准访问日志
-        （IP、浏览器类型、请求时间等），这是托管服务的通用行为，SolHub 本身不部署任何统计脚本。
+        {en
+          ? "SolHub is a static site deployed on static hosting such as GitHub Pages. Hosting platforms may record standard access logs (IP, browser type, request time) for infrastructure purposes — this is common hosting behavior; SolHub itself runs no analytics scripts."
+          : "SolHub 是静态网站，部署于 GitHub Pages 等静态托管平台。托管平台可能出于基础设施目的记录标准访问日志（IP、浏览器类型、请求时间等），这是托管服务的通用行为，SolHub 本身不部署任何统计脚本。"}
       </p>
 
-      <h2>变更</h2>
+      <h2>{en ? "Changes" : "变更"}</h2>
       <p>
-        本说明会随网站功能变化更新。如果未来引入分析、登录或其他数据处理能力，我们会先更新此页面，
-        再上线对应功能。
+        {en
+          ? "This page will be updated as the site evolves. If analytics, login or other data processing is introduced later, we will update this page before shipping the feature."
+          : "本说明会随网站功能变化更新。如果未来引入分析、登录或其他数据处理能力，我们会先更新此页面，再上线对应功能。"}
       </p>
     </div>
   </section>

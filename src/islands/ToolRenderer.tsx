@@ -14,9 +14,10 @@ import RobotsGenerator from "./tools/RobotsGenerator";
 import LlmsGenerator from "./tools/LlmsGenerator";
 import JsonLdGenerator from "./tools/JsonLdGenerator";
 import MarkdownEditor from "./tools/MarkdownEditor";
+import type { Locale } from "@/i18n";
 
 /** slug -> React 组件 的静态映射（与 tools.ts 注册表 component 字段一致） */
-const toolComponents: Record<string, () => React.ReactElement> = {
+const toolComponents: Record<string, React.ComponentType<{ locale?: Locale }>> = {
   "json-formatter": JsonFormatter,
   "text-counter": TextCounter,
   "url-codec": UrlCodec,
@@ -35,14 +36,22 @@ const toolComponents: Record<string, () => React.ReactElement> = {
   "markdown-editor": MarkdownEditor,
 };
 
-export default function ToolRenderer({ component }: { component: string }) {
+export default function ToolRenderer({
+  component,
+  locale = "zh",
+}: {
+  component: string;
+  locale?: Locale;
+}) {
   const Comp = toolComponents[component];
   if (!Comp) {
     return (
       <div className="card p-6 text-sm text-muted-foreground">
-        该工具尚未实现。它已在分类中展示，但工作区暂不可用。
+        {locale === "en"
+          ? "This tool is not implemented yet — it's listed but its workspace is unavailable."
+          : "该工具尚未实现。它已在分类中展示，但工作区暂不可用。"}
       </div>
     );
   }
-  return <Comp />;
+  return <Comp locale={locale} />;
 }

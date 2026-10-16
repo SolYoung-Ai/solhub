@@ -1,12 +1,25 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import SubmitForm from "@/islands/SubmitForm.tsx";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+
+const metaDesc = en
+  ? "Submit your website, software, AI tool or self-contained HTML tool to SolHub. Submissions are auto-published to the community list; hosted tools run in a sandbox."
+  : "把你开发的网站、软件、AI 工具或自包含 HTML 工具提交到 SolHub。提交即自动公开到社区列表；托管工具在沙箱内运行。";
 ---
 
 <BaseLayout
-  title="提交产品与工具"
-  description="把你开发的网站、软件、AI 工具或自包含 HTML 工具提交到 SolHub。提交即自动公开到社区列表；托管工具在沙箱内运行。"
+  title={en ? "Submit a Product" : "提交产品与工具"}
+  description={metaDesc}
   route="/submit/"
+  locale={locale}
 >
   <section class="border-b border-border bg-secondary/30 py-14">
     <div class="container-page">
@@ -14,11 +27,12 @@ import SubmitForm from "@/islands/SubmitForm.tsx";
         Launch
       </p>
       <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-        提交你的产品与工具
+        {en ? "Submit Your Product or Tool" : "提交你的产品与工具"}
       </h1>
       <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
-        如果你开发了网站、软件或 AI 工具，欢迎提交到 SolHub，让更多独立开发者和使用者发现它。
-        提交即自动公开到社区列表；自包含 HTML 工具可以直接托管，在本站沙箱内运行。
+        {en
+          ? "If you built a website, app or AI tool, submit it to SolHub so more indie developers and users can find it. Submissions are auto-published to the community list; self-contained HTML tools can be hosted and run in a sandbox here."
+          : "如果你开发了网站、软件或 AI 工具，欢迎提交到 SolHub，让更多独立开发者和使用者发现它。提交即自动公开到社区列表；自包含 HTML 工具可以直接托管，在本站沙箱内运行。"}
       </p>
     </div>
   </section>
@@ -26,36 +40,36 @@ import SubmitForm from "@/islands/SubmitForm.tsx";
   <section class="py-12">
     <div class="container-page grid gap-10 lg:grid-cols-[1fr_280px]">
       <div>
-        <SubmitForm client:load />
+        <SubmitForm client:load locale={locale} />
       </div>
       <aside class="space-y-4">
         <div class="card p-5">
-          <h2 class="text-sm font-bold text-foreground">提交流程</h2>
+          <h2 class="text-sm font-bold text-foreground">{en ? "Submission flow" : "提交流程"}</h2>
           <ol class="mt-3 space-y-3 text-[13px] leading-6 text-muted-foreground">
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">01</span>
-              填写信息并预览
+              {en ? "Fill in the details and preview" : "填写信息并预览"}
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">02</span>
-              选择类型：产品 / 工具外链 / 托管工具
+              {en ? "Choose type: product / external tool / hosted tool" : "选择类型：产品 / 工具外链 / 托管工具"}
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">03</span>
-              提交即自动公开到社区列表
+              {en ? "Submit — auto-published to the community list" : "提交即自动公开到社区列表"}
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">04</span>
-              榜单精选位由 SolHub 人工核验后收录
+              {en ? "Ranked picks are manually verified by SolHub" : "榜单精选位由 SolHub 人工核验后收录"}
             </li>
           </ol>
         </div>
         <div class="card p-5">
-          <h2 class="text-sm font-bold text-foreground">核验与安全</h2>
+          <h2 class="text-sm font-bold text-foreground">{en ? "Verification & safety" : "核验与安全"}</h2>
           <p class="mt-2 text-[13px] leading-6 text-muted-foreground">
-            社区提交自动公开但不会伪造 Verified 状态；Verified 仅授予实际核验通过的产品。
-            托管工具在沙箱 iframe 中运行：脚本受限、无法访问主站数据；上传仅限 1MB 以内的
-            自包含 HTML 文件。
+            {en
+              ? "Community submissions are auto-published but never fake a Verified badge; Verified is granted only to products that pass an actual check. Hosted tools run in a sandboxed iframe — scripts are restricted and the main site's data is out of reach; uploads are limited to self-contained HTML under 1MB."
+              : "社区提交自动公开但不会伪造 Verified 状态；Verified 仅授予实际核验通过的产品。托管工具在沙箱 iframe 中运行：脚本受限、无法访问主站数据；上传仅限 1MB 以内的自包含 HTML 文件。"}
           </p>
         </div>
       </aside>

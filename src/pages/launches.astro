@@ -4,12 +4,32 @@ import { products } from "@/data/products";
 import { rankingRules } from "@/lib/ranking";
 import LaunchesExplorer from "@/islands/LaunchesExplorer.tsx";
 import CommunityFeed from "@/islands/CommunityFeed.tsx";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+
+const RULES_EN: { title: string; detail: string }[] = [
+  { title: "Verified first", detail: "Products that passed actual verification rank before pending and unverified ones." },
+  { title: "Human curation", detail: "Each week SolHub editors pick products worth attention with an explicit curated order (rankPosition)." },
+  { title: "Demo data last", detail: "Demo entries always rank after real data and carry a clear “demo data” badge." },
+  { title: "No paid rankings", detail: "There is no voting or paid ranking today; if public voting is added later, votes only break ties between equal-weight products." },
+];
+
+const metaDesc = en
+  ? "SolHub launches: browse what indie developers are building, filter by category, sort by newest, with transparent verification status."
+  : "SolHub 产品发布榜单：浏览独立开发者正在创造的产品，按分类筛选、按最新收录排序，核验状态透明可解释。";
 ---
 
 <BaseLayout
-  title="产品发布榜单"
-  description="SolHub 产品发布榜单：浏览独立开发者正在创造的产品，按分类筛选、按最新收录排序，核验状态透明可解释。"
+  title={en ? "Product Launches" : "产品发布榜单"}
+  description={metaDesc}
   route="/launches/"
+  locale={locale}
 >
   <section class="border-b border-border bg-secondary/30 py-14">
     <div class="container-page">
@@ -17,16 +37,17 @@ import CommunityFeed from "@/islands/CommunityFeed.tsx";
         Launches
       </p>
       <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-        产品发布榜单
+        {en ? "Product Launches" : "产品发布榜单"}
       </h1>
       <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
-        发现独立开发者正在创造的产品。所有排名都有清晰的规则，核验状态以 SolHub
-        实际核验为准；社区提交自动公开但未经人工核验，会单独标注。
+        {en
+          ? "Discover products indie developers are building. Every ranking follows clear rules, and verification reflects actual SolHub checks; community submissions are auto-published but not manually verified and are labeled separately."
+          : "发现独立开发者正在创造的产品。所有排名都有清晰的规则，核验状态以 SolHub 实际核验为准；社区提交自动公开但未经人工核验，会单独标注。"}
       </p>
 
       <div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {
-          rankingRules.map((rule) => (
+          (en ? RULES_EN : rankingRules).map((rule) => (
             <div class="card p-4">
               <p class="text-[13px] font-semibold text-foreground">{rule.title}</p>
               <p class="mt-1 text-xs leading-5 text-muted-foreground">{rule.detail}</p>
@@ -39,8 +60,8 @@ import CommunityFeed from "@/islands/CommunityFeed.tsx";
 
   <section class="py-12">
     <div class="container-page">
-      <LaunchesExplorer client:load products={products} />
-      <CommunityFeed client:load kind="product" limit={8} title="社区提交的产品" />
+      <LaunchesExplorer client:load products={products} locale={locale} />
+      <CommunityFeed client:load kind="product" limit={8} title={en ? "Community products" : "社区提交的产品"} locale={locale} />
     </div>
   </section>
 </BaseLayout>
