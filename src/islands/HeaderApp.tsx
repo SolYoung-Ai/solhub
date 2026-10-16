@@ -69,11 +69,6 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
       <div className="container-page flex h-14 items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
-          {/* 左上角：语言 / 主题 / 视口 三个控件 */}
-          <LangButton locale={locale} currentRoute={currentRoute} />
-          <ThemeButton />
-          <ViewportButton />
-          <span className="mx-1 hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
           <Logo locale={locale} />
         </div>
 
@@ -124,6 +119,12 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
           >
             {menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
+
+          {/* 右上角靠边：语言 / 主题 / 视口 三个控件 */}
+          <span className="mx-0.5 hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
+          <LangButton locale={locale} currentRoute={currentRoute} />
+          <ThemeButton />
+          <ViewportButton />
         </div>
       </div>
 
