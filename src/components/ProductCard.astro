@@ -3,15 +3,20 @@ import type { Product } from "@/data/types";
 import { productCategoryName } from "@/data/product-categories";
 import { formatDateIso } from "@/lib/utils";
 import { p } from "@/lib/paths";
+import type { Locale } from "@/i18n";
+import { getDict, translate } from "@/i18n";
+import { productShortDescription, productCategoryNameLocalized } from "@/i18n/data";
 import Badge from "./Badge.astro";
 
 interface Props {
   product: Product;
   rank?: number;
   highlight?: boolean;
+  locale?: Locale;
 }
 
-const { product, rank, highlight = false } = Astro.props;
+const { product, rank, highlight = false, locale = "zh" } = Astro.props;
+const dict = getDict(locale);
 
 function initials(name: string): string {
   return name.trim().slice(0, 2).toUpperCase();
@@ -19,7 +24,7 @@ function initials(name: string): string {
 ---
 
 <a
-  href={p(`/products/${product.slug}/`)}
+  href={p(`/products/${product.slug}/`, locale)}
   class:list={[
     "card group relative flex h-full flex-col p-5 transition-all duration-200",
     highlight
@@ -36,7 +41,7 @@ function initials(name: string): string {
           rank === 2 && "bg-foreground text-background",
           rank === 3 && "bg-secondary text-foreground border border-border",
         ]}
-        aria-label={`第 ${rank} 名`}
+        aria-label={locale === "en" ? `Rank ${rank}` : `第 ${rank} 名`}
       >
         {rank}
       </span>
@@ -66,13 +71,13 @@ function initials(name: string): string {
         {product.name}
       </h3>
       <p class="mt-0.5 text-[11px] text-muted-foreground">
-        {productCategoryName(product.category)}
+        {productCategoryNameLocalized(product.category, productCategoryName(product.category), locale)}
       </p>
     </div>
   </div>
 
   <p class="mt-3 line-clamp-2 flex-1 text-sm leading-6 text-foreground/75">
-    {product.shortDescription}
+    {productShortDescription(product.slug, product.shortDescription, locale)}
   </p>
 
   {
@@ -88,7 +93,7 @@ function initials(name: string): string {
   }
 
   <div class="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3">
-    <Badge status={product.verificationStatus} isDemo={product.isDemo} />
+    <Badge status={product.verificationStatus} isDemo={product.isDemo} locale={locale} />
     <span class="flex items-center gap-1 text-xs text-muted-foreground">
       <span>{formatDateIso(product.publishedAt)}</span>
       <span class="text-muted-foreground/50 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true">→</span>

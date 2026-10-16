@@ -1,7 +1,17 @@
 /** 通用工具函数（纯函数，可被 Node 测试直接引用） */
 
+import type { Locale } from "@/i18n";
+
 export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
+}
+
+/** 客户端获取当前语言（按 URL 前缀判断；无 window 时默认 zh） */
+export function getLocale(): Locale {
+  if (typeof window === "undefined") return "zh";
+  const path = window.location.pathname;
+  if (path.indexOf("/en/") !== -1 || path.endsWith("/en")) return "en";
+  return "zh";
 }
 
 export function isValidHttpUrl(value: string): boolean {

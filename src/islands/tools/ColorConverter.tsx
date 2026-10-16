@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { parseAny, hslString, rgbString, rgbCss } from "@/lib/tools/color";
 import { CopyButton, ClearButton, Message, ToolSection } from "@/components/tool-ui";
+import type { Locale } from "@/i18n";
+import { getDict } from "@/i18n";
+import { t, localizeError } from "@/i18n/data";
 
 type ParsedColor = Extract<ReturnType<typeof parseAny>, { ok: true }>;
 
-export default function ColorConverter() {
+export default function ColorConverter({ locale = "zh" }: { locale?: Locale }) {
+  const dict = getDict(locale);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedColor | null>(null);
@@ -12,7 +16,7 @@ export default function ColorConverter() {
   const convert = () => {
     const r = parseAny(input);
     if (!r.ok) {
-      setError(r.error);
+      setError(localizeError(locale, r.error));
       setParsed(null);
       return;
     }
@@ -31,7 +35,7 @@ export default function ColorConverter() {
 
   return (
     <div className="space-y-4">
-      <ToolSection label="输入颜色" hint="支持 HEX、rgb(r,g,b)、hsl(h,s%,l%) 与常见颜色名">
+      <ToolSection label={locale === "en" ? "Input color" : "输入颜色"} hint={locale === "en" ? "HEX, rgb(r,g,b), hsl(h,s%,l%) or color names" : "支持 HEX、rgb(r,g,b)、hsl(h,s%,l%) 与常见颜色名"}>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             type="text"
@@ -42,13 +46,13 @@ export default function ColorConverter() {
             }}
             placeholder="#E87028 或 rgb(232, 112, 40) 或 orange"
             className="input font-mono !text-[13px]"
-            aria-label="颜色输入"
+            aria-label={locale === "en" ? "Color input" : "颜色输入"}
             onKeyDown={(e) => {
               if (e.key === "Enter") convert();
             }}
           />
           <button type="button" onClick={convert} className="btn btn-accent shrink-0 !h-8 px-3 text-xs">
-            转换
+            {locale === "en" ? "Convert" : "转换"}
           </button>
           <ClearButton
             onClick={() => {
@@ -65,12 +69,12 @@ export default function ColorConverter() {
 
       {parsed && (
         <>
-          <ToolSection label="颜色预览">
+          <ToolSection label={t(locale, "tools.color-converter.previewLabel")}>
             <div
               className="h-24 w-full rounded-[3px] border border-border"
               style={{ backgroundColor: parsed.hex }}
               role="img"
-              aria-label={`颜色预览 ${parsed.hex}`}
+              aria-label={`${locale === "en" ? "Color preview" : "颜色预览"} ${parsed.hex}`}
             />
           </ToolSection>
 

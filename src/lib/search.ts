@@ -1,22 +1,30 @@
 import type { Product, SearchIndexEntry, Tool } from "@/data/types";
 import { categoryName } from "@/data/categories";
 import { productCategoryName } from "@/data/product-categories";
+import type { Locale } from "@/i18n";
+import {
+  toolDescription,
+  productShortDescription,
+  productDescription,
+  productCategoryNameLocalized,
+} from "@/i18n/data";
 
 /**
  * 全局搜索 —— 数据来自统一数据源（products.ts + tools.ts），
- * 首页、导航搜索、榜单筛选共用同一份索引。
+ * 首页、导航搜索、榜单筛选共用同一份索引。locale 决定展示文案语言。
  */
 export function buildSearchIndex(
   products: Product[],
   tools: Tool[],
+  locale: Locale = "zh",
 ): SearchIndexEntry[] {
   const productEntries: SearchIndexEntry[] = products.map((p) => ({
     kind: "product",
     slug: p.slug,
     name: p.name,
-    description: `${p.shortDescription} ${p.description}`,
+    description: `${productShortDescription(p.slug, p.shortDescription, locale)} ${productDescription(p.slug, p.description, locale)}`,
     category: p.category,
-    categoryName: productCategoryName(p.category),
+    categoryName: productCategoryNameLocalized(p.category, productCategoryName(p.category), locale),
     tags: p.tags,
     isDemo: p.isDemo,
   }));
@@ -26,7 +34,7 @@ export function buildSearchIndex(
       kind: "tool",
       slug: t.slug,
       name: t.name,
-      description: t.description,
+      description: toolDescription(t.slug, t.description, locale),
       category: t.category,
       categoryName: categoryName(t.category),
       tags: t.tags,
@@ -39,6 +47,7 @@ export function buildSearchIndex(
 export function searchIndex(
   query: string,
   index: SearchIndexEntry[],
+  _locale?: Locale,
 ): SearchIndexEntry[] {
   const q = normalize(query);
   if (!q) return [];

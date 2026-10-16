@@ -1,30 +1,39 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { p } from "@/lib/paths";
+import { getDict, translate } from "@/i18n";
+
+const pathname = Astro.url.pathname;
+const en = pathname.includes("/en/") || pathname.endsWith("/en");
+const dict = getDict(en ? "en" : "zh");
+const locale = en ? "en" : "zh";
 ---
 
 <BaseLayout
-  title="页面不存在"
-  description="你访问的页面不存在或已被移动。"
+  title={en ? "Page not found" : "页面不存在"}
+  description={en ? "The page you visited does not exist or has been moved." : "你访问的页面不存在或已被移动。"}
   route="/404/"
   noIndex={true}
+  locale={locale}
 >
   <div class="container-page flex flex-col items-center py-28 text-center">
     <p class="font-display text-7xl font-extrabold tracking-tight text-accent" aria-hidden="true">
       404
     </p>
-    <h1 class="font-display mt-4 text-2xl font-bold text-foreground">这个页面不存在</h1>
+    <h1 class="font-display mt-4 text-2xl font-bold text-foreground">{en ? "This page doesn't exist" : "这个页面不存在"}</h1>
     <p class="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-      链接可能已失效，或者页面被移动了。你可以回到首页，或者去发现一些产品和工具。
+      {en
+        ? "The link may be broken, or the page has moved. Head back home, or go discover some products and tools."
+        : "链接可能已失效，或者页面被移动了。你可以回到首页，或者去发现一些产品和工具。"}
     </p>
     <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-      <a href={p("/")} class="btn btn-primary">
-        回到首页
+      <a href={p("/", locale)} class="btn btn-primary">
+        {en ? "Back to home" : "回到首页"}
       </a>
-      <a href={p("/launches/")} class="btn btn-outline">
+      <a href={p("/launches/", locale)} class="btn btn-outline">
         Explore Products
       </a>
-      <a href={p("/tools/")} class="btn btn-outline">
+      <a href={p("/tools/", locale)} class="btn btn-outline">
         Explore Tools
       </a>
     </div>

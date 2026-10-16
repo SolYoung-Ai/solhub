@@ -1,39 +1,50 @@
 ---
 import { siteConfig } from "@/data/site";
 import { p } from "@/lib/paths";
+import { getDict, translate } from "@/i18n";
+import type { Locale } from "@/i18n";
 import Logo from "./Logo.astro";
+
+interface Props {
+  locale?: Locale;
+}
+
+const { locale = "zh" } = Astro.props;
+const dict = getDict(locale);
 ---
 
 <footer class="border-t border-border bg-secondary/40">
   <div class="container-page py-12">
     <div class="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
       <div>
-        <a href={p("/")} class="inline-block">
-          <Logo />
+        <a href={p("/", locale)} class="inline-block">
+          <Logo locale={locale} />
         </a>
         <p class="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
-          {siteConfig.taglineZh}
+          {locale === "en" ? siteConfig.tagline : siteConfig.taglineZh}
         </p>
         <p class="mt-1 font-mono text-xs uppercase tracking-wider text-muted-foreground/70">
           {siteConfig.tagline}
         </p>
       </div>
 
-      <nav aria-label="产品导航">
-        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Explore</p>
+      <nav aria-label={locale === "en" ? "Product navigation" : "产品导航"}>
+        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {translate(dict, "footer.discover")}
+        </p>
         <ul class="mt-3 space-y-2 text-sm">
-          <li><a href={p("/")} class="text-foreground/80 transition-colors hover:text-accent">Discover</a></li>
-          <li><a href={p("/launches/")} class="text-foreground/80 transition-colors hover:text-accent">Launches</a></li>
-          <li><a href={p("/tools/")} class="text-foreground/80 transition-colors hover:text-accent">Tools</a></li>
+          <li><a href={p("/", locale)} class="text-foreground/80 transition-colors hover:text-accent">Discover</a></li>
+          <li><a href={p("/launches/", locale)} class="text-foreground/80 transition-colors hover:text-accent">Launches</a></li>
+          <li><a href={p("/tools/", locale)} class="text-foreground/80 transition-colors hover:text-accent">Tools</a></li>
         </ul>
       </nav>
 
-      <nav aria-label="关于导航">
+      <nav aria-label={locale === "en" ? "About" : "关于导航"}>
         <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">About</p>
         <ul class="mt-3 space-y-2 text-sm">
-          <li><a href={p("/about/")} class="text-foreground/80 transition-colors hover:text-accent">关于 SolHub</a></li>
-          <li><a href={p("/privacy/")} class="text-foreground/80 transition-colors hover:text-accent">隐私说明</a></li>
-          <li><a href={p("/submit/")} class="text-foreground/80 transition-colors hover:text-accent">提交产品</a></li>
+          <li><a href={p("/about/", locale)} class="text-foreground/80 transition-colors hover:text-accent">{translate(dict, "nav.about")}</a></li>
+          <li><a href={p("/privacy/", locale)} class="text-foreground/80 transition-colors hover:text-accent">{translate(dict, "footer.privacy")}</a></li>
+          <li><a href={p("/submit/", locale)} class="text-foreground/80 transition-colors hover:text-accent">{translate(dict, "nav.submit")}</a></li>
         </ul>
       </nav>
 
@@ -49,25 +60,25 @@ import Logo from "./Logo.astro";
                   rel="noopener noreferrer"
                   class="inline-flex items-center gap-1.5 text-foreground/80 transition-colors hover:text-accent"
                 >
-                  GitHub 仓库 ↗
+                  {locale === "en" ? "GitHub repo ↗" : "GitHub 仓库 ↗"}
                 </a>
               </li>
             )
           }
           <li>
             <a
-              href={p("/about/#verification")}
+              href={p("/about/#verification", locale)}
               class="text-foreground/80 transition-colors hover:text-accent"
             >
-              核验机制说明
+              {locale === "en" ? "Verification" : "核验机制说明"}
             </a>
           </li>
           <li>
             <a
-              href={p("/about/#roadmap")}
+              href={p("/about/#roadmap", locale)}
               class="text-foreground/80 transition-colors hover:text-accent"
             >
-              路线图与限制
+              {locale === "en" ? "Roadmap & limits" : "路线图与限制"}
             </a>
           </li>
         </ul>
@@ -75,8 +86,8 @@ import Logo from "./Logo.astro";
     </div>
 
     <div class="mt-10 flex flex-col gap-2 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-      <p>© {siteConfig.copyrightYear} SolHub · {siteConfig.tagline}</p>
-      <p>由 SolYoung 构建 · 一个把想法变成作品的人</p>
+      <p>{translate(dict, "footer.copyright", { year: siteConfig.copyrightYear })}</p>
+      <p>{locale === "en" ? "Built by SolYoung — a person who turns ideas into work" : "由 SolYoung 构建 · 一个把想法变成作品的人"}</p>
     </div>
   </div>
 </footer>

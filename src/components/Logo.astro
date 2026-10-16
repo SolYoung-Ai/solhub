@@ -1,9 +1,13 @@
 ---
+import type { Locale } from "@/i18n";
+
 interface Props {
   size?: number;
   withText?: boolean;
   textClass?: string;
   markOnly?: boolean;
+  /** 兼容：品牌名 SolHub 不随语言变化，仅保持 props 一致性 */
+  locale?: Locale;
 }
 
 const { size = 22, withText = true, textClass = "", markOnly = false } = Astro.props;

@@ -2,12 +2,32 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { rankingRules } from "@/lib/ranking";
 import { p } from "@/lib/paths";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+
+const RULES_EN: { title: string; detail: string }[] = [
+  { title: "Verified first", detail: "Products that passed actual verification rank before pending and unverified ones." },
+  { title: "Human curation", detail: "Each week SolHub editors pick products worth attention with an explicit curated order (rankPosition)." },
+  { title: "Demo data last", detail: "Demo entries always rank after real data and carry a clear “demo data” badge." },
+  { title: "No paid rankings", detail: "There is no voting or paid ranking today; if public voting is added later, votes only break ties between equal-weight products." },
+];
+
+const metaDesc = en
+  ? "SolHub is a product discovery platform and online toolbox built by an indie developer: transparent rankings, real verification, and tools that run locally — making independent creation more efficient."
+  : "SolHub 是一个由独立开发者构建的产品发现平台与在线工具箱：透明排名、真实核验、本地运行的工具，让独立创作更高效。";
 ---
 
 <BaseLayout
-  title="关于 SolHub"
-  description="SolHub 是一个由独立开发者构建的产品发现平台与在线工具箱：透明排名、真实核验、本地运行的工具，让独立创作更高效。"
+  title={en ? "About SolHub" : "关于 SolHub"}
+  description={metaDesc}
   route="/about/"
+  locale={locale}
 >
   <section class="border-b border-border bg-secondary/30 py-14">
     <div class="container-page">
@@ -15,72 +35,80 @@ import { p } from "@/lib/paths";
         About
       </p>
       <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-        关于 SolHub
+        {en ? "About SolHub" : "关于 SolHub"}
       </h1>
       <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
-        Discover. Build. Share. —— 一个由独立开发者构建、为独立开发者服务的产品发现平台与在线工具箱。
+        {en
+          ? "Discover. Build. Share. — a product discovery platform and online toolbox built by an indie developer, for indie developers."
+          : "Discover. Build. Share. —— 一个由独立开发者构建、为独立开发者服务的产品发现平台与在线工具箱。"}
       </p>
     </div>
   </section>
 
   <section class="py-12">
     <div class="container-page prose-solhub max-w-3xl">
-      <h2>我们为什么做 SolHub</h2>
+      <h2>{en ? "Why we built SolHub" : "我们为什么做 SolHub"}</h2>
       <p>
-        独立开发者在产品发布后，常常缺少一个可信、克制的曝光渠道：大平台信息过载、榜单规则不透明、
-        工具站充斥着「只有卡片没有功能」的摆设。SolHub 想提供一个不一样的选择——
-        榜单规则透明可解释，核验状态真实，工具全部能实际使用。
+        {en
+          ? "After launching a product, indie developers often lack a trustworthy, restrained channel: big platforms are noisy, ranking rules are opaque, and tool sites are full of “cards without functions”. SolHub wants to be a different choice — transparent, explainable rankings, honest verification, and tools that actually work."
+          : "独立开发者在产品发布后，常常缺少一个可信、克制的曝光渠道：大平台信息过载、榜单规则不透明、工具站充斥着「只有卡片没有功能」的摆设。SolHub 想提供一个不一样的选择——榜单规则透明可解释，核验状态真实，工具全部能实际使用。"}
       </p>
 
-      <h2>核心原则</h2>
+      <h2>{en ? "Core principles" : "核心原则"}</h2>
       <ul>
-        <li><strong>先把真实可用的功能做好</strong>，不追求空洞的功能数量。</li>
-        <li><strong>所有排名、核验状态和数据来源必须清晰</strong>，不使用虚构的访问量、用户数或投票数装饰页面。</li>
-        <li><strong>工具尽量在浏览器本地运行</strong>，不上传你的输入、图片或敏感数据。</li>
-        <li><strong>社区提交自动公开但绝不伪造核验</strong>：提交即公开到社区列表，但 Verified 状态只授予人工实际核验通过的产品。</li>
+        <li><strong>{en ? "Build real, usable features first" : "先把真实可用的功能做好"}</strong>{en ? " — no hollow feature counts." : "，不追求空洞的功能数量。"}</li>
+        <li><strong>{en ? "Every ranking, verification status and data source must be clear" : "所有排名、核验状态和数据来源必须清晰"}</strong>{en ? " — no fake traffic, user numbers or votes." : "，不使用虚构的访问量、用户数或投票数装饰页面。"}</li>
+        <li><strong>{en ? "Tools run locally whenever possible" : "工具尽量在浏览器本地运行"}</strong>{en ? " — your input, images and sensitive data are never uploaded." : "，不上传你的输入、图片或敏感数据。"}</li>
+        <li><strong>{en ? "Community submissions are public but never fake verification" : "社区提交自动公开但绝不伪造核验"}</strong>{en ? ": submitting publishes to the community list, but Verified is granted only after an actual manual check." : "：提交即公开到社区列表，但 Verified 状态只授予人工实际核验通过的产品。"}</li>
       </ul>
 
-      <h2>社区提交</h2>
+      <h2>{en ? "Community submissions" : "社区提交"}</h2>
       <p>
-        SolHub 已接入 CloudBase（PostgreSQL）作为社区提交后端：任何人提交的产品 / 工具会<strong>自动公开</strong>到社区列表，
-        无需人工审核；自包含 HTML 工具可以上传，在本站<strong>沙箱 iframe</strong> 中隔离运行。
-        提交内容未经人工核验，请自行判断。榜单精选位仍由 SolHub 人工核验后收录。
+        {en ? (
+          <>SolHub is connected to CloudBase (PostgreSQL) as the community submission backend: anyone's product / tool is <strong>auto-published</strong> to the community list without manual review; self-contained HTML tools can be uploaded and run in a <strong>sandboxed iframe</strong> here. Submitted content is not manually verified — judge for yourself. Ranked picks are still manually verified by SolHub.</>
+        ) : (
+          <>SolHub 已接入 CloudBase（PostgreSQL）作为社区提交后端：任何人提交的产品 / 工具会<strong>自动公开</strong>到社区列表，无需人工审核；自包含 HTML 工具可以上传，在本站<strong>沙箱 iframe</strong> 中隔离运行。提交内容未经人工核验，请自行判断。榜单精选位仍由 SolHub 人工核验后收录。</>
+        )}
       </p>
 
-      <h2 id="verification">核验机制</h2>
+      <h2 id="verification">{en ? "Verification" : "核验机制"}</h2>
       <p>
-        SolHub 使用三种核验状态：<strong>Verified</strong>（已通过实际核验）、<strong>Pending</strong>（等待核验）、
-        <strong>Unverified</strong>（尚未核验）。
+        {en ? "SolHub uses three verification states: " : "SolHub 使用三种核验状态："}
+        <strong>Verified</strong>{en ? " (passed a real check), " : "（已通过实际核验）、"}
+        <strong>Pending</strong>{en ? " (waiting), " : "（等待核验）、"}
+        <strong>Unverified</strong>{en ? " (not yet checked)." : "（尚未核验）。"}
       </p>
       <ul>
-        <li>当前核验方式为<strong>人工核验</strong>：编辑实际访问产品官网，核对名称、描述与站点可访问性，并记录核验时间。</li>
-        <li>不允许仅凭用户填写的信息、图片上传或点击按钮自动显示 Verified。</li>
-        <li>自动核验（Meta Tag、文件验证、DNS TXT）已预留接口说明，但功能尚未启用。</li>
-        <li>演示数据一律标记为 Unverified，并带有「演示数据」标识。</li>
+        <li>{en ? "Verification is currently <strong>manual</strong>: editors visit the product website, check name, description and reachability, and record the time." : "当前核验方式为<strong>人工核验</strong>：编辑实际访问产品官网，核对名称、描述与站点可访问性，并记录核验时间。"}</li>
+        <li>{en ? "Verified can never be granted just by user-entered info, image uploads or button clicks." : "不允许仅凭用户填写的信息、图片上传或点击按钮自动显示 Verified。"}</li>
+        <li>{en ? "Automatic verification (Meta Tag, file check, DNS TXT) is reserved with documented interfaces but not enabled yet." : "自动核验（Meta Tag、文件验证、DNS TXT）已预留接口说明，但功能尚未启用。"}</li>
+        <li>{en ? "Demo entries are always marked Unverified and carry a “demo data” badge." : "演示数据一律标记为 Unverified，并带有「演示数据」标识。"}</li>
       </ul>
 
-      <h2>榜单排序规则</h2>
+      <h2>{en ? "Ranking rules" : "榜单排序规则"}</h2>
       <ul>
-        {rankingRules.map((rule) => (
+        {(en ? RULES_EN : rankingRules).map((rule) => (
           <li><strong>{rule.title}</strong>：{rule.detail}</li>
         ))}
       </ul>
 
-      <h2 id="roadmap">路线图与已知限制</h2>
-      <p>以下能力需要外部服务或后端支持，当前尚未接入：</p>
+      <h2 id="roadmap">{en ? "Roadmap & known limits" : "路线图与已知限制"}</h2>
+      <p>{en ? "These capabilities need external services or a backend and are not connected yet:" : "以下能力需要外部服务或后端支持，当前尚未接入："}</p>
       <ul>
-        <li><strong>自动域名核验</strong>：Meta Tag / DNS TXT 核验需要后端验证服务，当前为人工核验。</li>
-        <li><strong>全局投票 / 收藏 / 评论 / 账号系统</strong>：需要真实用户体系；本地收藏目前保存在当前浏览器。</li>
-        <li><strong>社区提交的治理</strong>：自动公开模式下，隐藏违规内容需通过管理端操作（CloudBase 控制台或服务端 API）。</li>
+        <li><strong>{en ? "Automatic domain verification" : "自动域名核验"}</strong>{en ? ": Meta Tag / DNS TXT verification needs a backend verification service; verification is manual today." : "：Meta Tag / DNS TXT 核验需要后端验证服务，当前为人工核验。"}</li>
+        <li><strong>{en ? "Global voting / bookmarks / comments / accounts" : "全局投票 / 收藏 / 评论 / 账号系统"}</strong>{en ? ": requires a real user system; local bookmarks currently live in this browser only." : "：需要真实用户体系；本地收藏目前保存在当前浏览器。"}</li>
+        <li><strong>{en ? "Community moderation" : "社区提交的治理"}</strong>{en ? ": under auto-publish, hiding violations requires admin actions (CloudBase console or server API)." : "：自动公开模式下，隐藏违规内容需通过管理端操作（CloudBase 控制台或服务端 API）。"}</li>
       </ul>
 
-      <h2>关于我们</h2>
+      <h2>{en ? "About us" : "关于我们"}</h2>
       <p>
-        SolHub 由 <a href="https://solyoung.top" target="_blank" rel="noopener noreferrer">SolYoung</a>
-         （独立创作者宋杨）构建与维护，与 SolYoung Studio 属于同一品牌体系。
-        我们相信：真正有价值的产品和工具，值得被发现。
+        {en ? (
+          <>SolHub is built and maintained by <a href="https://solyoung.top" target="_blank" rel="noopener noreferrer">SolYoung</a> (indie creator Song Yang), part of the same brand family as SolYoung Studio. We believe truly valuable products and tools deserve to be discovered.</>
+        ) : (
+          <>SolHub 由 <a href="https://solyoung.top" target="_blank" rel="noopener noreferrer">SolYoung</a>（独立创作者宋杨）构建与维护，与 SolYoung Studio 属于同一品牌体系。我们相信：真正有价值的产品和工具，值得被发现。</>
+        )}
       </p>
-      <a href={p("/submit/")} class="btn btn-accent mt-4">提交你的产品</a>
+      <a href={p("/submit/", locale)} class="btn btn-accent mt-4">{en ? "Submit your product" : "提交你的产品"}</a>
     </div>
   </section>
 </BaseLayout>

@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { generateUuids } from "@/lib/tools/uuid";
 import { CopyButton, ClearButton, ResultBox, ToolSection } from "@/components/tool-ui";
+import type { Locale } from "@/i18n";
+import { getDict } from "@/i18n";
+import { t } from "@/i18n/data";
 
-export default function UuidGenerator() {
+export default function UuidGenerator({ locale = "zh" }: { locale?: Locale }) {
+  const dict = getDict(locale);
   const [count, setCount] = useState(5);
   const [uuids, setUuids] = useState<string[]>(() => generateUuids(5));
 
@@ -12,7 +16,7 @@ export default function UuidGenerator() {
 
   return (
     <div className="space-y-4">
-      <ToolSection label="生成数量" hint="1–1000 个">
+      <ToolSection label={t(locale, "tools.uuid-generator.countLabel")} hint={t(locale, "tools.uuid-generator.countHint")}>
         <div className="flex items-center gap-3">
           <input
             type="number"
@@ -21,10 +25,10 @@ export default function UuidGenerator() {
             value={count}
             onChange={(e) => setCount(Math.max(1, Math.min(1000, Number(e.target.value) || 1)))}
             className="input !w-28"
-            aria-label="生成数量"
+            aria-label={t(locale, "tools.uuid-generator.countLabel")}
           />
           <button type="button" onClick={regenerate} className="btn btn-accent !h-8 px-3 text-xs">
-            生成
+            {t(locale, "tools.uuid-generator.generateBtn")}
           </button>
           <ClearButton onClick={() => setUuids([])} disabled={uuids.length === 0} />
           <CopyButton
@@ -37,19 +41,23 @@ export default function UuidGenerator() {
 
       {uuids.length === 0 ? (
         <div className="card p-8 text-center text-sm text-muted-foreground">
-          还没有生成的 UUID。设置数量后点击「生成」。
+          {locale === "en" ? "No UUIDs yet. Set a count and click “Generate”." : "还没有生成的 UUID。设置数量后点击「生成」。"}
         </div>
       ) : (
-        <ToolSection label="结果" hint={`共 ${uuids.length} 个 · UUID v4`}>
+        <ToolSection label={locale === "en" ? "Result" : "结果"} hint={`${uuids.length} · UUID v4`}>
           <ResultBox>{uuids.join("\n")}</ResultBox>
         </ToolSection>
       )}
 
       <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
-        <p className="font-semibold text-foreground/80">说明</p>
+        <p className="font-semibold text-foreground/80">{locale === "en" ? "Notes" : "说明"}</p>
         <p className="mt-1.5">
-          使用浏览器 <code className="rounded-[2px] bg-secondary px-1 font-mono text-xs">crypto.randomUUID()</code>{" "}
-          （Web Crypto API）生成，无需联网，不记录任何历史。
+          {locale === "en" ? (
+            <>Generated with the browser's <code className="rounded-[2px] bg-secondary px-1 font-mono text-xs">crypto.randomUUID()</code> (Web Crypto API) — no network, no history.</>
+          ) : (
+            <>使用浏览器 <code className="rounded-[2px] bg-secondary px-1 font-mono text-xs">crypto.randomUUID()</code>{" "}
+              （Web Crypto API）生成，无需联网，不记录任何历史。</>
+          )}
         </p>
       </div>
     </div>

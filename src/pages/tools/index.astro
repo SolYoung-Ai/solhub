@@ -3,14 +3,27 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import { tools } from "@/data/tools";
 import ToolsExplorer from "@/islands/ToolsExplorer.tsx";
 import CommunityFeed from "@/islands/CommunityFeed.tsx";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
 
 const initialCategory = Astro.url.searchParams.get("category") ?? "all";
+
+const metaDesc = en
+  ? "SolHub free online toolbox: JSON formatting, text counting, Base64, UUID, QR codes, image compression and more — all running locally in your browser, no signup."
+  : "SolHub 免费在线工具箱：JSON 格式化、文本统计、Base64、UUID、二维码、图片压缩等实用工具，全部在浏览器本地运行，无需注册。";
 ---
 
 <BaseLayout
-  title="免费在线工具"
-  description="SolHub 免费在线工具箱：JSON 格式化、文本统计、Base64、UUID、二维码、图片压缩等实用工具，全部在浏览器本地运行，无需注册。"
+  title={en ? "Free Online Tools" : "免费在线工具"}
+  description={metaDesc}
   route="/tools/"
+  locale={locale}
 >
   <section class="border-b border-border bg-secondary/30 py-14">
     <div class="container-page">
@@ -18,19 +31,20 @@ const initialCategory = Astro.url.searchParams.get("category") ?? "all";
         Tools
       </p>
       <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-        免费在线工具箱
+        {en ? "Free Online Toolbox" : "免费在线工具箱"}
       </h1>
       <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
-        简单、实用、免费。所有工具都直接可用，无需登录；你的输入只在浏览器本地处理，
-        不会上传到任何服务器。
+        {en
+          ? "Simple, practical and free. Every tool works right away with no login; your input is processed only in your browser and never uploaded to any server."
+          : "简单、实用、免费。所有工具都直接可用，无需登录；你的输入只在浏览器本地处理，不会上传到任何服务器。"}
       </p>
     </div>
   </section>
 
   <section class="py-12">
     <div class="container-page">
-      <ToolsExplorer client:load tools={tools} initialCategory={initialCategory} />
-      <CommunityFeed client:load kind="tool" limit={8} title="社区工具" />
+      <ToolsExplorer client:load tools={tools} initialCategory={initialCategory} locale={locale} />
+      <CommunityFeed client:load kind="tool" limit={8} title={en ? "Community tools" : "社区工具"} locale={locale} />
     </div>
   </section>
 </BaseLayout>

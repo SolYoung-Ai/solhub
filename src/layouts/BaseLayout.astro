@@ -3,7 +3,9 @@ import { siteConfig } from "@/data/site";
 import { products } from "@/data/products";
 import { tools } from "@/data/tools";
 import { buildSearchIndex } from "@/lib/search";
-import { p, stripBase, absoluteUrl } from "@/lib/paths";
+import { p, stripBase, absoluteUrl, baseUrl } from "@/lib/paths";
+import { getDict } from "@/i18n";
+import type { Locale } from "@/i18n";
 import HeaderApp from "@/islands/HeaderApp.tsx";
 import Footer from "@/components/Footer.astro";
 import "../styles/global.css";
@@ -11,10 +13,12 @@ import "../styles/global.css";
 interface Props {
   title: string;
   description: string;
-  /** 当前路由（不含 base），用于 canonical 与导航激活 */
+  /** 当前路由（不含 base、不含语言前缀），用于 canonical 与导航激活 */
   route: string;
   ogType?: string;
   noIndex?: boolean;
+  /** 语言；zh 默认无前缀，en 生成到 /en/ 下 */
+  locale?: Locale;
 }
 
 const {
@@ -23,25 +27,29 @@ const {
   route,
   ogType = "website",
   noIndex = false,
+  locale = "zh",
 } = Astro.props;
 
+const dict = getDict(locale);
+const htmlLang = locale === "en" ? "en" : "zh-CN";
+const ogLocale = locale === "en" ? "en_US" : "zh_CN";
 const pageTitle = title === siteConfig.name ? title : `${title} · ${siteConfig.name}`;
-const canonical = absoluteUrl(route);
-const searchIndex = buildSearchIndex(products, tools);
+const canonical = absoluteUrl(route, locale);
+const searchIndex = buildSearchIndex(products, tools, locale);
 const currentRoute = stripBase(Astro.url.pathname);
 
 const orgJsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: siteConfig.name,
-  url: absoluteUrl("/"),
-  description: siteConfig.description,
-  inLanguage: "zh-CN",
+  url: absoluteUrl("/", locale),
+  description: locale === "en" ? siteConfig.descriptionEn : siteConfig.description,
+  inLanguage: locale === "en" ? "en" : "zh-CN",
 };
 ---
 
 <!doctype html>
-<html lang="zh-CN">
+<html lang={htmlLang} class="theme-init">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -53,7 +61,13 @@ const orgJsonLd = {
       noIndex && <meta name="robots" content="noindex" />
     }
     <link rel="canonical" href={canonical} />
-    <link rel="icon" type="image/svg+xml" href={p("/favicon.svg")} />
+    <link rel="icon" type="image/svg+xml" href={p("/favicon.svg", locale)} />
+    <meta name="solhub-base" content={baseUrl()} />
+
+    <!-- 语言切换（alternate） -->
+    <link rel="alternate" hreflang="zh-CN" href={absoluteUrl(route, "zh")} />
+    <link rel="alternate" hreflang="en" href={absoluteUrl(route, "en")} />
+    <link rel="alternate" hreflang="x-default" href={absoluteUrl(route, "zh")} />
 
     <!-- Open Graph -->
     <meta property="og:type" content={ogType} />
@@ -61,7 +75,7 @@ const orgJsonLd = {
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
-    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:locale" content={ogLocale} />
 
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content={pageTitle} />
@@ -75,13 +89,56 @@ const orgJsonLd = {
       rel="stylesheet"
     />
 
+    <!-- 首屏前恢复 主题 / 语言 / 视口 偏好（防止闪烁与错误语言停留） -->
+    <script is:inline>
+      (function () {
+        try {
+          // 1) 主题：dark class + 过渡
+          var savedTheme = localStorage.getItem("solhub:theme");
+          var theme = savedTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+          if (theme === "dark") document.documentElement.classList.add("dark");
+          document.documentElement.classList.remove("theme-init");
+
+          // 2) 视口模拟
+          if (localStorage.getItem("solhub:viewport") === "mobile") {
+            document.documentElement.classList.add("viewport-mobile");
+          }
+
+          // 3) 语言偏好：记住后自动跳转到对应语言版本（仅当路径不含目标语言前缀时）
+          var savedLang = localStorage.getItem("solhub:lang");
+          var base = (document.querySelector("meta[name='solhub-base']") || {}).getAttribute
+            ? document.querySelector("meta[name='solhub-base']").getAttribute("content")
+            : "";
+          if (savedLang === "en" || savedLang === "zh") {
+            var path = window.location.pathname;
+            var hasEn = path.indexOf("/en/") !== -1 || path.endsWith("/en");
+            var wantEn = savedLang === "en";
+            if (wantEn !== hasEn) {
+              // 构造目标路径
+              if (wantEn) {
+                // 当前 zh（无 /en/）→ 插入 /en/（跳过 base 前缀）
+                var baseClean = base.replace(/\/$/, "");
+                var rest = baseClean && path.indexOf(baseClean) === 0 ? path.slice(baseClean.length) : path;
+                var target = baseClean + "/en" + (rest === "/" ? "/" : rest);
+                window.location.replace(target);
+              } else {
+                // 当前 en → 去掉 /en/
+                var t2 = path.replace(/\/en(\/|$)/, "/");
+                window.location.replace(t2);
+              }
+            }
+          }
+        } catch (e) { /* 忽略存储不可用 */ }
+      })();
+    </script>
     <script type="application/ld+json" set:html={JSON.stringify(orgJsonLd)} />
   </head>
   <body class="flex min-h-screen flex-col">
-    <HeaderApp client:load currentRoute={currentRoute} searchIndex={searchIndex} />
+    <HeaderApp client:load currentRoute={currentRoute} searchIndex={searchIndex} locale={locale} />
     <main class="flex-1">
       <slot />
     </main>
-    <Footer />
+    <Footer locale={locale} />
   </body>
 </html>
+

@@ -2,8 +2,12 @@ import { useState } from "react";
 import { Braces } from "lucide-react";
 import { formatJson, minifyJson, parseJsonWithError } from "@/lib/tools/json";
 import { CopyButton, ClearButton, Message, ResultBox, ToolSection } from "@/components/tool-ui";
+import type { Locale } from "@/i18n";
+import { getDict } from "@/i18n";
+import { t } from "@/i18n/data";
 
-export default function JsonFormatter() {
+export default function JsonFormatter({ locale = "zh" }: { locale?: Locale }) {
+  const dict = getDict(locale);
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -11,7 +15,7 @@ export default function JsonFormatter() {
 
   const run = (mode: "format" | "minify") => {
     if (!input.trim()) {
-      setError("请输入 JSON 内容。");
+      setError(t(locale, "tools.json-formatter.errEmpty"));
       setOutput("");
       setMeta("");
       return;
@@ -19,7 +23,11 @@ export default function JsonFormatter() {
     const result = mode === "format" ? formatJson(input) : minifyJson(input);
     if (!result.ok) {
       setError(
-        `JSON 解析失败（第 ${result.error.line} 行，第 ${result.error.column} 列）：${result.error.message}`,
+        t(locale, "tools.json-formatter.errParse", {
+          line: result.error.line,
+          col: result.error.column,
+          msg: result.error.message,
+        }),
       );
       setOutput("");
       setMeta("");
@@ -28,23 +36,30 @@ export default function JsonFormatter() {
     setError(null);
     setOutput(result.output);
     setMeta(
-      `格式化后 ${result.output.length} 字符；源输入 ${input.length} 字符，JSON 校验通过。`,
+      t(locale, "tools.json-formatter.metaFormatted", {
+        out: result.output.length,
+        in: input.length,
+      }),
     );
   };
 
   const handleValidate = () => {
     if (!input.trim()) {
-      setError("请输入 JSON 内容。");
+      setError(t(locale, "tools.json-formatter.errEmpty"));
       return;
     }
     const result = parseJsonWithError(input);
     if (result.ok) {
       setError(null);
       setOutput("");
-      setMeta("JSON 校验通过。点击「格式化」查看缩进后的结果。");
+      setMeta(t(locale, "tools.json-formatter.metaValidated"));
     } else {
       setError(
-        `JSON 解析失败（第 ${result.error.line} 行，第 ${result.error.column} 列）：${result.error.message}`,
+        t(locale, "tools.json-formatter.errParse", {
+          line: result.error.line,
+          col: result.error.column,
+          msg: result.error.message,
+        }),
       );
       setOutput("");
       setMeta("");
@@ -53,7 +68,7 @@ export default function JsonFormatter() {
 
   return (
     <div className="space-y-4">
-      <ToolSection label="输入 JSON" hint="支持粘贴任意长度的 JSON 文本">
+      <ToolSection label={t(locale, "tools.json-formatter.inputLabel")} hint={t(locale, "tools.json-formatter.inputHint")}>
         <textarea
           value={input}
           onChange={(e) => {
@@ -64,19 +79,19 @@ export default function JsonFormatter() {
           spellCheck={false}
           placeholder={`{\n  "name": "SolHub",\n  "type": "product"\n}`}
           className="input scroll-x w-full resize-y font-mono !text-[13px] leading-6"
-          aria-label="JSON 输入"
+          aria-label={t(locale, "tools.json-formatter.inputAria")}
         />
       </ToolSection>
 
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => run("format")} className="btn btn-accent !h-8 px-3 text-xs">
-          <Braces className="h-3.5 w-3.5" aria-hidden="true" /> 格式化
+          <Braces className="h-3.5 w-3.5" aria-hidden="true" /> {t(locale, "tools.json-formatter.formatBtn")}
         </button>
         <button type="button" onClick={() => run("minify")} className="btn btn-outline !h-8 px-3 text-xs">
-          压缩
+          {t(locale, "tools.json-formatter.minifyBtn")}
         </button>
         <button type="button" onClick={handleValidate} className="btn btn-outline !h-8 px-3 text-xs">
-          校验
+          {t(locale, "tools.json-formatter.validateBtn")}
         </button>
         <ClearButton onClick={() => { setInput(""); setOutput(""); setError(null); setMeta(""); }} disabled={!input} />
         <CopyButton getText={() => output} disabled={!output} className="ml-auto" />
@@ -86,7 +101,7 @@ export default function JsonFormatter() {
       {meta && <Message tone="success">{meta}</Message>}
 
       {output && (
-        <ToolSection label="输出">
+        <ToolSection label={t(locale, "tools.json-formatter.outputLabel")}>
           <ResultBox>{output}</ResultBox>
         </ToolSection>
       )}
