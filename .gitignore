@@ -17,3 +17,4 @@ npm-debug.log*
 
 # Local drafts
 *.local.json
+.github/workflows/deploy.yml
