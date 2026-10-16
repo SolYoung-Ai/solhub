@@ -154,60 +154,71 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     setStatus("submitting");
     setShowPreview(false);
 
-    let hostedKey: string | undefined;
-    if (isHosted && hostedFile) {
-      const up = await uploadHostedTool(hostedFile, form.name.trim());
-      if (!up.ok || !up.key) {
+    try {
+      let hostedKey: string | undefined;
+      if (isHosted && hostedFile) {
+        const up = await uploadHostedTool(hostedFile, form.name.trim());
+        if (!up.ok || !up.key) {
+          setStatus("error");
+          setResult({ mode: "local-draft", message: up.message ?? (en ? "Failed to upload the hosted tool." : "上传托管工具失败。") });
+          return;
+        }
+        hostedKey = up.key;
+      }
+
+      const payload = buildPayload();
+      if (hostedKey) payload.hosted_key = hostedKey;
+
+      if (cloudbaseReady) {
+        const r = await submitToCloudbase(payload);
+        if (r.ok) {
+          setStatus("success");
+          setResult({
+            mode: "cloudbase",
+            message: en
+              ? `Submitted! “${payload.name}” is now publicly listed on the SolHub community page.${isHosted ? " The hosted tool is deployed and usable in a sandbox on this site." : " Visitors can see it right away."}`
+              : `提交成功！「${payload.name}」已自动公开到 SolHub 社区列表。${isHosted ? "托管工具已部署，访问者可在本站沙箱内直接使用。" : "访问者现在就能看到它。"}`,
+          });
+          return;
+        }
+        // CloudBase 失败 → 回退本地草稿（不静默丢失）
         setStatus("error");
-        setResult({ mode: "local-draft", message: up.message ?? (en ? "Failed to upload the hosted tool." : "上传托管工具失败。") });
+        setResult({ mode: "local-draft", message: en ? `CloudBase submission failed: ${r.message}` : `CloudBase 提交失败：${r.message}` });
         return;
       }
-      hostedKey = up.key;
-    }
 
-    const payload = buildPayload();
-    if (hostedKey) payload.hosted_key = hostedKey;
-
-    if (cloudbaseReady) {
-      const r = await submitToCloudbase(payload);
-      if (r.ok) {
-        setStatus("success");
-        setResult({
-          mode: "cloudbase",
-          message: en
-            ? `Submitted! “${payload.name}” is now publicly listed on the SolHub community page.${isHosted ? " The hosted tool is deployed and usable in a sandbox on this site." : " Visitors can see it right away."}`
-            : `提交成功！「${payload.name}」已自动公开到 SolHub 社区列表。${isHosted ? "托管工具已部署，访问者可在本站沙箱内直接使用。" : "访问者现在就能看到它。"}`,
-        });
-        return;
-      }
-      // CloudBase 失败 → 回退本地草稿（不静默丢失）
+      // 未配置 CloudBase：沿用原存储适配层（github-issue → local-draft）
+      const submission: Submission = {
+        id: `sub-${Date.now().toString(36)}`,
+        productFields: {
+          name: form.name.trim(),
+          websiteUrl: form.websiteUrl.trim(),
+          shortDescription: form.shortDescription.trim(),
+          description: form.description.trim(),
+          category: form.category,
+          tags: form.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean),
+          iconUrl: form.iconUrl.trim() || undefined,
+          developerName: form.developerName.trim(),
+          contact: form.contact.trim() || undefined,
+        },
+        status: "submitted",
+        createdAt: new Date().toISOString(),
+        submissionProvider: "local-draft",
+      };
+      const r = await submitSubmission(submission);
+      setResult({ mode: r.mode, message: r.message, url: r.url });
+      setDraftJson(exportSubmissionJson(submission));
+      setStatus(r.ok ? "success" : "error");
+    } catch (err) {
+      console.error("[SolHub] handleSubmit unexpected error", err);
       setStatus("error");
-      setResult({ mode: "local-draft", message: en ? `CloudBase submission failed: ${r.message}` : `CloudBase 提交失败：${r.message}` });
-      return;
+      setResult({
+        mode: "local-draft",
+        message: en
+          ? `Unexpected error: ${err instanceof Error ? err.message : String(err)}. Please retry or export the draft JSON below.`
+          : `提交出现异常：${err instanceof Error ? err.message : String(err)}。请重试，或导出下方 JSON 备份。`,
+      });
     }
-
-    // 未配置 CloudBase：沿用原存储适配层（github-issue → local-draft）
-    const submission: Submission = {
-      id: `sub-${Date.now().toString(36)}`,
-      productFields: {
-        name: form.name.trim(),
-        websiteUrl: form.websiteUrl.trim(),
-        shortDescription: form.shortDescription.trim(),
-        description: form.description.trim(),
-        category: form.category,
-        tags: form.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean),
-        iconUrl: form.iconUrl.trim() || undefined,
-        developerName: form.developerName.trim(),
-        contact: form.contact.trim() || undefined,
-      },
-      status: "submitted",
-      createdAt: new Date().toISOString(),
-      submissionProvider: "local-draft",
-    };
-    const r = await submitSubmission(submission);
-    setResult({ mode: r.mode, message: r.message, url: r.url });
-    setDraftJson(exportSubmissionJson(submission));
-    setStatus(r.ok ? "success" : "error");
   };
 
   const modes = useMemo(() => {
