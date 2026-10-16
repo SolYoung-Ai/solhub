@@ -11,7 +11,7 @@ export const siteConfig = {
   /** 生产环境站点地址（与 astro.config.mjs 的 ASTRO_SITE 保持一致） */
   defaultSite: "https://solyoung.top",
   /** GitHub 项目仓库地址；配置后页脚显示 GitHub 入口 */
-  githubUrl: "",
+  githubUrl: "https://github.com/SolYoung-work/solhub",
   /** 联系方式（可选） */
   contactEmail: "",
   copyrightYear: 2026,
