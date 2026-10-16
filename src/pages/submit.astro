@@ -1,0 +1,63 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import SubmitForm from "@/islands/SubmitForm.tsx";
+---
+
+<BaseLayout
+  title="提交产品"
+  description="把你自己开发的网站、软件或 AI 工具提交到 SolHub。提交后进入待核验队列，通过核验的产品将获得 Verified 状态并进入榜单。"
+  route="/submit/"
+>
+  <section class="border-b border-border bg-secondary/30 py-14">
+    <div class="container-page">
+      <p class="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
+        Launch
+      </p>
+      <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+        提交你的产品
+      </h1>
+      <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
+        如果你开发了网站、软件或 AI 工具，欢迎提交到 SolHub，让更多独立开发者和使用者发现它。
+        提交后将进入待核验队列；只有通过实际核验的产品才会被标记为 Verified。
+      </p>
+    </div>
+  </section>
+
+  <section class="py-12">
+    <div class="container-page grid gap-10 lg:grid-cols-[1fr_280px]">
+      <div>
+        <SubmitForm client:load />
+      </div>
+      <aside class="space-y-4">
+        <div class="card p-5">
+          <h2 class="text-sm font-bold text-foreground">提交流程</h2>
+          <ol class="mt-3 space-y-3 text-[13px] leading-6 text-muted-foreground">
+            <li class="flex gap-2.5">
+              <span class="font-display shrink-0 text-accent">01</span>
+              填写产品信息并预览
+            </li>
+            <li class="flex gap-2.5">
+              <span class="font-display shrink-0 text-accent">02</span>
+              选择提交方式（远程接口 / GitHub Issue / 本地草稿）
+            </li>
+            <li class="flex gap-2.5">
+              <span class="font-display shrink-0 text-accent">03</span>
+              进入待核验（Pending）队列
+            </li>
+            <li class="flex gap-2.5">
+              <span class="font-display shrink-0 text-accent">04</span>
+              SolHub 编辑实际核验官网后标记 Verified
+            </li>
+          </ol>
+        </div>
+        <div class="card p-5">
+          <h2 class="text-sm font-bold text-foreground">核验原则</h2>
+          <p class="mt-2 text-[13px] leading-6 text-muted-foreground">
+            Verified 不会仅凭填写信息自动授予。我们要求产品官网可访问、名称与描述一致；
+            自动核验（Meta Tag / DNS TXT）能力尚未启用，当前全部为人工核验。
+          </p>
+        </div>
+      </aside>
+    </div>
+  </section>
+</BaseLayout>

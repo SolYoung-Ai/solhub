@@ -1,0 +1,80 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { rankingRules } from "@/lib/ranking";
+import { p } from "@/lib/paths";
+---
+
+<BaseLayout
+  title="关于 SolHub"
+  description="SolHub 是一个由独立开发者构建的产品发现平台与在线工具箱：透明排名、真实核验、本地运行的工具，让独立创作更高效。"
+  route="/about/"
+>
+  <section class="border-b border-border bg-secondary/30 py-14">
+    <div class="container-page">
+      <p class="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
+        About
+      </p>
+      <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+        关于 SolHub
+      </h1>
+      <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
+        Discover. Build. Share. —— 一个由独立开发者构建、为独立开发者服务的产品发现平台与在线工具箱。
+      </p>
+    </div>
+  </section>
+
+  <section class="py-12">
+    <div class="container-page prose-solhub max-w-3xl">
+      <h2>我们为什么做 SolHub</h2>
+      <p>
+        独立开发者在产品发布后，常常缺少一个可信、克制的曝光渠道：大平台信息过载、榜单规则不透明、
+        工具站充斥着「只有卡片没有功能」的摆设。SolHub 想提供一个不一样的选择——
+        榜单规则透明可解释，核验状态真实，工具全部能实际使用。
+      </p>
+
+      <h2>核心原则</h2>
+      <ul>
+        <li><strong>先把真实可用的功能做好</strong>，不追求空洞的功能数量。</li>
+        <li><strong>所有排名、核验状态和数据来源必须清晰</strong>，不使用虚构的访问量、用户数或投票数装饰页面。</li>
+        <li><strong>工具尽量在浏览器本地运行</strong>，不上传你的输入、图片或敏感数据。</li>
+        <li><strong>不伪装后端能力</strong>：没有后端时，提交内容保存为本地草稿并明确告知，不会伪装成全站公开数据。</li>
+      </ul>
+
+      <h2 id="verification">核验机制</h2>
+      <p>
+        SolHub 使用三种核验状态：<strong>Verified</strong>（已通过实际核验）、<strong>Pending</strong>（等待核验）、
+        <strong>Unverified</strong>（尚未核验）。
+      </p>
+      <ul>
+        <li>当前核验方式为<strong>人工核验</strong>：编辑实际访问产品官网，核对名称、描述与站点可访问性，并记录核验时间。</li>
+        <li>不允许仅凭用户填写的信息、图片上传或点击按钮自动显示 Verified。</li>
+        <li>自动核验（Meta Tag、文件验证、DNS TXT）已预留接口说明，但功能尚未启用。</li>
+        <li>演示数据一律标记为 Unverified，并带有「演示数据」标识。</li>
+      </ul>
+
+      <h2>榜单排序规则</h2>
+      <ul>
+        {rankingRules.map((rule) => (
+          <li><strong>{rule.title}</strong>：{rule.detail}</li>
+        ))}
+      </ul>
+
+      <h2 id="roadmap">路线图与已知限制</h2>
+      <p>以下能力需要外部服务或后端支持，当前尚未接入：</p>
+      <ul>
+        <li><strong>远程提交接口</strong>：需要自建 API（或 Supabase / Firebase 等）并配置 <code>PUBLIC_SOLHUB_SUBMIT_ENDPOINT</code>。</li>
+        <li><strong>GitHub Issue 投稿</strong>：配置 <code>PUBLIC_SOLHUB_ISSUE_REPO</code> 后启用，由用户自己点击提交。</li>
+        <li><strong>自动域名核验</strong>：Meta Tag / DNS TXT 核验需要后端验证服务。</li>
+        <li><strong>全局投票 / 收藏 / 评论 / 账号系统</strong>：需要真实后端；本地收藏目前保存在当前浏览器。</li>
+      </ul>
+
+      <h2>关于我们</h2>
+      <p>
+        SolHub 由 <a href="https://solyoung.top" target="_blank" rel="noopener noreferrer">SolYoung</a>
+         （独立创作者宋杨）构建与维护，与 SolYoung Studio 属于同一品牌体系。
+        我们相信：真正有价值的产品和工具，值得被发现。
+      </p>
+      <a href={p("/submit/")} class="btn btn-accent mt-4">提交你的产品</a>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,97 @@
+---
+import type { Product } from "@/data/types";
+import { productCategoryName } from "@/data/product-categories";
+import { formatDateIso } from "@/lib/utils";
+import { p } from "@/lib/paths";
+import Badge from "./Badge.astro";
+
+interface Props {
+  product: Product;
+  rank?: number;
+  highlight?: boolean;
+}
+
+const { product, rank, highlight = false } = Astro.props;
+
+function initials(name: string): string {
+  return name.trim().slice(0, 2).toUpperCase();
+}
+---
+
+<a
+  href={p(`/products/${product.slug}/`)}
+  class:list={[
+    "card group relative flex h-full flex-col p-5 transition-all duration-200",
+    highlight
+      ? "hover:-translate-y-0.5 hover:shadow-lg"
+      : "hover:-translate-y-0.5 hover:shadow-md",
+  ]}
+>
+  {
+    rank !== undefined && (
+      <span
+        class:list={[
+          "font-display absolute -top-2 -left-2 flex h-7 w-7 items-center justify-center rounded-[2px] text-sm font-bold",
+          rank === 1 && "bg-accent text-accent-foreground",
+          rank === 2 && "bg-foreground text-background",
+          rank === 3 && "bg-secondary text-foreground border border-border",
+        ]}
+        aria-label={`第 ${rank} 名`}
+      >
+        {rank}
+      </span>
+    )
+  }
+
+  <div class="flex items-start gap-3">
+    {
+      product.icon ? (
+        <img
+          src={product.icon}
+          alt=""
+          loading="lazy"
+          class="h-11 w-11 shrink-0 rounded-[3px] border border-border bg-card object-cover"
+        />
+      ) : (
+        <span
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-[3px] border border-border bg-secondary font-display text-[15px] font-bold text-foreground/70"
+          aria-hidden="true"
+        >
+          {initials(product.name)}
+        </span>
+      )
+    }
+    <div class="min-w-0 flex-1">
+      <h3 class="font-display truncate text-[15px] font-bold text-foreground group-hover:text-accent">
+        {product.name}
+      </h3>
+      <p class="mt-0.5 text-[11px] text-muted-foreground">
+        {productCategoryName(product.category)}
+      </p>
+    </div>
+  </div>
+
+  <p class="mt-3 line-clamp-2 flex-1 text-sm leading-6 text-foreground/75">
+    {product.shortDescription}
+  </p>
+
+  {
+    product.tags.length > 0 && (
+      <div class="mt-3 flex flex-wrap gap-1.5">
+        {product.tags.slice(0, 3).map((tag) => (
+          <span class="badge border-border bg-secondary/50 text-muted-foreground">
+            {tag}
+          </span>
+        ))}
+      </div>
+    )
+  }
+
+  <div class="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3">
+    <Badge status={product.verificationStatus} isDemo={product.isDemo} />
+    <span class="flex items-center gap-1 text-xs text-muted-foreground">
+      <span>{formatDateIso(product.publishedAt)}</span>
+      <span class="text-muted-foreground/50 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true">→</span>
+    </span>
+  </div>
+</a>

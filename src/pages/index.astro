@@ -1,0 +1,204 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { products } from "@/data/products";
+import { tools } from "@/data/tools";
+import { categories } from "@/data/categories";
+import { rankProducts } from "@/lib/ranking";
+import { getIcon } from "@/lib/icons";
+import { p } from "@/lib/paths";
+import ProductCard from "@/components/ProductCard.astro";
+import ToolCard from "@/components/ToolCard.astro";
+import SectionHeading from "@/components/SectionHeading.astro";
+import HeroSearch from "@/islands/HeroSearch.tsx";
+
+const featured = rankProducts(products).slice(0, 3);
+const newLaunches = rankProducts(products).slice(3, 7);
+
+// 首页精选工具（真实已实现的 8 个）
+const featuredToolIds = [
+  "json-formatter",
+  "text-counter",
+  "url-codec",
+  "base64-codec",
+  "uuid-generator",
+  "timestamp-converter",
+  "qr-generator",
+  "image-compressor",
+];
+const featuredTools = featuredToolIds
+  .map((id) => tools.find((t) => t.id === id))
+  .filter((t): t is NonNullable<typeof t> => Boolean(t && t.isImplemented));
+---
+
+<BaseLayout
+  title="SolHub"
+  description="值得被发现的产品，值得被使用的工具。SolHub 是独立产品发现平台与在线工具箱：探索独立开发者正在创造的产品，使用简单、实用、免费的在线工具，让独立创作更高效。"
+  route="/"
+>
+  <!-- ===== Hero ===== -->
+  <section class="relative overflow-hidden">
+    <div
+      class="pointer-events-none absolute inset-0"
+      aria-hidden="true"
+      style="background-image: radial-gradient(circle at 50% 0%, rgb(232 112 40 / 0.08), transparent 55%)"
+    />
+    <div class="container-page relative py-20 text-center sm:py-28">
+      <p class="mb-4 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
+        SolHub · Discover · Build · Share
+      </p>
+      <h1 class="font-display mx-auto max-w-3xl text-4xl font-extrabold leading-[1.15] tracking-tight text-foreground sm:text-5xl">
+        值得被发现的产品，
+        <br class="hidden sm:block" />
+        值得被使用的工具。
+      </h1>
+      <p class="mx-auto mt-5 max-w-2xl text-[15px] leading-7 text-muted-foreground sm:text-base">
+        探索独立开发者正在创造的产品，使用简单、实用、免费的在线工具，
+        <br class="hidden sm:block" />
+        让每一个好想法更快落地。
+      </p>
+
+      <div class="mx-auto mt-8 max-w-xl">
+        <HeroSearch client:load />
+      </div>
+
+      <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <a href={p("/launches/")} class="btn btn-primary">
+          Explore Products
+        </a>
+        <a href={p("/tools/")} class="btn btn-outline">
+          Explore Tools
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 本周产品榜单 ===== -->
+  <section class="border-t border-border bg-secondary/30 py-16">
+    <div class="container-page">
+      <SectionHeading
+        eyebrow="This Week · 人工精选"
+        title="本周产品榜单"
+        description="近期值得关注的产品。榜单为人工精选 + 核验优先排序，完整规则见榜单页。"
+        actionHref={p("/launches/")}
+        actionLabel="查看完整榜单"
+      />
+      <div class="grid gap-5 md:grid-cols-3">
+        {
+          featured.map((product, i) => (
+            <div class="animate-rise" style={`animation-delay:${i * 60}ms`}>
+              <ProductCard product={product} rank={i + 1} highlight={true} />
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 热门在线工具 ===== -->
+  <section class="py-16">
+    <div class="container-page">
+      <SectionHeading
+        eyebrow="Free Tools · 本地运行"
+        title="热门在线工具"
+        description="全部工具免费、无需登录，数据处理在浏览器本地完成。"
+        actionHref={p("/tools/")}
+        actionLabel="查看全部工具"
+      />
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {
+          featuredTools.map((tool, i) => (
+            <div class="animate-rise" style={`animation-delay:${i * 40}ms`}>
+              <ToolCard tool={tool} />
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 工具分类入口 ===== -->
+  <section class="border-t border-border py-16">
+    <div class="container-page">
+      <SectionHeading
+        eyebrow="Categories"
+        title="按用途找工具"
+        description="分类数量根据工具注册表实时计算。"
+      />
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {
+          categories.map((cat) => {
+            const Icon = getIcon(cat.icon);
+            const count = tools.filter((t) => t.category === cat.slug && t.isImplemented).length;
+            return (
+              <a
+                href={p(`/tools/?category=${cat.slug}`)}
+                class="card group flex items-start gap-4 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-border bg-secondary text-foreground/80 transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <span class="min-w-0">
+                  <span class="font-display block text-[15px] font-bold text-foreground group-hover:text-accent">
+                    {cat.name}
+                  </span>
+                  <span class="mt-0.5 block text-[13px] leading-5 text-muted-foreground">
+                    {cat.description}
+                  </span>
+                  <span class="mt-1.5 inline-block text-[11px] font-medium text-accent">
+                    {count} 个工具
+                  </span>
+                </span>
+              </a>
+            );
+          })
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 新收录产品 ===== -->
+  <section class="border-t border-border bg-secondary/30 py-16">
+    <div class="container-page">
+      <SectionHeading
+        eyebrow="Recently Added"
+        title="新收录的产品"
+        description="最近加入 SolHub 的产品。演示数据带有明确标记，不会被误认为真实运营数据。"
+        actionHref={p("/launches/")}
+        actionLabel="浏览全部"
+      />
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {
+          newLaunches.map((product, i) => (
+            <div class="animate-rise" style={`animation-delay:${i * 50}ms`}>
+              <ProductCard product={product} />
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 提交引导 ===== -->
+  <section class="py-16">
+    <div class="container-page">
+      <div class="card relative overflow-hidden p-8 text-center sm:p-12">
+        <div
+          class="pointer-events-none absolute inset-0"
+          aria-hidden="true"
+          style="background-image: radial-gradient(circle at 80% 20%, rgb(232 112 40 / 0.1), transparent 50%)"
+        />
+        <h2 class="font-display relative text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          自己做了一款网站、软件或 AI 工具？
+        </h2>
+        <p class="relative mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
+          把它提交到 SolHub，让更多独立开发者与使用者发现它。提交后会进入待核验队列，
+          通过核验的产品将获得 Verified 状态并进入榜单。
+        </p>
+        <a href={p("/submit/")} class="btn btn-accent relative mt-6 !h-10 px-6">
+          Submit a Product
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

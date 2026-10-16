@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+/* ============================================================
+   SolHub Design Tokens — 继承 SolYoung Studio 品牌体系
+   参考 https://solyoung.top/studio/ 实际线上样式提取：
+   背景 #f4f0e7 · 前景 #1d1a15 · 卡片 #faf7f0 · 强调 #e87028
+   字体：Archivo（标题）/ Noto Sans SC（正文）/ Noto Serif SC / 等宽
+   圆角：2px 级别（近直角）· 阴影：暖色调低透明度
+   ============================================================ */
+@theme {
+  --color-background: #f4f0e7;
+  --color-foreground: #1d1a15;
+  --color-card: #faf7f0;
+  --color-card-foreground: #1d1a15;
+  --color-secondary: #efeadd;
+  --color-secondary-foreground: #1d1a15;
+  --color-muted: #efeadd;
+  --color-muted-foreground: #97917f;
+  --color-accent: #e87028;
+  --color-accent-foreground: #1d1a15;
+  --color-destructive: #a8432f;
+  --color-destructive-foreground: #fdfbf5;
+  --color-success: #4f6b52;
+  --color-success-foreground: #f4f0e7;
+  --color-warning: #8a6a2f;
+  --color-warning-foreground: #fdfbf5;
+  --color-border: #1d1a1524;
+  --color-border-strong: #1d1a1538;
+  --color-ring: #e87028;
+  --color-ink: #1d1a15;
+
+  --font-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Microsoft YaHei", "Helvetica Neue", Arial, "Apple Color Emoji",
+    "Segoe UI Emoji", sans-serif;
+  --font-display: "Archivo", "Noto Sans SC", -apple-system, BlinkMacSystemFont,
+    "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Noto Serif SC", Georgia, "Songti SC", "SimSun", serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+
+  --shadow-2xs: 0 1px 2px 0 rgb(40 30 10 / 0.05);
+  --shadow-xs: 0 1px 3px 0 rgb(40 30 10 / 0.06);
+  --shadow-sm: 0 1px 2px 0 rgb(40 30 10 / 0.05), 0 2px 8px -2px rgb(40 30 10 / 0.05);
+  --shadow-md: 0 2px 12px -2px rgb(40 30 10 / 0.07), 0 1px 2px -1px rgb(40 30 10 / 0.05);
+  --shadow-lg: 0 4px 16px -4px rgb(40 30 10 / 0.1), 0 2px 4px -1px rgb(40 30 10 / 0.05);
+  --shadow-xl: 0 8px 28px -8px rgb(40 30 10 / 0.14), 0 4px 8px -2px rgb(40 30 10 / 0.05);
+
+  --container-page: 72rem;
+  --container-narrow: 48rem;
+}
+
+/* ---------- Base ---------- */
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "ss01" on;
+  }
+  ::selection {
+    background: rgb(232 112 40 / 0.22);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ---------- Components ---------- */
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-[72rem] px-4 sm:px-6 lg:px-8;
+  }
+  .btn {
+    @apply inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[2px] px-4 text-sm font-medium transition-all duration-150 select-none disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-foreground text-background hover:opacity-85 active:translate-y-px;
+  }
+  .btn-accent {
+    @apply bg-accent text-accent-foreground hover:brightness-95 active:translate-y-px;
+  }
+  .btn-outline {
+    @apply border border-[#1d1a1524] bg-card text-foreground hover:bg-secondary active:translate-y-px;
+  }
+  .btn-ghost {
+    @apply text-foreground hover:bg-secondary active:translate-y-px;
+  }
+  .card {
+    @apply rounded-[3px] border border-border bg-card;
+  }
+  .input {
+    @apply w-full rounded-[2px] border border-[#1d1a1538] bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none focus:ring-2 focus:ring-ring/25;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-px text-[11px] leading-4 font-medium;
+  }
+  .label {
+    @apply mb-1.5 block text-[13px] font-medium text-foreground;
+  }
+  .prose-solhub {
+    @apply text-[15px] leading-7 text-foreground/85;
+  }
+  .prose-solhub h2 {
+    @apply font-display mt-10 mb-3 text-xl font-bold text-foreground;
+  }
+  .prose-solhub h3 {
+    @apply font-display mt-8 mb-2 text-base font-bold text-foreground;
+  }
+  .prose-solhub p {
+    @apply my-3;
+  }
+  .prose-solhub ul {
+    @apply my-3 list-disc space-y-1.5 pl-6;
+  }
+  .prose-solhub ol {
+    @apply my-3 list-decimal space-y-1.5 pl-6;
+  }
+  .prose-solhub a {
+    @apply text-foreground underline decoration-accent/60 underline-offset-2 hover:decoration-accent;
+  }
+  .prose-solhub code {
+    @apply rounded-[2px] bg-secondary px-1.5 py-0.5 font-mono text-[13px];
+  }
+  .prose-solhub blockquote {
+    @apply my-4 border-l-2 border-accent/60 pl-4 text-muted-foreground italic;
+  }
+}
+
+/* ---------- Motion ---------- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-rise {
+  animation: rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade-in {
+  animation: fade-in 0.18s ease-out both;
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-dialog-in {
+  animation: dialog-in 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 长内容横向滚动（代码 / JSON 输出） */
+.scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}

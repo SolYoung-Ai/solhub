@@ -1,0 +1,64 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="隐私说明"
+  description="SolHub 隐私说明：工具在浏览器本地运行，输入不发送到服务器；不加入广告与跟踪 SDK；本地收藏只保存在当前浏览器。"
+  route="/privacy/"
+>
+  <section class="border-b border-border bg-secondary/30 py-14">
+    <div class="container-page">
+      <p class="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
+        Privacy
+      </p>
+      <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+        隐私说明
+      </h1>
+      <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
+        SolHub 的原则是：<strong>尽量减少数据传输</strong>。本页描述我们实际做了什么，不虚构安全承诺。
+      </p>
+    </div>
+  </section>
+
+  <section class="py-12">
+    <div class="container-page prose-solhub max-w-3xl">
+      <h2>工具数据：只在你的浏览器里</h2>
+      <p>
+        所有在线工具（JSON 格式化、文本统计、Base64、UUID、密码生成、颜色转换、图片压缩、二维码等）
+        都在浏览器本地运行。你的输入内容<strong>不会发送到任何服务器</strong>，页面也不通过控制台记录输入。
+      </p>
+      <ul>
+        <li>图片压缩工具中你选择的图片<strong>不会上传</strong>，处理全部在本地完成。</li>
+        <li>密码生成器使用浏览器原生安全随机数，生成的密码不会保存。</li>
+        <li>工具页面不加入广告 SDK、跟踪 SDK 或第三方分析服务。</li>
+      </ul>
+
+      <h2>本地存储</h2>
+      <ul>
+        <li>提交表单在未配置远程接口时，会把草稿保存到当前浏览器的 <code>localStorage</code>。它<strong>只存在于当前浏览器</strong>，不会公开给其他访问者，也不会同步到任何服务器。</li>
+        <li>未来若加入本地收藏功能，同样只保存在当前浏览器。</li>
+      </ul>
+
+      <h2>需要网络请求的能力</h2>
+      <p>以下情况会发起网络请求，目的与目标均已明确：</p>
+      <ul>
+        <li>如果你配置了远程提交接口（<code>PUBLIC_SOLHUB_SUBMIT_ENDPOINT</code>），提交内容会发送到该接口；未配置则不会。</li>
+        <li>如果你配置了 GitHub 投稿仓库（<code>PUBLIC_SOLHUB_ISSUE_REPO</code>），系统会生成预填 Issue 链接，<strong>由你自己点击</strong>在 GitHub 上提交。</li>
+        <li>产品官网链接由访问者自行点击打开，SolHub 不会自动抓取或收集其内容。</li>
+      </ul>
+
+      <h2>页面静态托管</h2>
+      <p>
+        SolHub 是静态网站，部署于 GitHub Pages 等静态托管平台。托管平台可能出于基础设施目的记录标准访问日志
+        （IP、浏览器类型、请求时间等），这是托管服务的通用行为，SolHub 本身不部署任何统计脚本。
+      </p>
+
+      <h2>变更</h2>
+      <p>
+        本说明会随网站功能变化更新。如果未来引入分析、登录或其他数据处理能力，我们会先更新此页面，
+        再上线对应功能。
+      </p>
+    </div>
+  </section>
+</BaseLayout>
