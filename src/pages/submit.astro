@@ -4,8 +4,8 @@ import SubmitForm from "@/islands/SubmitForm.tsx";
 ---
 
 <BaseLayout
-  title="提交产品"
-  description="把你自己开发的网站、软件或 AI 工具提交到 SolHub。提交后进入待核验队列，通过核验的产品将获得 Verified 状态并进入榜单。"
+  title="提交产品与工具"
+  description="把你开发的网站、软件、AI 工具或自包含 HTML 工具提交到 SolHub。提交即自动公开到社区列表；托管工具在沙箱内运行。"
   route="/submit/"
 >
   <section class="border-b border-border bg-secondary/30 py-14">
@@ -14,11 +14,11 @@ import SubmitForm from "@/islands/SubmitForm.tsx";
         Launch
       </p>
       <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-        提交你的产品
+        提交你的产品与工具
       </h1>
       <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
         如果你开发了网站、软件或 AI 工具，欢迎提交到 SolHub，让更多独立开发者和使用者发现它。
-        提交后将进入待核验队列；只有通过实际核验的产品才会被标记为 Verified。
+        提交即自动公开到社区列表；自包含 HTML 工具可以直接托管，在本站沙箱内运行。
       </p>
     </div>
   </section>
@@ -34,27 +34,28 @@ import SubmitForm from "@/islands/SubmitForm.tsx";
           <ol class="mt-3 space-y-3 text-[13px] leading-6 text-muted-foreground">
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">01</span>
-              填写产品信息并预览
+              填写信息并预览
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">02</span>
-              选择提交方式（远程接口 / GitHub Issue / 本地草稿）
+              选择类型：产品 / 工具外链 / 托管工具
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">03</span>
-              进入待核验（Pending）队列
+              提交即自动公开到社区列表
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">04</span>
-              SolHub 编辑实际核验官网后标记 Verified
+              榜单精选位由 SolHub 人工核验后收录
             </li>
           </ol>
         </div>
         <div class="card p-5">
-          <h2 class="text-sm font-bold text-foreground">核验原则</h2>
+          <h2 class="text-sm font-bold text-foreground">核验与安全</h2>
           <p class="mt-2 text-[13px] leading-6 text-muted-foreground">
-            Verified 不会仅凭填写信息自动授予。我们要求产品官网可访问、名称与描述一致；
-            自动核验（Meta Tag / DNS TXT）能力尚未启用，当前全部为人工核验。
+            社区提交自动公开但不会伪造 Verified 状态；Verified 仅授予实际核验通过的产品。
+            托管工具在沙箱 iframe 中运行：脚本受限、无法访问主站数据；上传仅限 1MB 以内的
+            自包含 HTML 文件。
           </p>
         </div>
       </aside>

@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import { products } from "@/data/products";
 import { rankingRules } from "@/lib/ranking";
 import LaunchesExplorer from "@/islands/LaunchesExplorer.tsx";
+import CommunityFeed from "@/islands/CommunityFeed.tsx";
 ---
 
 <BaseLayout
@@ -20,7 +21,7 @@ import LaunchesExplorer from "@/islands/LaunchesExplorer.tsx";
       </h1>
       <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
         发现独立开发者正在创造的产品。所有排名都有清晰的规则，核验状态以 SolHub
-        实际核验为准；演示数据带有明确标记，不会伪装成真实运营数据。
+        实际核验为准；社区提交自动公开但未经人工核验，会单独标注。
       </p>
 
       <div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -39,6 +40,7 @@ import LaunchesExplorer from "@/islands/LaunchesExplorer.tsx";
   <section class="py-12">
     <div class="container-page">
       <LaunchesExplorer client:load products={products} />
+      <CommunityFeed client:load kind="product" limit={8} title="社区提交的产品" />
     </div>
   </section>
 </BaseLayout>

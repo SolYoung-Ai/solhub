@@ -6,6 +6,7 @@ import { buildSearchIndex } from "@/lib/search";
 import { p, stripBase, absoluteUrl } from "@/lib/paths";
 import HeaderApp from "@/islands/HeaderApp.tsx";
 import Footer from "@/components/Footer.astro";
+import "../styles/global.css";
 
 interface Props {
   title: string;
@@ -74,7 +75,6 @@ const orgJsonLd = {
       rel="stylesheet"
     />
 
-    <link rel="stylesheet" href={p("/src/styles/global.css")} />
     <script type="application/ld+json" set:html={JSON.stringify(orgJsonLd)} />
   </head>
   <body class="flex min-h-screen flex-col">

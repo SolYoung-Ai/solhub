@@ -2,6 +2,7 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { tools } from "@/data/tools";
 import ToolsExplorer from "@/islands/ToolsExplorer.tsx";
+import CommunityFeed from "@/islands/CommunityFeed.tsx";
 
 const initialCategory = Astro.url.searchParams.get("category") ?? "all";
 ---
@@ -29,6 +30,7 @@ const initialCategory = Astro.url.searchParams.get("category") ?? "all";
   <section class="py-12">
     <div class="container-page">
       <ToolsExplorer client:load tools={tools} initialCategory={initialCategory} />
+      <CommunityFeed client:load kind="tool" limit={8} title="社区工具" />
     </div>
   </section>
 </BaseLayout>

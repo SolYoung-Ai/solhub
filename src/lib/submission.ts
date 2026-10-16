@@ -13,7 +13,7 @@ import { submissionConfig } from "@/data/site";
  * 严禁把任何密钥写入前端代码或公开配置。
  */
 
-export type SubmissionMode = "local-draft" | "github-issue" | "remote";
+export type SubmissionMode = "local-draft" | "github-issue" | "remote" | "cloudbase";
 
 export interface SubmissionResult {
   ok: boolean;

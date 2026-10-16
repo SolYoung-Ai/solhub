@@ -10,6 +10,7 @@ import ProductCard from "@/components/ProductCard.astro";
 import ToolCard from "@/components/ToolCard.astro";
 import SectionHeading from "@/components/SectionHeading.astro";
 import HeroSearch from "@/islands/HeroSearch.tsx";
+import CommunityFeed from "@/islands/CommunityFeed.tsx";
 
 const featured = rankProducts(products).slice(0, 3);
 const newLaunches = rankProducts(products).slice(3, 7);
@@ -162,7 +163,7 @@ const featuredTools = featuredToolIds
       <SectionHeading
         eyebrow="Recently Added"
         title="新收录的产品"
-        description="最近加入 SolHub 的产品。演示数据带有明确标记，不会被误认为真实运营数据。"
+        description="最近加入 SolHub 的产品，均为真实可访问的站点。"
         actionHref={p("/launches/")}
         actionLabel="浏览全部"
       />
@@ -175,6 +176,13 @@ const featuredTools = featuredToolIds
           ))
         }
       </div>
+    </div>
+  </section>
+
+  <!-- ===== 社区提交 ===== -->
+  <section class="border-t border-border bg-secondary/30 py-16">
+    <div class="container-page">
+      <CommunityFeed client:load limit={4} title="社区最新提交" />
     </div>
   </section>
 
@@ -191,8 +199,8 @@ const featuredTools = featuredToolIds
           自己做了一款网站、软件或 AI 工具？
         </h2>
         <p class="relative mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
-          把它提交到 SolHub，让更多独立开发者与使用者发现它。提交后会进入待核验队列，
-          通过核验的产品将获得 Verified 状态并进入榜单。
+          把它提交到 SolHub，让更多独立开发者与使用者发现它。提交即自动公开到社区列表；
+          也可以上传自包含 HTML，让工具直接在本站沙箱内运行。
         </p>
         <a href={p("/submit/")} class="btn btn-accent relative mt-6 !h-10 px-6">
           Submit a Product
