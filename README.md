@@ -81,14 +81,31 @@ npm test             # vitest 单元测试（工具纯逻辑）
 若部署到自定义域名根路径，把工作流中 `Compute base path` 一节的输出改为 `base=/`，
 并在仓库根目录添加 `CNAME` 文件（内容为你的域名）。
 
-### 4. 提交系统配置（可选）
+### 4. 社区提交后端（CloudBase，已接入）
+
+SolHub 的社区提交使用 **腾讯云 CloudBase（PostgreSQL）** 作为数据后端，配置见 `.env`：
 
 | 环境变量 | 说明 |
 | --- | --- |
-| `PUBLIC_SOLHUB_ISSUE_REPO` | 例如 `SolYoung-work/solhub`。配置后提交页生成 GitHub Issue 预填链接，由用户自行点击提交 |
+| `PUBLIC_CLOUDBASE_ENV_ID` | CloudBase 环境 ID（如 `solyoung-d4gpp1f7s4e075f6d`） |
+| `PUBLIC_CLOUDBASE_PUBLISHABLE_KEY` | CloudBase Publishable Key（anon 公开身份，可暴露给浏览器；**严禁放置 API Key / SecretKey**） |
+
+数据边界（RLS 在数据库层强制，前端无法绕过）：
+
+- `submissions` 表：任何人可 `INSERT`（状态由数据库默认并强制为 `approved`）与 `SELECT approved` 行 —— **提交即自动公开**。
+- 托管工具 HTML 存 `solhub-tools` 存储桶（仅 text/html，≤1MB），前端以签名 URL + **沙箱 iframe** 加载。
+- 隐藏 / 拒绝 / 清理违规内容需通过管理端（CloudBase 控制台或 API Key）执行。
+
+后端结构定义在 `cloudbase/migrations/`，可直接用 `tcb db pg migration` 复现。
+
+### 5. 备用提交通道（可选）
+
+| 环境变量 | 说明 |
+| --- | --- |
+| `PUBLIC_SOLHUB_ISSUE_REPO` | 例如 `SolYoung-Ai/solhub`。配置后提交页生成 GitHub Issue 预填链接，由用户自行点击提交 |
 | `PUBLIC_SOLHUB_SUBMIT_ENDPOINT` | 远程提交接口 URL（需服务端实现并允许 CORS） |
 
-两者都未配置时，提交内容保存为**本地草稿**（仅当前浏览器）并提供 JSON 导出——页面会明确说明，
+CloudBase 不可用或未配置时，提交内容保存为**本地草稿**（仅当前浏览器）并提供 JSON 导出——页面会明确说明，
 不会伪装成全站公开数据。**严禁把任何密钥写入前端代码或公开仓库。**
 
 ## 数据维护
@@ -113,9 +130,14 @@ UTM 构建、宽高比计算、颜色转换、robots.txt、llms.txt、JSON-LD、
 ## 已知限制与待完成事项
 
 - **自动域名核验**（Meta Tag / DNS TXT / 文件验证）尚未启用，当前为人工核验。
-- **远程提交接口 / GitHub Issue 投稿**需按上文配置环境变量后启用。
-- **投票 / 收藏 / 评论 / 账号系统**需要真实后端，当前未接入；本地收藏只保存在当前浏览器。
+- **社区提交治理**：自动公开模式下隐藏违规内容需管理端操作（CloudBase 控制台 / API）。
+- **投票 / 收藏 / 评论 / 账号系统**需要真实用户体系，当前未接入；本地收藏只保存在当前浏览器。
 - **OG 分享图**目前使用 SVG（部分平台可能不渲染），后续可替换为静态 PNG。
+
+## 线上部署（solyoung.top/solhub/）
+
+当前线上部署链路：源码仓库 `SolYoung-Ai/solhub` 构建 → `BASE_PATH=/solhub/ npm run build`
+→ 复制 `dist/` 到个人站仓库 `SolYoung-Ai/SolYoung` 的 `solhub/` 目录 → 追加 `now.json` 动态 → push 上线。
 
 ## 许可
 

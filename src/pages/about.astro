@@ -37,8 +37,15 @@ import { p } from "@/lib/paths";
         <li><strong>先把真实可用的功能做好</strong>，不追求空洞的功能数量。</li>
         <li><strong>所有排名、核验状态和数据来源必须清晰</strong>，不使用虚构的访问量、用户数或投票数装饰页面。</li>
         <li><strong>工具尽量在浏览器本地运行</strong>，不上传你的输入、图片或敏感数据。</li>
-        <li><strong>不伪装后端能力</strong>：没有后端时，提交内容保存为本地草稿并明确告知，不会伪装成全站公开数据。</li>
+        <li><strong>社区提交自动公开但绝不伪造核验</strong>：提交即公开到社区列表，但 Verified 状态只授予人工实际核验通过的产品。</li>
       </ul>
+
+      <h2>社区提交</h2>
+      <p>
+        SolHub 已接入 CloudBase（PostgreSQL）作为社区提交后端：任何人提交的产品 / 工具会<strong>自动公开</strong>到社区列表，
+        无需人工审核；自包含 HTML 工具可以上传，在本站<strong>沙箱 iframe</strong> 中隔离运行。
+        提交内容未经人工核验，请自行判断。榜单精选位仍由 SolHub 人工核验后收录。
+      </p>
 
       <h2 id="verification">核验机制</h2>
       <p>
@@ -62,10 +69,9 @@ import { p } from "@/lib/paths";
       <h2 id="roadmap">路线图与已知限制</h2>
       <p>以下能力需要外部服务或后端支持，当前尚未接入：</p>
       <ul>
-        <li><strong>远程提交接口</strong>：需要自建 API（或 Supabase / Firebase 等）并配置 <code>PUBLIC_SOLHUB_SUBMIT_ENDPOINT</code>。</li>
-        <li><strong>GitHub Issue 投稿</strong>：配置 <code>PUBLIC_SOLHUB_ISSUE_REPO</code> 后启用，由用户自己点击提交。</li>
-        <li><strong>自动域名核验</strong>：Meta Tag / DNS TXT 核验需要后端验证服务。</li>
-        <li><strong>全局投票 / 收藏 / 评论 / 账号系统</strong>：需要真实后端；本地收藏目前保存在当前浏览器。</li>
+        <li><strong>自动域名核验</strong>：Meta Tag / DNS TXT 核验需要后端验证服务，当前为人工核验。</li>
+        <li><strong>全局投票 / 收藏 / 评论 / 账号系统</strong>：需要真实用户体系；本地收藏目前保存在当前浏览器。</li>
+        <li><strong>社区提交的治理</strong>：自动公开模式下，隐藏违规内容需通过管理端操作（CloudBase 控制台或服务端 API）。</li>
       </ul>
 
       <h2>关于我们</h2>

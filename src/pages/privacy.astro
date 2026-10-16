@@ -34,17 +34,26 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
         <li>工具页面不加入广告 SDK、跟踪 SDK 或第三方分析服务。</li>
       </ul>
 
+      <h2>社区提交与托管工具</h2>
+      <p>SolHub 的社区提交功能使用腾讯云 CloudBase（PostgreSQL）作为数据后端：</p>
+      <ul>
+        <li><strong>提交内容</strong>（名称、介绍、链接、开发者信息）在提交时写入 CloudBase 数据库，并<strong>自动公开</strong>到社区列表，任何访问者都能看到。</li>
+        <li><strong>托管工具</strong>：你上传的自包含 HTML 文件会存入 CloudBase 对象存储（仅限 text/html、≤1MB），并在本站的<strong>沙箱 iframe</strong> 中运行。沙箱限制脚本能力，托管工具无法读取 SolHub 主站数据或其他提交者的内容。</li>
+        <li><strong>未配置后端时的回退</strong>：如果 CloudBase 不可用，提交内容会保存到当前浏览器的 <code>localStorage</code>（仅存在于当前浏览器，不会公开）。</li>
+        <li>提交页不会暴露任何数据库密钥；前端仅使用 CloudBase 的公开匿名身份（Publishable Key）。</li>
+      </ul>
+
       <h2>本地存储</h2>
       <ul>
-        <li>提交表单在未配置远程接口时，会把草稿保存到当前浏览器的 <code>localStorage</code>。它<strong>只存在于当前浏览器</strong>，不会公开给其他访问者，也不会同步到任何服务器。</li>
+        <li>提交表单在 CloudBase 不可用或提交失败时，会把草稿保存到当前浏览器的 <code>localStorage</code>。它<strong>只存在于当前浏览器</strong>，不会公开给其他访问者。</li>
         <li>未来若加入本地收藏功能，同样只保存在当前浏览器。</li>
       </ul>
 
       <h2>需要网络请求的能力</h2>
       <p>以下情况会发起网络请求，目的与目标均已明确：</p>
       <ul>
-        <li>如果你配置了远程提交接口（<code>PUBLIC_SOLHUB_SUBMIT_ENDPOINT</code>），提交内容会发送到该接口；未配置则不会。</li>
-        <li>如果你配置了 GitHub 投稿仓库（<code>PUBLIC_SOLHUB_ISSUE_REPO</code>），系统会生成预填 Issue 链接，<strong>由你自己点击</strong>在 GitHub 上提交。</li>
+        <li>社区提交写入与读取：请求发送到 CloudBase（腾讯云，ap-shanghai 环境），仅传输你在表单中填写的内容与公开列表数据。</li>
+        <li>托管工具加载：点击「打开工具」时，向 CloudBase 对象存储请求该工具 HTML 的临时访问地址，<strong>该地址 1 小时内有效</strong>。</li>
         <li>产品官网链接由访问者自行点击打开，SolHub 不会自动抓取或收集其内容。</li>
       </ul>
 

@@ -78,6 +78,28 @@ export interface Submission {
   submissionProvider: string;
 }
 
+/**
+ * CloudBase 社区提交的归一化结构（对应 submissions 表）。
+ * 产品与工具统一存储：kind 区分，tool_type 区分外链 / 托管。
+ */
+export interface CloudBaseSubmission {
+  id: number;
+  kind: "product" | "tool";
+  name: string;
+  shortDescription: string;
+  description: string;
+  url: string;
+  category: string;
+  tags: string[];
+  iconUrl: string;
+  developer: string;
+  contact: string;
+  toolType?: "external" | "hosted";
+  hostedKey?: string;
+  status: "approved" | "hidden" | "rejected";
+  createdAt: string;
+}
+
 export interface SearchIndexEntry {
   kind: "product" | "tool";
   slug: string;
