@@ -71,9 +71,11 @@ const metaDesc = en
         )}
       </h1>
       <p class="mx-auto mt-5 max-w-2xl text-[15px] leading-7 text-muted-foreground sm:text-base">
-        {en
-          ? "Explore products indie developers are building, use simple, practical, free online tools,<br class=\"hidden sm:block\" />and ship every good idea faster."
-          : "探索独立开发者正在创造的产品，使用简单、实用、免费的在线工具，<br class=\"hidden sm:block\" />让每一个好想法更快落地。"}
+        {en ? (
+          <>Explore products indie developers are building, use simple, practical, free online tools,<br class="hidden sm:block" />and ship every good idea faster.</>
+        ) : (
+          <>探索独立开发者正在创造的产品，使用简单、实用、免费的在线工具，<br class="hidden sm:block" />让每一个好想法更快落地。</>
+        )}
       </p>
 
       <div class="mx-auto mt-8 max-w-xl">
