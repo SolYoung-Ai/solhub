@@ -1,0 +1,208 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { products } from "@/data/products";
+import { productCategoryName } from "@/data/product-categories";
+import { rankProducts } from "@/lib/ranking";
+import { formatDateZh } from "@/lib/utils";
+import { p, absoluteUrl } from "@/lib/paths";
+import Badge from "@/components/Badge.astro";
+import ProductCard from "@/components/ProductCard.astro";
+import { ExternalLink, ShieldCheck, AlertCircle } from "lucide-react";
+
+export function getStaticPaths() {
+  return products.map((product) => ({
+    params: { slug: product.slug },
+    props: { product },
+  }));
+}
+
+interface Props {
+  product: (typeof products)[number];
+}
+
+const { product } = Astro.props;
+
+const statusMeta: Record<
+  string,
+  { icon: string; title: string; text: string }
+> = {
+  verified: {
+    icon: "verified",
+    title: "已核验",
+    text: "SolHub 编辑已实际访问该产品官网，核对产品名称、描述与站点可用性后标记为 Verified。核验不代表产品功能质量的保证，仅代表核验时点上的真实性与可访问性。",
+  },
+  pending: {
+    icon: "pending",
+    title: "待核验",
+    text: "该产品已进入 SolHub 核验队列，等待编辑实际核验。核验完成前不会显示 Verified 状态。",
+  },
+  unverified: {
+    icon: "unverified",
+    title: "未核验",
+    text: "该产品尚未通过 SolHub 核验。未核验不代表产品有问题，只是我们还没有实际确认过它的官网与描述。",
+  },
+};
+
+const meta = statusMeta[product.verificationStatus];
+
+const related = rankProducts(products)
+  .filter((p) => p.id !== product.id)
+  .slice(0, 3);
+
+const schemaJsonLd = {
+  "@context": "https://schema.org",
+  "@type": product.isDemo ? "Product" : "SoftwareApplication",
+  name: product.name,
+  description: product.shortDescription,
+  url: absoluteUrl(`/products/${product.slug}/`),
+  ...(product.isDemo ? {} : { applicationCategory: "WebApplication", operatingSystem: "Web" }),
+  ...(product.websiteUrl ? { sameAs: [product.websiteUrl] } : {}),
+};
+---
+
+<BaseLayout
+  title={product.name}
+  description={product.shortDescription}
+  route={`/products/${product.slug}/`}
+  ogType="website"
+>
+  <div class="container-page py-10">
+    <!-- 面包屑 -->
+    <nav class="mb-6 flex items-center gap-1.5 text-xs text-muted-foreground" aria-label="面包屑">
+      <a href={p("/")} class="hover:text-foreground">Home</a>
+      <span aria-hidden="true">/</span>
+      <a href={p("/launches/")} class="hover:text-foreground">Launches</a>
+      <span aria-hidden="true">/</span>
+      <span class="truncate text-foreground/80">{product.name}</span>
+    </nav>
+
+    <div class="grid gap-10 lg:grid-cols-[1fr_300px]">
+      <!-- 主栏 -->
+      <article>
+        <div class="flex items-start gap-4">
+          {
+            product.icon ? (
+              <img src={product.icon} alt="" class="h-16 w-16 shrink-0 rounded-[4px] border border-border bg-card object-cover" />
+            ) : (
+              <span class="flex h-16 w-16 shrink-0 items-center justify-center rounded-[4px] border border-border bg-secondary font-display text-xl font-bold text-foreground/70" aria-hidden="true">
+                {product.name.slice(0, 2).toUpperCase()}
+              </span>
+            )
+          }
+          <div class="min-w-0">
+            <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground">
+              {product.name}
+            </h1>
+            <p class="mt-2 text-[15px] leading-7 text-muted-foreground">
+              {product.shortDescription}
+            </p>
+          </div>
+        </div>
+
+        {
+          product.isDemo && (
+            <div class="mt-5 flex items-start gap-2.5 rounded-[3px] border border-warning/30 bg-warning/10 p-4 text-sm leading-6 text-warning">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <p>
+                这是一条<strong>演示数据</strong>：仅用于展示 SolHub 产品详情页的信息架构，不代表任何真实运营的产品。
+                演示数据不会被授予任何核验状态。
+              </p>
+            </div>
+          )
+        }
+
+        <div class="mt-8">
+          <h2 class="font-display text-lg font-bold text-foreground">关于这个产品</h2>
+          <p class="prose-solhub mt-3 whitespace-pre-line">{product.description}</p>
+        </div>
+
+        <div class="mt-8 flex flex-wrap gap-2">
+          {product.tags.map((tag) => (
+            <span class="badge border-border bg-secondary/50 text-muted-foreground">#{tag}</span>
+          ))}
+        </div>
+
+        <div class="mt-8 grid gap-4 sm:grid-cols-2">
+          <a
+            href={product.websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-primary !h-11 w-full"
+          >
+            访问官网
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+          </a>
+          <a href={p("/submit/")} class="btn btn-outline !h-11 w-full">
+            提交你的产品
+          </a>
+        </div>
+
+        <!-- 相关产品 -->
+        <div class="mt-12 border-t border-border pt-8">
+          <h2 class="font-display text-lg font-bold text-foreground">你可能也感兴趣</h2>
+          <div class="mt-4 grid gap-4 sm:grid-cols-3">
+            {
+              related.map((item) => (
+                <ProductCard product={item} />
+              ))
+            }
+          </div>
+        </div>
+      </article>
+
+      <!-- 侧栏：核验信息 -->
+      <aside class="space-y-5 lg:pt-1">
+        <div class="card p-5">
+          <h2 class="flex items-center gap-2 text-sm font-bold text-foreground">
+            <ShieldCheck className="h-4 w-4 text-success" aria-hidden="true" />
+            核验状态
+          </h2>
+          <div class="mt-3">
+            <Badge status={product.verificationStatus} isDemo={product.isDemo} />
+          </div>
+          <p class="mt-3 text-[13px] leading-6 text-muted-foreground">{meta.text}</p>
+          {
+            product.verificationStatus === "verified" && product.verifiedAt && (
+              <p class="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+                核验时间：{formatDateZh(product.verifiedAt)}
+                <br />
+                核验方式：{product.verificationMethod}
+              </p>
+            )
+          }
+        </div>
+
+        <dl class="card divide-y divide-border p-5 text-sm">
+          <div class="flex items-center justify-between py-2">
+            <dt class="text-muted-foreground">分类</dt>
+            <dd class="font-medium text-foreground">{productCategoryName(product.category)}</dd>
+          </div>
+          <div class="flex items-center justify-between py-2">
+            <dt class="text-muted-foreground">开发者</dt>
+            <dd class="font-medium text-foreground">{product.developerName}</dd>
+          </div>
+          <div class="flex items-center justify-between py-2">
+            <dt class="text-muted-foreground">收录时间</dt>
+            <dd class="font-medium text-foreground">{formatDateZh(product.publishedAt)}</dd>
+          </div>
+          <div class="flex items-center justify-between py-2">
+            <dt class="text-muted-foreground">榜单批次</dt>
+            <dd class="font-medium text-foreground">{product.launchBatch}</dd>
+          </div>
+        </dl>
+
+        <div class="card p-5">
+          <p class="text-[13px] leading-6 text-muted-foreground">
+            想加入榜单？提交你的产品，通过核验后将获得 Verified 状态。当前核验为人工核验，
+            自动核验（Meta Tag / DNS TXT）功能尚未启用。
+          </p>
+          <a href={p("/submit/")} class="btn btn-accent mt-3 w-full !h-9">
+            提交产品
+          </a>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script type="application/ld+json" set:html={JSON.stringify(schemaJsonLd)} />
+</BaseLayout>

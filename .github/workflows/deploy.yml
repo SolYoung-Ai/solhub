@@ -1,0 +1,65 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 自动计算 GitHub Pages 项目站点的 base 路径：
+      # - 仓库名为 <owner>.github.io 时部署到根路径（base=/）
+      # - 其他仓库名部署到 /<repo>/ 子路径
+      # 若使用自定义域名，请在仓库 Variables 中设置 ASTRO_SITE（如 https://solyoung.top）
+      # 并把下面输出改为 base=/
+      - name: Compute base path
+        id: base
+        run: |
+          REPO="${{ github.repository }}"
+          NAME="${REPO#*/}"
+          if [[ "$NAME" == "${{ github.repository_owner }}.github.io" ]]; then
+            echo "base=/" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=/$NAME/" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        run: BASE_PATH=${{ steps.base.outputs.base }} npm run build
+        env:
+          ASTRO_SITE: ${{ vars.ASTRO_SITE }}
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

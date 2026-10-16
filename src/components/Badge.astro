@@ -1,0 +1,55 @@
+---
+import type { VerificationStatus } from "@/data/types";
+import { getIcon } from "@/lib/icons";
+
+interface Props {
+  status: VerificationStatus;
+  isDemo?: boolean;
+}
+
+const { status, isDemo = false } = Astro.props;
+
+const configs: Record<
+  VerificationStatus,
+  { label: string; icon: string; classes: string; title: string }
+> = {
+  verified: {
+    label: "Verified",
+    icon: "ShieldCheck",
+    classes: "border-success/30 bg-success/10 text-success",
+    title: "已通过 SolHub 实际核验",
+  },
+  pending: {
+    label: "Pending",
+    icon: "Clock",
+    classes: "border-warning/30 bg-warning/10 text-warning",
+    title: "等待核验",
+  },
+  unverified: {
+    label: "Unverified",
+    icon: "ShieldAlert",
+    classes: "border-border-strong bg-secondary/60 text-muted-foreground",
+    title: "尚未核验",
+  },
+};
+
+const cfg = configs[status];
+const Icon = getIcon(cfg.icon);
+---
+
+<span class="inline-flex items-center gap-1.5">
+  {
+    isDemo && (
+      <span
+        class="badge border-border-strong bg-secondary text-muted-foreground"
+        title="演示数据：仅用于展示产品形态，不代表真实运营数据"
+      >
+        演示数据
+      </span>
+    )
+  }
+  <span class:list={["badge", cfg.classes]} title={cfg.title}>
+    <Icon className="h-3 w-3" aria-hidden="true" />
+    {cfg.label}
+  </span>
+</span>
