@@ -267,7 +267,7 @@ function Logo({ locale = "zh" }: { locale?: Locale }) {
   return (
     <a href={p("/", locale)} className="inline-flex items-center leading-none" aria-label="SolHub">
       <img
-        src="/solhub/solhub-mark.png"
+        src="/solhub-mark.png"
         alt=""
         width={56}
         height={56}

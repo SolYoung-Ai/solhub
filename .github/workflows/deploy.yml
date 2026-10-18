@@ -1,4 +1,4 @@
-name: Build & Deploy to solyoung.top
+name: Build & Deploy to solhub.solyoung.top
 
 on:
   push:
@@ -20,26 +20,14 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: BASE_PATH=/solhub/ npm run build
+        run: BASE_PATH=/ npm run build
 
-      - name: Deploy to SolYoung repo
-        env:
-          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
-        run: |
-          git config --global user.name "SolHub Bot"
-          git config --global user.email "solhub-bot@users.noreply.github.com"
-          
-          git clone https://x-access-token:${DEPLOY_TOKEN}@github.com/SolYoung-Ai/SolYoung.git _deploy
-          
-          rm -rf _deploy/solhub
-          mkdir -p _deploy/solhub
-          cp -r dist/* _deploy/solhub/
-          
-          cd _deploy
-          git add solhub
-          if git diff --staged --quiet; then
-            echo "No changes to deploy"
-          else
-            git commit -m "deploy: solhub update $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git push
-          fi
+      - name: Add CNAME
+        run: echo "solhub.solyoung.top" > dist/CNAME
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.DEPLOY_TOKEN }}
+          publish_dir: ./dist
+          force_orphan: true
