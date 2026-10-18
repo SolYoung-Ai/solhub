@@ -100,10 +100,13 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     if (Object.values(e).some(Boolean)) return;
     setStatus("submitting");
     try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
       const res = await fetch(`${WORKER}/publish`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
+        signal: ctrl.signal,
         body: JSON.stringify({
           name: form.name.trim(),
           shortDescription: form.shortDescription.trim(),
@@ -115,6 +118,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           developerName: form.developerName.trim(),
         }),
       });
+      clearTimeout(t);
       const data = await res.json();
       if (data.ok) {
         setStatus("success");
@@ -125,7 +129,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       }
     } catch (err: any) {
       setStatus("error");
-      setResult({ mode: "cloudbase", message: "网络错误，请稍后重试" });
+      setResult({ mode: "cloudbase", message: "网络超时，请用邮箱提交" });
     }
   };
 

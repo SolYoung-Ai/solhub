@@ -308,7 +308,7 @@ export default {
       // Check URL reachability
       try {
         const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 8000);
+        const t = setTimeout(() => ctrl.abort(), 5000);
         const checkRes = await fetch(websiteUrl, {
           method: "HEAD",
           redirect: "follow",
