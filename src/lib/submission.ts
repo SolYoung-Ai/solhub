@@ -63,7 +63,7 @@ export function buildIssueBody(sub: Submission): string {
 export function buildIssueUrl(repo: string, sub: Submission): string {
   const body = encodeURIComponent(buildIssueBody(sub));
   const title = encodeURIComponent(`[SolHub] 产品提交：${sub.productFields.name}`);
-  return `https://github.com/${repo}/issues/new?title=${title}&body=${body}`;
+  return `https://github.com/${repo}/issues/new?title=${title}&body=${body}&labels=submission`;
 }
 
 export async function submitSubmission(sub: Submission): Promise<SubmissionResult> {

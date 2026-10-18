@@ -67,7 +67,7 @@ const metaDesc = en
         {en ? (
           <>SolHub is connected to CloudBase (PostgreSQL) as the community submission backend: anyone's product / tool is <strong>auto-published</strong> to the community list without manual review; self-contained HTML tools can be uploaded and run in a <strong>sandboxed iframe</strong> here. Submitted content is not manually verified — judge for yourself. Ranked picks are still manually verified by SolHub.</>
         ) : (
-          <>SolHub 已接入 CloudBase（PostgreSQL）作为社区提交后端：任何人提交的产品 / 工具会<strong>自动公开</strong>到社区列表，无需人工审核；自包含 HTML 工具可以上传，在本站<strong>沙箱 iframe</strong> 中隔离运行。提交内容未经人工核验，请自行判断。榜单精选位仍由 SolHub 人工核验后收录。</>
+          <>任何人填写表单即可提交产品，无需 GitHub 账号。提交后产品<strong>立即公开</strong>到社区列表；SolHub 在 24 小时内完成核验，通过后标记 Verified。提交者可登录 GitHub 在「我的提交」页面管理自己的产品。</>
         )}
       </p>
 
@@ -79,7 +79,7 @@ const metaDesc = en
         <strong>Unverified</strong>{en ? " (not yet checked)." : "（尚未核验）。"}
       </p>
       <ul>
-        <li>{en ? "Verification is currently <strong>manual</strong>: editors visit the product website, check name, description and reachability, and record the time." : "当前核验方式为<strong>人工核验</strong>：编辑实际访问产品官网，核对名称、描述与站点可访问性，并记录核验时间。"}</li>
+        <li>{en ? "Verification is currently <strong>manual within 24 hours</strong>: editors visit the product website, check name, description and reachability, and record the time." : "当前核验为<strong>人工核验，24 小时内完成</strong>：编辑实际访问产品官网，核对名称、描述与站点可访问性，并记录核验时间。"}</li>
         <li>{en ? "Verified can never be granted just by user-entered info, image uploads or button clicks." : "不允许仅凭用户填写的信息、图片上传或点击按钮自动显示 Verified。"}</li>
         <li>{en ? "Automatic verification (Meta Tag, file check, DNS TXT) is reserved with documented interfaces but not enabled yet." : "自动核验（Meta Tag、文件验证、DNS TXT）已预留接口说明，但功能尚未启用。"}</li>
         <li>{en ? "Demo entries are always marked Unverified and carry a “demo data” badge." : "演示数据一律标记为 Unverified，并带有「演示数据」标识。"}</li>
@@ -93,11 +93,12 @@ const metaDesc = en
       </ul>
 
       <h2 id="roadmap">{en ? "Roadmap & known limits" : "路线图与已知限制"}</h2>
-      <p>{en ? "These capabilities need external services or a backend and are not connected yet:" : "以下能力需要外部服务或后端支持，当前尚未接入："}</p>
+      <p>{en ? "Current features and upcoming:" : "当前已实现与计划中的功能："}</p>
       <ul>
-        <li><strong>{en ? "Automatic domain verification" : "自动域名核验"}</strong>{en ? ": Meta Tag / DNS TXT verification needs a backend verification service; verification is manual today." : "：Meta Tag / DNS TXT 核验需要后端验证服务，当前为人工核验。"}</li>
-        <li><strong>{en ? "Global voting / bookmarks / comments / accounts" : "全局投票 / 收藏 / 评论 / 账号系统"}</strong>{en ? ": requires a real user system; local bookmarks currently live in this browser only." : "：需要真实用户体系；本地收藏目前保存在当前浏览器。"}</li>
-        <li><strong>{en ? "Community moderation" : "社区提交的治理"}</strong>{en ? ": under auto-publish, hiding violations requires admin actions (CloudBase console or server API)." : "：自动公开模式下，隐藏违规内容需通过管理端操作（CloudBase 控制台或服务端 API）。"}</li>
+        <li><strong>{en ? "GitHub OAuth login" : "GitHub 登录"}</strong>{en ? " — implemented. Users can login, submit products, and manage their own submissions." : " — 已实现。用户可登录、提交产品、管理自己的提交。"}</li>
+        <li><strong>{en ? "Community submissions" : "社区提交"}</strong>{en ? " — implemented. No GitHub account needed; submit directly via form, products appear immediately and are verified within 24 hours." : " — 已实现。无需 GitHub 账号，表单直接提交，产品立即公开，24 小时内核验。"}</li>
+        <li><strong>{en ? "Automatic domain verification" : "自动域名核验"}</strong>{en ? ": Meta Tag / DNS TXT verification needs a backend service; verification is manual today." : "：Meta Tag / DNS TXT 核验需要后端服务，当前为人工核验。"}</li>
+        <li><strong>{en ? "Voting / favorites / comments" : "投票 / 收藏 / 评论"}</strong>{en ? ": planned for future; requires a user account system." : "：计划中，需要用户账号系统支持。"}</li>
       </ul>
 
       <h2>{en ? "About us" : "关于我们"}</h2>

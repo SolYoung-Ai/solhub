@@ -1,0 +1,21 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import MySubmissions from "@/islands/MySubmissions.tsx";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+const locale = Astro.props.locale ?? "zh";
+---
+
+<BaseLayout
+  title={locale === "en" ? "My submissions · SolHub" : "我的提交 · SolHub"}
+  description={locale === "en" ? "Manage your product and tool submissions on SolHub." : "管理你提交到 SolHub 的产品和工具。"}
+  route="/my-submissions/"
+  locale={locale}
+>
+  <div class="container-page py-10">
+    <MySubmissions client:load locale={locale} />
+  </div>
+</BaseLayout>

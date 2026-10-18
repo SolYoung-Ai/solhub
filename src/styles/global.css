@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ============================================================
    SolHub Design Tokens — 继承 SolYoung Studio 品牌体系
    参考 https://solyoung.top/studio/ 实际线上样式提取：

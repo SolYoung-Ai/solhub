@@ -75,7 +75,6 @@ export const productCatEn: Record<string, { name: string; description: string }>
 export const productShortEn: Record<string, string> = {
   solyoung: "A person who turns ideas into work — an ever-updated personal digital space.",
   "solyoung-studio": "AI-powered personal websites, digital spaces and lightweight product builds.",
-  videolab: "Script + footage → finished video: automated editing for short-video creators.",
   myos: "A local-first workspace for independent creators: capture → think → create → ship → archive.",
   verity: "13 personality tests in one place — pick one and start.",
   camsim: "Camera simulator: reverse-engineer aperture, shutter and ISO from the look you want.",
@@ -86,8 +85,6 @@ export const productDescEn: Record<string, string> = {
     "SolYoung is the personal site of independent creator Song Yang (Sol Young): a digital-archive layout hosting a portfolio, an on-now timeline, essays and product entries. It's the home base of his personal brand, covering image work, AI practice and lightweight product development — continuously updated.",
   "solyoung-studio":
     "SolYoung Studio is a service site for creators, freelancers and small brands: from requirements and visual design to AI-assisted production and deployment, turning ideas into real, usable work, plus branding and collaboration entry points.",
-  videolab:
-    "VideoLAB is an automated editing workbench by SolYoung: paste a script, drop in footage, get a finished video. It features sentence-aware script parsing, shot matching, voiceover and captions, a real multi-track timeline, 6 fonts and 6 subtitle styles, and true MP4 + SRT export via WebCodecs and MP4 Muxer. Currently in open beta.",
   myos:
     "My.OS is an online personal creation system: records, inspiration, projects, now and archives in one entry point, reducing the anxiety of scattered ideas. Free to use.",
   verity:

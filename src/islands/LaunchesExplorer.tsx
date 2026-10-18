@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ArrowRight, Filter, Search } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { ArrowRight, Filter, Search, ShieldCheck } from "lucide-react";
 import type { Product } from "@/data/types";
 import { rankProducts } from "@/lib/ranking";
 import { productCategoryName } from "@/data/product-categories";
@@ -16,6 +16,15 @@ interface Props {
 }
 
 const PAGE_SIZE = 8;
+
+interface CommunityItem {
+  id: number;
+  name: string;
+  url: string;
+  icon?: string;
+  description: string;
+  createdAt: string;
+}
 
 function VerificationBadge({ status, isDemo, locale }: { status: Product["verificationStatus"]; isDemo: boolean; locale: Locale }) {
   const cfg = {
@@ -34,7 +43,10 @@ function VerificationBadge({ status, isDemo, locale }: { status: Product["verifi
       {isDemo && (
         <span className="badge border-border-strong bg-secondary text-muted-foreground">{locale === "en" ? "Demo data" : "演示数据"}</span>
       )}
-      <span className={cx("badge", cfg.cls)}>{cfg.label}</span>
+      <span className={cx("badge inline-flex items-center gap-1", cfg.cls)}>
+        {status === "verified" && <ShieldCheck className="h-3 w-3" aria-hidden="true" />}
+        {cfg.label}
+      </span>
     </span>
   );
 }
@@ -46,6 +58,8 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     const set = new Set(products.map((p) => p.category));
     return Array.from(set);
   }, [products]);
+
+  const [community] = useState<CommunityItem[]>([]);
 
   const [category, setCategory] = useState<string>("all");
   const [sort, setSort] = useState<"ranked" | "newest">("ranked");
@@ -178,12 +192,12 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                   {rank !== null && (
                     <span
                       className={cx(
-                        "font-display hidden w-8 shrink-0 text-center text-lg font-bold sm:block",
-                        rank === 1 ? "text-accent" : rank === 2 ? "text-foreground/80" : "text-muted-foreground/60",
+                        "font-display w-7 shrink-0 text-center text-base font-bold",
+                        rank === 1 ? "text-accent" : rank === 2 ? "text-foreground/80" : "text-muted-foreground/50",
                       )}
                       aria-label={`${locale === "en" ? "Rank" : "第"} ${rank} ${locale === "en" ? "" : "名"}`}
                     >
-                      {rank}
+                      #{rank}
                     </span>
                   )}
                   {product.icon ? (
@@ -198,6 +212,9 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                       <span className="font-display text-[15px] font-bold text-foreground group-hover:text-accent">
                         {product.name}
                       </span>
+                      <span className="badge border-border-strong bg-secondary/60 text-muted-foreground">
+                        {productCategoryNameLocalized(product.category, productCategoryName(product.category), locale)}
+                      </span>
                       <VerificationBadge status={product.verificationStatus} isDemo={product.isDemo} locale={locale} />
                     </span>
                     <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">
@@ -209,6 +226,52 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                         <span key={t}>#{t}</span>
                       ))}
                       <span>{locale === "en" ? `Added ${formatDateIso(product.publishedAt)}` : `收录于 ${formatDateIso(product.publishedAt)}`}</span>
+                    </span>
+                  </span>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-all duration-150 group-hover:translate-x-0.5 group-hover:text-accent" aria-hidden="true" />
+                </a>
+              </li>
+            );
+          })}
+
+          {/* 社区提交的产品（合并在同一列表，连续编号） */}
+          {community.map((item, ci) => {
+            const communityRank = sort === "ranked" ? filtered.length + ci + 1 : null;
+            return (
+              <li key={`community-${item.id}`}>
+                <a
+                  href={p(`/products/c-${item.id}/`, locale)}
+                  className="group flex items-center gap-4 px-4 py-4 transition-colors hover:bg-secondary/40 sm:px-5"
+                >
+                  {communityRank !== null && (
+                    <span
+                      className="font-display w-7 shrink-0 text-center text-base font-bold text-muted-foreground/50"
+                      aria-label={`${locale === "en" ? "Rank" : "第"} ${communityRank} ${locale === "en" ? "" : "名"}`}
+                    >
+                      #{communityRank}
+                    </span>
+                  )}
+                  {item.icon ? (
+                    <img src={item.icon} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-[3px] border border-border bg-card object-cover" />
+                  ) : (
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-border bg-secondary font-display text-sm font-bold text-foreground/70" aria-hidden="true">
+                      {item.name.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-display text-[15px] font-bold text-foreground group-hover:text-accent">
+                        {item.name}
+                      </span>
+                      <span className="badge border-accent/30 bg-accent/10 text-accent">{locale === "en" ? "Community" : "社区"}</span>
+                    </span>
+                    {item.description && (
+                      <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">
+                        {item.description}
+                      </span>
+                    )}
+                    <span className="mt-1.5 text-[11px] text-muted-foreground">
+                      {locale === "en" ? `Submitted ${item.createdAt}` : `提交于 ${item.createdAt}`}
                     </span>
                   </span>
                   <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-all duration-150 group-hover:translate-x-0.5 group-hover:text-accent" aria-hidden="true" />
