@@ -83,7 +83,51 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     return { remote, githubRepo: submissionConfig.githubIssueRepo ?? null };
   }, []);
 
-  // No auth required — email-only submission
+  const WORKER = "https://solhub-auth.solyoungwork.workers.dev";
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  const [authUser, setAuthUser] = useState<string>("");
+
+  useEffect(() => {
+    fetch(`${WORKER}/me`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => { if (d.authenticated) { setAuthed(true); setAuthUser(d.user.login); } else setAuthed(false); })
+      .catch(() => setAuthed(false));
+  }, []);
+
+  const handleAutoPublish = async () => {
+    const e = validate();
+    setErrors(e);
+    if (Object.values(e).some(Boolean)) return;
+    setStatus("submitting");
+    try {
+      const res = await fetch(`${WORKER}/publish`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          shortDescription: form.shortDescription.trim(),
+          description: form.description.trim(),
+          websiteUrl: form.websiteUrl.trim(),
+          category: form.category,
+          tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
+          iconUrl: form.iconUrl.trim().startsWith("data:") ? "" : form.iconUrl.trim(),
+          developerName: form.developerName.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setStatus("success");
+        setResult({ mode: "cloudbase", message: en ? "网站检测通过，产品已自动收录！等待人工复核。" : "网站检测通过，产品已自动收录！等待人工复核。" });
+      } else {
+        setStatus("error");
+        setResult({ mode: "cloudbase", message: data.error || "提交失败" });
+      }
+    } catch (err: any) {
+      setStatus("error");
+      setResult({ mode: "cloudbase", message: "网络错误，请稍后重试" });
+    }
+  };
 
   const set = (key: keyof FormState, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -387,19 +431,33 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           <button type="button" onClick={handlePreview} className="btn btn-outline !h-10 px-5">
             {en ? "Preview submission" : "预览提交内容"}
           </button>
-          <button type="submit" disabled={status === "submitting"} className="btn btn-accent !h-10 px-6">
-            {status === "submitting" ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {en ? "Submitting…" : "提交中…"}
-              </>
-            ) : form.kind === "product" ? (
-              en ? "Send via email" : "发送邮件提交"
-            ) : isHosted ? (
-              en ? "Upload & publish tool" : "上传并公开工具"
-            ) : (
-              en ? "Submit tool" : "提交工具"
-            )}
-          </button>
+          {authed === null ? (
+            <button disabled className="btn btn-accent !h-10 px-6">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            </button>
+          ) : authed ? (
+            <button
+              type="button"
+              onClick={handleAutoPublish}
+              disabled={status === "submitting"}
+              className="btn btn-accent !h-10 px-6"
+            >
+              {status === "submitting" ? (
+                <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {en ? "Checking & publishing…" : "检测网站并收录…"}</>
+              ) : (
+                <>{en ? "Auto-publish" : "一键自动收录"}</>
+              )}
+            </button>
+          ) : (
+            <a href={`${WORKER}/auth`} className="btn btn-accent !h-10 px-6">
+              {en ? "Login with GitHub to submit" : "登录 GitHub 一键提交"}
+            </a>
+          )}
+          {authed && (
+            <button type="submit" className="btn btn-outline !h-10 px-4 text-sm">
+              {en ? "Or send email" : "或用邮箱提交"}
+            </button>
+          )}
         </div>
       </form>
 

@@ -267,6 +267,126 @@ export default {
       return json({ ok: true, number: issue.number, url: issue.html_url });
     }
 
+    // Check if a URL is reachable
+    if (url.pathname === "/check-url" && request.method === "POST") {
+      const body = await request.json();
+      const targetUrl = String(body.url || "");
+      if (!targetUrl) return json({ ok: false, error: "缺少 URL" }, 400);
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 8000);
+        const res = await fetch(targetUrl, {
+          method: "HEAD",
+          redirect: "follow",
+          signal: ctrl.signal,
+          headers: { "User-Agent": "SolHub/1.0" },
+        });
+        clearTimeout(t);
+        if (res.ok || res.status === 301 || res.status === 302 || res.status === 403) {
+          return json({ ok: true, status: res.status });
+        }
+        return json({ ok: false, status: res.status, error: `网站返回 ${res.status}` });
+      } catch (e) {
+        return json({ ok: false, error: "网站无法访问，请检查 URL 是否正确" });
+      }
+    }
+
+    // Auto-publish a community product: checks URL, then commits to community.json
+    if (url.pathname === "/publish" && request.method === "POST") {
+      if (!env.GITHUB_PAT) return json({ error: "server not configured" }, 500);
+      const token = getTokenFromCookie(request);
+      if (!token) return json({ error: "请先登录" }, 401);
+
+      let data;
+      try { data = await request.json(); } catch { return json({ error: "invalid json" }, 400); }
+
+      const name = String(data.name || "").slice(0, 80);
+      const websiteUrl = String(data.websiteUrl || "");
+      if (!name) return json({ error: "产品名称不能为空" }, 400);
+      if (!websiteUrl) return json({ error: "官网 URL 不能为空" }, 400);
+
+      // Check URL reachability
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 8000);
+        const checkRes = await fetch(websiteUrl, {
+          method: "HEAD",
+          redirect: "follow",
+          signal: ctrl.signal,
+          headers: { "User-Agent": "SolHub/1.0" },
+        });
+        clearTimeout(t);
+        if (!checkRes.ok && checkRes.status !== 301 && checkRes.status !== 302) {
+          return json({ error: `网站 ${websiteUrl} 返回 ${checkRes.status}，无法收录` }, 400);
+        }
+      } catch (e) {
+        return json({ error: `无法访问 ${websiteUrl}，请确认网站可以正常打开` }, 400);
+      }
+
+      // Get user info
+      const userRes = await fetch(`${API}/user`, {
+        headers: { Authorization: `Bearer ${token}`, "User-Agent": "SolHub" },
+      });
+      const ghUser = await userRes.json();
+      if (!ghUser.login) return json({ error: "登录已过期" }, 401);
+
+      // Read current community.json
+      const fileRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json?ref=main`, {
+        headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
+      });
+      const fileData = await fileRes.json();
+      let community = [];
+      if (fileData.content) {
+        try {
+          const decoded = atob(fileData.content.replace(/\n/g, ""));
+          community = JSON.parse(decoded);
+        } catch (e) { community = []; }
+      }
+
+      // Build new product entry
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) + "-" + Date.now().toString(36);
+      const newProduct = {
+        id: slug,
+        slug: slug,
+        name: name,
+        shortDescription: String(data.shortDescription || "").slice(0, 120),
+        description: String(data.description || data.shortDescription || "").slice(0, 500),
+        websiteUrl: websiteUrl,
+        icon: data.iconUrl || "",
+        category: String(data.category || "other"),
+        tags: Array.isArray(data.tags) ? data.tags.slice(0, 8) : String(data.tags || "").split(",").map(t => t.trim()).filter(Boolean),
+        developerName: String(data.developerName || ghUser.login),
+        publishedAt: new Date().toISOString().slice(0, 10),
+        launchBatch: "Community",
+        verificationStatus: "pending",
+        verificationMethod: "URL 自动检测通过，待人工复核",
+        isDemo: false,
+        submittedBy: ghUser.login,
+      };
+
+      community.push(newProduct);
+
+      // Write back
+      const content = btoa(JSON.stringify(community, null, 2));
+      const writeRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${env.GITHUB_PAT}`,
+          "User-Agent": "SolHub",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: `community: add ${name} by @${ghUser.login}`,
+          content: content,
+          sha: fileData.sha,
+        }),
+      });
+      const writeData = await writeRes.json();
+      if (!writeData.commit) return json({ error: "写入失败", detail: writeData }, 500);
+
+      return json({ ok: true, product: newProduct, message: "产品已自动收录，等待人工复核" });
+    }
+
     return json({ error: "not found" }, 404);
   },
 };
