@@ -500,33 +500,25 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
 
         <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5">
           <button type="button" onClick={handlePreview} className="btn btn-outline !h-10 px-5">
-            {en ? "Preview submission" : "预览提交内容"}
+            {en ? "Preview" : "预览"}
           </button>
-          {authed === null ? (
-            <button disabled className="btn btn-accent !h-10 px-6">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            </button>
-          ) : authed ? (
+          {/* Primary: email submit (always works) */}
+          <button type="submit" disabled={status === "submitting"} className="btn btn-accent !h-10 px-6">
+            {en ? "Submit via email" : "发送邮件提交"}
+          </button>
+          {/* Secondary: auto-publish if logged in */}
+          {authed && (
             <button
               type="button"
               onClick={handleAutoPublish}
               disabled={status === "submitting"}
-              className="btn btn-accent !h-10 px-6"
+              className="btn btn-outline !h-10 px-6"
             >
               {status === "submitting" ? (
-                <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {en ? "Checking & publishing…" : "检测网站并收录…"}</>
+                <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {en ? "Publishing…" : "收录中…"}</>
               ) : (
                 <>{en ? "Auto-publish" : "一键自动收录"}</>
               )}
-            </button>
-          ) : (
-            <a href={`${WORKER}/auth`} className="btn btn-accent !h-10 px-6">
-              {en ? "Login with GitHub to submit" : "登录 GitHub 一键提交"}
-            </a>
-          )}
-          {authed && (
-            <button type="submit" className="btn btn-outline !h-10 px-4 text-sm">
-              {en ? "Or send email" : "或用邮箱提交"}
             </button>
           )}
         </div>
