@@ -83,59 +83,6 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     return { remote, githubRepo: submissionConfig.githubIssueRepo ?? null };
   }, []);
 
-  const WORKER = "https://solhub-auth.solyoungwork.workers.dev";
-  const [authed, setAuthed] = useState<boolean | null>(null);
-  const [authUser, setAuthUser] = useState<string>("");
-
-  useEffect(() => {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 5000);
-    fetch(`${WORKER}/me`, { credentials: "include", signal: ctrl.signal })
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(d => { if (d.authenticated) { setAuthed(true); setAuthUser(d.user.login); } else setAuthed(false); })
-      .catch(() => setAuthed(false))
-      .finally(() => clearTimeout(t));
-  }, []);
-
-  const handleAutoPublish = async () => {
-    const e = validate();
-    setErrors(e);
-    if (Object.values(e).some(Boolean)) return;
-    setStatus("submitting");
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 10000);
-      const res = await fetch(`${WORKER}/publish`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        signal: ctrl.signal,
-        body: JSON.stringify({
-          name: form.name.trim(),
-          shortDescription: form.shortDescription.trim(),
-          description: form.description.trim(),
-          websiteUrl: form.websiteUrl.trim(),
-          category: form.category,
-          tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
-          iconUrl: form.iconUrl.trim().startsWith("data:") ? "" : form.iconUrl.trim(),
-          developerName: form.developerName.trim(),
-        }),
-      });
-      clearTimeout(t);
-      const data = await res.json();
-      if (data.ok) {
-        setStatus("success");
-        setResult({ mode: "cloudbase", message: "网站检测通过，产品已自动收录！等待人工复核。" });
-      } else {
-        setStatus("error");
-        setResult({ mode: "cloudbase", message: data.error || "提交失败，请改用邮箱提交" });
-      }
-    } catch (err: any) {
-      setStatus("error");
-      setResult({ mode: "cloudbase", message: "自动收录超时，请点下方邮箱提交" });
-    }
-  };
-
   const set = (key: keyof FormState, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
     setErrors((e) => ({ ...e, [key]: undefined }));
@@ -243,72 +190,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     ? "Fill the form and click submit — your email client opens with all info pre-filled. Send it and we'll review within 24 hours."
     : "填完表单点击提交，邮箱会自动打开并填好所有信息，发送即完成，我们会在 24 小时内核验。";
 
-  const [myProducts, setMyProducts] = useState<any[]>([]);
-
-  const loadMyProducts = async () => {
-    try {
-      const res = await fetch(`${WORKER}/my-products`, { credentials: "include" });
-      const data = await res.json();
-      if (data.products) setMyProducts(data.products);
-    } catch {}
-  };
-
-  useEffect(() => {
-    if (authed) loadMyProducts();
-  }, [authed]);
-
-  const handleDelete = async (slug: string) => {
-    if (!confirm(en ? "确认删除这个产品？" : "确认删除这个产品？")) return;
-    try {
-      await fetch(`${WORKER}/my-products/${slug}`, { method: "DELETE", credentials: "include" });
-      loadMyProducts();
-    } catch {}
-  };
-
   return (
     <div className="space-y-6">
-      {/* Auth bar */}
-      <div className="flex items-center justify-between rounded-[3px] border border-border bg-secondary/40 px-4 py-3 text-sm">
-        {authed === null ? (
-          <span className="text-muted-foreground">...</span>
-        ) : authed ? (
-          <>
-            <span className="text-foreground/80">
-              {en ? "Logged in as" : "已登录"} <strong>@{authUser}</strong>
-            </span>
-            <a href={`${WORKER}/logout?redirect=${encodeURIComponent("https://solyoung.top/solhub/submit/")}`} className="text-muted-foreground hover:text-foreground">
-              {en ? "Logout" : "退出登录"}
-            </a>
-          </>
-        ) : (
-          <a href={`${WORKER}/auth`} className="btn btn-accent !h-8 px-4 text-sm">
-            {en ? "Login with GitHub" : "GitHub 登录"}
-          </a>
-        )}
-      </div>
-
-      {/* My products */}
-      {authed && myProducts.length > 0 && (
-        <div className="rounded-[3px] border border-border p-4">
-          <p className="mb-3 text-sm font-bold text-foreground">{en ? "My submissions" : "我提交的产品"}</p>
-          <div className="space-y-2">
-            {myProducts.map(p => (
-              <div key={p.slug} className="flex items-center justify-between rounded border border-border/60 px-3 py-2 text-sm">
-                <div>
-                  <span className="font-medium">{p.name}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {p.verificationStatus === "verified" ? "✓ 已核验" : p.verificationStatus === "pending" ? "⏳ 待核验" : "未核验"}
-                  </span>
-                </div>
-                <button onClick={() => handleDelete(p.slug)} className="text-xs text-muted-foreground hover:text-red-500">
-                  {en ? "Delete" : "删除"}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* 提交方式说明 */}
       <div className="flex items-start gap-2.5 rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
         <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
@@ -502,25 +385,13 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           <button type="button" onClick={handlePreview} className="btn btn-outline !h-10 px-5">
             {en ? "Preview" : "预览"}
           </button>
-          {/* Primary: email submit (always works) */}
           <button type="submit" disabled={status === "submitting"} className="btn btn-accent !h-10 px-6">
-            {en ? "Submit via email" : "发送邮件提交"}
+            {status === "submitting" ? (
+              <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {en ? "Opening email…" : "打开邮箱…"}</>
+            ) : (
+              <>{en ? "Submit via email" : "发送邮件提交"}</>
+            )}
           </button>
-          {/* Secondary: auto-publish if logged in */}
-          {authed && (
-            <button
-              type="button"
-              onClick={handleAutoPublish}
-              disabled={status === "submitting"}
-              className="btn btn-outline !h-10 px-6"
-            >
-              {status === "submitting" ? (
-                <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {en ? "Publishing…" : "收录中…"}</>
-              ) : (
-                <>{en ? "Auto-publish" : "一键自动收录"}</>
-              )}
-            </button>
-          )}
         </div>
       </form>
 
