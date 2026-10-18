@@ -387,6 +387,86 @@ export default {
       return json({ ok: true, product: newProduct, message: "产品已自动收录，等待人工复核" });
     }
 
+    // List current user's community products
+    if (url.pathname === "/my-products" && request.method === "GET") {
+      const token = getTokenFromCookie(request);
+      if (!token) return json({ error: "not authenticated" }, 401);
+      const userRes = await fetch(`${API}/user`, {
+        headers: { Authorization: `Bearer ${token}`, "User-Agent": "SolHub" },
+      });
+      const ghUser = await userRes.json();
+      if (!ghUser.login) return json({ error: "cannot get user" }, 400);
+
+      const fileRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json?ref=main`, {
+        headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
+      });
+      const fileData = await fileRes.json();
+      let community = [];
+      if (fileData.content) {
+        try {
+          community = JSON.parse(atob(fileData.content.replace(/\n/g, "")));
+        } catch (e) {}
+      }
+      const mine = community.filter(p => p.submittedBy === ghUser.login);
+      return json({ products: mine, sha: fileData.sha });
+    }
+
+    // Update or delete a user's product
+    if (url.pathname.startsWith("/my-products/")) {
+      const token = getTokenFromCookie(request);
+      if (!token) return json({ error: "not authenticated" }, 401);
+      const slug = url.pathname.split("/")[2];
+
+      const userRes = await fetch(`${API}/user`, {
+        headers: { Authorization: `Bearer ${token}`, "User-Agent": "SolHub" },
+      });
+      const ghUser = await userRes.json();
+      if (!ghUser.login) return json({ error: "cannot get user" }, 400);
+
+      const fileRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json?ref=main`, {
+        headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
+      });
+      const fileData = await fileRes.json();
+      let community = [];
+      if (fileData.content) {
+        try { community = JSON.parse(atob(fileData.content.replace(/\n/g, ""))); } catch (e) {}
+      }
+
+      const idx = community.findIndex(p => p.slug === slug && p.submittedBy === ghUser.login);
+      if (idx === -1) return json({ error: "产品不存在或不是你的" }, 404);
+
+      if (request.method === "DELETE") {
+        community.splice(idx, 1);
+      } else if (request.method === "PUT") {
+        const body = await request.json();
+        const p = community[idx];
+        if (body.name) p.name = String(body.name).slice(0, 80);
+        if (body.shortDescription) p.shortDescription = String(body.shortDescription).slice(0, 120);
+        if (body.description) p.description = String(body.description).slice(0, 500);
+        if (body.websiteUrl) p.websiteUrl = String(body.websiteUrl);
+        if (body.category) p.category = String(body.category);
+        if (body.tags) p.tags = body.tags.slice(0, 8);
+      }
+
+      const content = btoa(JSON.stringify(community, null, 2));
+      const writeRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${env.GITHUB_PAT}`,
+          "User-Agent": "SolHub",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: `${request.method === "DELETE" ? "remove" : "update"} community product ${slug} by @${ghUser.login}`,
+          content: content,
+          sha: fileData.sha,
+        }),
+      });
+      const writeData = await writeRes.json();
+      if (!writeData.commit) return json({ error: "写入失败", detail: writeData }, 500);
+      return json({ ok: true });
+    }
+
     return json({ error: "not found" }, 404);
   },
 };

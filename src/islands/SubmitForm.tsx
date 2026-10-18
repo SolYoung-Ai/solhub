@@ -236,8 +236,72 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     ? "Fill the form and click submit — your email client opens with all info pre-filled. Send it and we'll review within 24 hours."
     : "填完表单点击提交，邮箱会自动打开并填好所有信息，发送即完成，我们会在 24 小时内核验。";
 
+  const [myProducts, setMyProducts] = useState<any[]>([]);
+
+  const loadMyProducts = async () => {
+    try {
+      const res = await fetch(`${WORKER}/my-products`, { credentials: "include" });
+      const data = await res.json();
+      if (data.products) setMyProducts(data.products);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (authed) loadMyProducts();
+  }, [authed]);
+
+  const handleDelete = async (slug: string) => {
+    if (!confirm(en ? "确认删除这个产品？" : "确认删除这个产品？")) return;
+    try {
+      await fetch(`${WORKER}/my-products/${slug}`, { method: "DELETE", credentials: "include" });
+      loadMyProducts();
+    } catch {}
+  };
+
   return (
     <div className="space-y-6">
+      {/* Auth bar */}
+      <div className="flex items-center justify-between rounded-[3px] border border-border bg-secondary/40 px-4 py-3 text-sm">
+        {authed === null ? (
+          <span className="text-muted-foreground">...</span>
+        ) : authed ? (
+          <>
+            <span className="text-foreground/80">
+              {en ? "Logged in as" : "已登录"} <strong>@{authUser}</strong>
+            </span>
+            <a href={`${WORKER}/logout?redirect=${encodeURIComponent("https://solyoung.top/solhub/submit/")}`} className="text-muted-foreground hover:text-foreground">
+              {en ? "Logout" : "退出登录"}
+            </a>
+          </>
+        ) : (
+          <a href={`${WORKER}/auth`} className="btn btn-accent !h-8 px-4 text-sm">
+            {en ? "Login with GitHub" : "GitHub 登录"}
+          </a>
+        )}
+      </div>
+
+      {/* My products */}
+      {authed && myProducts.length > 0 && (
+        <div className="rounded-[3px] border border-border p-4">
+          <p className="mb-3 text-sm font-bold text-foreground">{en ? "My submissions" : "我提交的产品"}</p>
+          <div className="space-y-2">
+            {myProducts.map(p => (
+              <div key={p.slug} className="flex items-center justify-between rounded border border-border/60 px-3 py-2 text-sm">
+                <div>
+                  <span className="font-medium">{p.name}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {p.verificationStatus === "verified" ? "✓ 已核验" : p.verificationStatus === "pending" ? "⏳ 待核验" : "未核验"}
+                  </span>
+                </div>
+                <button onClick={() => handleDelete(p.slug)} className="text-xs text-muted-foreground hover:text-red-500">
+                  {en ? "Delete" : "删除"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 提交方式说明 */}
       <div className="flex items-start gap-2.5 rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
         <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
