@@ -114,6 +114,9 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
           <a href={p("/submit/", locale)} className="btn btn-accent hidden !h-8 px-2.5 sm:inline-flex !text-xs">
             {translate(dict, "nav.submit")}
           </a>
+          <a href="https://solhub-auth.solyoungwork.workers.dev/auth" className="btn btn-outline hidden !h-8 px-2.5 sm:inline-flex !text-xs">
+            {en ? "Login" : "登录"}
+          </a>
 
           <span className="mx-0.5 hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
           {/* 语言/主题 - 桌面显示 */}

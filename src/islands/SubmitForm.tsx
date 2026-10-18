@@ -88,10 +88,13 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
   const [authUser, setAuthUser] = useState<string>("");
 
   useEffect(() => {
-    fetch(`${WORKER}/me`, { credentials: "include" })
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000);
+    fetch(`${WORKER}/me`, { credentials: "include", signal: ctrl.signal })
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(d => { if (d.authenticated) { setAuthed(true); setAuthUser(d.user.login); } else setAuthed(false); })
-      .catch(() => setAuthed(false));
+      .catch(() => setAuthed(false))
+      .finally(() => clearTimeout(t));
   }, []);
 
   const handleAutoPublish = async () => {
@@ -101,7 +104,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     setStatus("submitting");
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 15000);
+      const t = setTimeout(() => ctrl.abort(), 10000);
       const res = await fetch(`${WORKER}/publish`, {
         method: "POST",
         credentials: "include",
@@ -122,14 +125,14 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       const data = await res.json();
       if (data.ok) {
         setStatus("success");
-        setResult({ mode: "cloudbase", message: en ? "网站检测通过，产品已自动收录！等待人工复核。" : "网站检测通过，产品已自动收录！等待人工复核。" });
+        setResult({ mode: "cloudbase", message: "网站检测通过，产品已自动收录！等待人工复核。" });
       } else {
         setStatus("error");
-        setResult({ mode: "cloudbase", message: data.error || "提交失败" });
+        setResult({ mode: "cloudbase", message: data.error || "提交失败，请改用邮箱提交" });
       }
     } catch (err: any) {
       setStatus("error");
-      setResult({ mode: "cloudbase", message: "网络超时，请用邮箱提交" });
+      setResult({ mode: "cloudbase", message: "自动收录超时，请点下方邮箱提交" });
     }
   };
 
