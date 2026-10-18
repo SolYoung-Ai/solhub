@@ -22,18 +22,9 @@ jobs:
       - name: Build
         run: BASE_PATH=/solhub/ npm run build
 
-      - name: Generate token from GitHub App
-        id: app-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: SolYoung-Ai
-          repositories: SolYoung
-
       - name: Deploy to SolYoung repo
         env:
-          DEPLOY_TOKEN: ${{ steps.app-token.outputs.token }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
         run: |
           git config --global user.name "SolHub Bot"
           git config --global user.email "solhub-bot@users.noreply.github.com"
