@@ -1,4 +1,5 @@
 import type { Product } from "./types";
+import communityProducts from "./community.json";
 
 /**
  * SolHub 产品数据。
@@ -115,6 +116,7 @@ export const products: Product[] = [
     verifiedAt: "2026-10-16",
     isDemo: false,
   },
+  ...(communityProducts as Product[]),
 ];
 
 export function getProduct(slug: string): Product | undefined {
