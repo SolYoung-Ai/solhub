@@ -1,0 +1,1 @@
+function e(){return`/`.endsWith(`/`)?`/`:`//`}function t(t,n=`zh`){let r=e(),i=t.startsWith(`/`)?t.slice(1):t;return r+(n===`en`?`en/`:``)+i}export{t};

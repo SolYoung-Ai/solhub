@@ -1,0 +1,1 @@
+var e={githubIssueRepo:void 0,remoteEndpoint:void 0};export{e as t};
