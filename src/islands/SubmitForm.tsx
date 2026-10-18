@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CheckCircle2,
   Download,
@@ -6,6 +6,7 @@ import {
   FileCode2,
   Globe2,
   Loader2,
+  Mail,
   Package,
   ShieldAlert,
   UploadCloud,
@@ -75,8 +76,14 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
   const [result, setResult] = useState<{ mode: SubmissionMode; message: string; url?: string } | null>(null);
   const [draftJson, setDraftJson] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const cloudbaseReady = useMemo(() => isCloudBaseConfigured(), []);
+  const githubRepo = submissionConfig.githubIssueRepo ?? null;
+  const modes = useMemo(() => {
+    const remote = Boolean(submissionConfig.remoteEndpoint);
+    return { remote, githubRepo: submissionConfig.githubIssueRepo ?? null };
+  }, []);
+
+  // No auth required — email-only submission
 
   const set = (key: keyof FormState, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -115,13 +122,13 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     const tagCount = form.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean).length;
     if (tagCount === 0) e.tags = en ? "Add at least one tag (comma-separated)." : "至少填写一个标签（用逗号分隔）。";
     else if (tagCount > 8) e.tags = en ? "At most 8 tags." : "标签最多 8 个。";
-    if (form.iconUrl.trim() && !isValidHttpUrl(form.iconUrl.trim())) e.iconUrl = en ? "Icon URL must start with http:// or https://." : "图标 URL 需以 http:// 或 https:// 开头。";
+    if (form.iconUrl.trim() && !isValidHttpUrl(form.iconUrl.trim()) && !form.iconUrl.startsWith("data:")) e.iconUrl = en ? "Icon URL must start with http:// or https://." : "图标 URL 需以 http:// 或 https:// 开头。";
     if (!form.developerName.trim()) e.developerName = en ? "Please enter the developer or team name." : "请输入开发者或团队名称。";
     else if (form.developerName.trim().length > 80) e.developerName = en ? "Developer name must be under 80 characters." : "开发者名称请控制在 80 字以内。";
     if (isHosted) {
-      if (!hostedFile) e.hostedFile = en ? "Please choose the HTML file to host." : "请选择要托管的 HTML 文件。";
-      else if (hostedFile.size > 1 * 1024 * 1024) e.hostedFile = en ? "HTML file must be under 1MB." : "HTML 文件不能超过 1MB。";
-      else if (!/^text\/html|\.html$/i.test(hostedFile.type || hostedFile.name)) e.hostedFile = en ? "Only HTML files are supported (self-contained tool pages)." : "仅支持 HTML 文件（自包含工具页面）。";
+      if (isHosted) {
+        // HTML file attached via email
+      }
     }
     return e;
   };
@@ -147,101 +154,43 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     tool_type: form.kind === "tool" ? form.toolType : undefined,
   });
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     const e = validate();
     setErrors(e);
     if (Object.values(e).some(Boolean)) return;
-    setStatus("submitting");
-    setShowPreview(false);
 
-    try {
-      let hostedKey: string | undefined;
-      if (isHosted && hostedFile) {
-        const up = await uploadHostedTool(hostedFile, form.name.trim());
-        if (!up.ok || !up.key) {
-          setStatus("error");
-          setResult({ mode: "local-draft", message: up.message ?? (en ? "Failed to upload the hosted tool." : "上传托管工具失败。") });
-          return;
-        }
-        hostedKey = up.key;
-      }
+    const hasUploadedIcon = form.iconUrl.trim().startsWith("data:");
+    const lines = [
+      `产品名称：${form.name.trim()}`,
+      `一句话介绍：${form.shortDescription.trim()}`,
+      `详细描述：${form.description.trim()}`,
+      `官网 URL：${form.websiteUrl.trim()}`,
+      `分类：${form.category}`,
+      `标签：${form.tags.trim()}`,
+      form.iconUrl.trim() && !hasUploadedIcon ? `图标 URL：${form.iconUrl.trim()}` : "",
+      `开发者/团队：${form.developerName.trim()}`,
+      form.contact.trim() ? `联系方式：${form.contact.trim()}` : "",
+      hasUploadedIcon ? "\n（请将图标图片文件作为附件添加到本邮件）" : "",
+      isHosted ? "\n（请将 HTML 文件作为附件添加到本邮件）" : "",
+    ].filter(Boolean);
 
-      const payload = buildPayload();
-      if (hostedKey) payload.hosted_key = hostedKey;
+    const subject = `[SolHub 产品提交] ${form.name.trim()}`;
+    const body = lines.join("\n");
+    const mailto = `mailto:soyoang@outlook.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-      if (cloudbaseReady) {
-        const r = await submitToCloudbase(payload);
-        if (r.ok) {
-          setStatus("success");
-          setResult({
-            mode: "cloudbase",
-            message: en
-              ? `Submitted! “${payload.name}” is now publicly listed on the SolHub community page.${isHosted ? " The hosted tool is deployed and usable in a sandbox on this site." : " Visitors can see it right away."}`
-              : `提交成功！「${payload.name}」已自动公开到 SolHub 社区列表。${isHosted ? "托管工具已部署，访问者可在本站沙箱内直接使用。" : "访问者现在就能看到它。"}`,
-          });
-          return;
-        }
-        // CloudBase 失败 → 回退本地草稿（不静默丢失）
-        setStatus("error");
-        setResult({ mode: "local-draft", message: en ? `CloudBase submission failed: ${r.message}` : `CloudBase 提交失败：${r.message}` });
-        return;
-      }
-
-      // 未配置 CloudBase：沿用原存储适配层（github-issue → local-draft）
-      const submission: Submission = {
-        id: `sub-${Date.now().toString(36)}`,
-        productFields: {
-          name: form.name.trim(),
-          websiteUrl: form.websiteUrl.trim(),
-          shortDescription: form.shortDescription.trim(),
-          description: form.description.trim(),
-          category: form.category,
-          tags: form.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean),
-          iconUrl: form.iconUrl.trim() || undefined,
-          developerName: form.developerName.trim(),
-          contact: form.contact.trim() || undefined,
-        },
-        status: "submitted",
-        createdAt: new Date().toISOString(),
-        submissionProvider: "local-draft",
-      };
-      const r = await submitSubmission(submission);
-      setResult({ mode: r.mode, message: r.message, url: r.url });
-      setDraftJson(exportSubmissionJson(submission));
-      setStatus(r.ok ? "success" : "error");
-    } catch (err) {
-      console.error("[SolHub] handleSubmit unexpected error", err);
-      setStatus("error");
-      setResult({
-        mode: "local-draft",
-        message: en
-          ? `Unexpected error: ${err instanceof Error ? err.message : String(err)}. Please retry or export the draft JSON below.`
-          : `提交出现异常：${err instanceof Error ? err.message : String(err)}。请重试，或导出下方 JSON 备份。`,
-      });
-    }
+    window.location.href = mailto;
+    setStatus("success");
+    setResult({
+      mode: "cloudbase",
+      message: en
+        ? `Opening your email client... Send the email to complete your submission. We'll review within 24 hours.`
+        : `正在打开邮箱... 发送邮件即完成提交，我们会在 24 小时内核验。`,
+    });
   };
 
-  const modes = useMemo(() => {
-    const remote = Boolean(submissionConfig.remoteEndpoint);
-    const githubRepo = submissionConfig.githubIssueRepo ?? null;
-    return { remote, githubRepo };
-  }, []);
-
-  const modeNote = cloudbaseReady
-    ? en
-      ? "Connected to the CloudBase database: approved submissions are automatically listed on the SolHub community page — no manual review needed. Hosted tools run in a sandboxed iframe and cannot access the main site's data."
-      : "已接入 CloudBase 实时数据库：提交通过后立即自动公开到 SolHub 社区列表，无需人工审核。托管工具以沙箱 iframe 隔离运行，无法访问主站数据。"
-    : modes.githubRepo
-      ? en
-        ? "A GitHub submission repo is configured: the form will generate a pre-filled Issue link for you to complete on GitHub."
-        : "已配置 GitHub 投稿仓库：提交时将生成预填 Issue 链接，由你自己在 GitHub 上完成提交。"
-      : modes.remote
-        ? en
-          ? "A remote submission endpoint is configured: your content will be sent through it."
-          : "已配置远程提交接口：提交内容将通过该接口发送。"
-        : en
-          ? "No remote endpoint or submission repo configured: your content is saved as a local draft (this browser only) with JSON export. Drafts are never published publicly."
-          : "当前未配置远程接口或投稿仓库：提交内容将保存为本地草稿（仅存在于当前浏览器），并提供 JSON 导出。草稿不会自动公开给其他访问者。";
+  const modeNote = en
+    ? "Fill the form and click submit — your email client opens with all info pre-filled. Send it and we'll review within 24 hours."
+    : "填完表单点击提交，邮箱会自动打开并填好所有信息，发送即完成，我们会在 24 小时内核验。";
 
   return (
     <div className="space-y-6">
@@ -253,8 +202,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           <p className="mt-1">{modeNote}</p>
           <p className="mt-1">
             {en
-              ? "Submissions appear in the SolHub community list (marked “community submission”) without a fake Verified badge; ranked picks are still manually verified before inclusion."
-              : "提交内容会出现在 SolHub 社区列表（标注「社区提交」），不会伪造 Verified 核验状态；榜单精选位仍由人工核验后收录。"}
+              ? "No GitHub account needed. We review within 24 hours and mark Verified."
+              : "无需 GitHub 账号，提交后 24 小时内核验并标记 Verified。"}
           </p>
         </div>
       </div>
@@ -331,38 +280,14 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
         </div>
 
         {isHosted && (
-          <Field label={en ? "Tool HTML file" : "工具 HTML 文件"} required error={errors.hostedFile} hint={en ? "≤ 1MB, HTML only" : "≤ 1MB，仅 HTML"}>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="btn btn-outline !h-10 gap-2 px-4"
-              >
-                <UploadCloud className="h-4 w-4" aria-hidden="true" /> {en ? "Choose file" : "选择文件"}
-              </button>
-              <span className="text-[13px] text-muted-foreground">
-                {hostedFile ? hostedFile.name : (en ? "No file chosen" : "未选择文件")}
-              </span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".html,.htm,text/html"
-                className="hidden"
-                aria-label={en ? "Choose HTML tool file" : "选择 HTML 工具文件"}
-                onChange={(e) => {
-                  const f = e.target.files?.[0] ?? null;
-                  setHostedFile(f);
-                  setErrors((er) => ({ ...er, hostedFile: undefined }));
-                  setStatus("idle");
-                }}
-              />
-            </div>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+          <div className="rounded-[3px] border border-dashed border-border-strong bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+            <p className="font-semibold text-foreground/80">{en ? "Attach your HTML file to the email" : "请将 HTML 文件作为附件添加到邮件"}</p>
+            <p className="mt-1">
               {en
-                ? "Hosted tools run in a sandboxed iframe: scripts are restricted and the tool cannot access the main site's data or storage. Upload self-contained HTML only (styles and logic in one file, no external resources)."
-                : "托管工具在沙箱 iframe 中运行：脚本受限、无法访问主站数据或存储。请只上传自包含的 HTML 工具（样式与逻辑写在同一个文件里，无需外部资源）。"}
+                ? "After filling the form and clicking submit, your email client opens. Attach the .html file (≤1MB, self-contained) and send it. We'll host it in a sandboxed iframe."
+                : "填完表单点击提交后邮箱会自动打开，请将 .html 文件（≤1MB，自包含）作为附件加入邮件后发送。我们会在沙箱 iframe 中托管运行。"}
             </p>
-          </Field>
+          </div>
         )}
 
         <Field label={en ? "One-line description" : "一句话介绍"} required error={errors.shortDescription} hint={`${form.shortDescription.length}/200`}>
@@ -408,14 +333,33 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label={en ? "Icon URL" : "图标 URL"} error={errors.iconUrl} hint={en ? "Optional" : "可选"}>
-            <input
-              type="url"
-              value={form.iconUrl}
-              onChange={(e) => set("iconUrl", e.target.value)}
-              placeholder="https://example.com/icon.png"
-              className="input font-mono !text-[13px]"
-            />
+          <Field label={en ? "Icon" : "图标"} error={errors.iconUrl} hint={en ? "Optional — upload or paste URL" : "可选 — 上传或粘贴 URL"}>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={form.iconUrl}
+                onChange={(e) => set("iconUrl", e.target.value)}
+                placeholder="https://example.com/icon.png"
+                className="input font-mono !text-[13px] flex-1"
+              />
+              <label className="btn btn-outline shrink-0 cursor-pointer !h-9">
+                <UploadCloud className="h-4 w-4" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      if (reader.result) set("iconUrl", reader.result as string);
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
+            </div>
           </Field>
           <Field label={en ? "Developer / team name" : "开发者 / 团队名称"} required error={errors.developerName}>
             <input
@@ -449,7 +393,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {en ? "Submitting…" : "提交中…"}
               </>
             ) : form.kind === "product" ? (
-              en ? "Submit product" : "提交产品"
+              en ? "Send via email" : "发送邮件提交"
             ) : isHosted ? (
               en ? "Upload & publish tool" : "上传并公开工具"
             ) : (
@@ -506,6 +450,30 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
             )}
             {result.mode !== "cloudbase" && (
               <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = JSON.parse(draftJson);
+                    const f = d.productFields || {};
+                    const subject = `[SolHub 产品提交] ${f.name || ""}`;
+                    const body = [
+                      `产品名称：${f.name || ""}`,
+                      `详细描述：${f.description || ""}`,
+                      `官网 URL：${f.websiteUrl || ""}`,
+                      `分类：${f.category || ""}`,
+                      `标签：${Array.isArray(f.tags) ? f.tags.join(", ") : (f.tags || "")}`,
+                      `开发者/团队：${f.developerName || ""}`,
+                      `图标 URL：${f.iconUrl || ""}`,
+                      `联系方式：${f.contact || ""}`,
+                      ``,
+                      `—— 由 SolHub 投稿表单生成`,
+                    ].join("\n");
+                    window.location.href = `mailto:soyoang@outlook.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                  }}
+                  className="btn btn-outline !h-8 px-3 text-xs"
+                >
+                  <Mail className="h-3.5 w-3.5" aria-hidden="true" /> {en ? "Send via email" : "通过邮件发送"}
+                </button>
                 <button
                   type="button"
                   onClick={() => {

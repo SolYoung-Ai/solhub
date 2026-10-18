@@ -1,0 +1,175 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { p } from "@/lib/paths";
+
+export async function getStaticPaths() {
+  try {
+    const res = await fetch("https://api.github.com/repos/SolYoung-Ai/solhub/issues?state=open&per_page=100");
+    const issues = await res.json();
+    if (Array.isArray(issues)) {
+      return issues
+        .filter((i: any) => !i.pull_request)
+        .map((i: any) => ({ params: { id: String(i.number) } }));
+    }
+  } catch {}
+  return [];
+}
+
+const { id } = Astro.params;
+---
+
+<BaseLayout
+  title="社区产品"
+  description="社区提交的产品详情"
+  route={`/products/c-${id}/`}
+>
+  <div id="cd-root" class="container-page py-10">
+    <!-- 面包屑 -->
+    <nav class="mb-6 flex items-center gap-1.5 text-xs text-muted-foreground" aria-label="面包屑">
+      <a href={p("/")} class="hover:text-foreground">Home</a>
+      <span aria-hidden="true">/</span>
+      <a href={p("/launches/")} class="hover:text-foreground">Launches</a>
+      <span aria-hidden="true">/</span>
+      <span id="cd-crumb" class="truncate text-foreground/80">加载中…</span>
+    </nav>
+
+    <div id="cd-content" class="hidden grid gap-10 lg:grid-cols-[1fr_300px]">
+      <!-- 主栏 -->
+      <article>
+        <div class="flex items-start gap-4">
+          <img id="cd-icon" class="h-16 w-16 shrink-0 rounded-[4px] border border-border bg-card object-cover" alt="" />
+          <div class="min-w-0">
+            <h1 id="cd-name" class="font-display text-3xl font-extrabold tracking-tight text-foreground"></h1>
+            <p id="cd-desc" class="mt-2 text-[15px] leading-7 text-muted-foreground"></p>
+          </div>
+        </div>
+
+        <div class="mt-8">
+          <h2 class="font-display text-lg font-bold text-foreground">关于这个产品</h2>
+          <p id="cd-full" class="mt-3 whitespace-pre-line text-[15px] leading-7 text-foreground/80"></p>
+        </div>
+
+        <div id="cd-tags" class="mt-8 flex flex-wrap gap-2"></div>
+
+        <div class="mt-8 grid gap-4 sm:grid-cols-2">
+          <a id="cd-visit" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary !h-11 w-full">
+            访问官网 ↗
+          </a>
+          <a href={p("/submit/")} class="btn btn-outline !h-11 w-full">提交你的产品</a>
+        </div>
+      </article>
+
+      <!-- 侧栏 -->
+      <aside class="space-y-5 lg:pt-1">
+        <div class="card p-5">
+          <h2 class="flex items-center gap-2 text-sm font-bold text-foreground">
+            <svg class="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            核验状态
+          </h2>
+          <div class="mt-3">
+            <span class="badge border-border-strong bg-secondary/60 text-muted-foreground">社区提交 · 待核验</span>
+          </div>
+          <p class="mt-3 text-[13px] leading-6 text-muted-foreground">
+            这是由社区用户通过 GitHub Issues 提交的产品，尚未经 SolHub 编辑人工核验。核验后将标记为 Verified。
+          </p>
+        </div>
+
+        <dl class="card divide-y divide-border p-5 text-sm">
+          <div class="flex items-center justify-between py-2">
+            <dt class="text-muted-foreground">分类</dt>
+            <dd id="cd-category" class="font-medium text-foreground">—</dd>
+          </div>
+          <div class="flex items-center justify-between py-2">
+            <dt class="text-muted-foreground">开发者</dt>
+            <dd id="cd-dev" class="font-medium text-foreground">—</dd>
+          </div>
+          <div class="flex items-center justify-between py-2">
+            <dt class="text-muted-foreground">收录时间</dt>
+            <dd id="cd-date" class="font-medium text-foreground">—</dd>
+          </div>
+        </dl>
+
+        <div class="card p-5">
+          <p class="text-[13px] leading-6 text-muted-foreground">
+            想加入榜单？提交你的产品，通过核验后将获得 Verified 状态。当前核验为人工核验，自动核验功能尚未启用。
+          </p>
+          <a href={p("/submit/")} class="btn btn-accent mt-3 w-full !h-9">提交产品</a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  const m = location.pathname.match(/\/c-(\d+)\/?$/);
+  const issueId = m ? m[1] : null;
+  if (issueId) {
+    fetch(`https://api.github.com/repos/SolYoung-Ai/solhub/issues/${issueId}`)
+      .then((r) => r.json())
+      .then((issue) => {
+        if (!issue.body) return;
+        document.getElementById("cd-content")!.classList.remove("hidden");
+
+        // 逐行解析（去掉 Markdown 标记：## 标题、**粗体**）
+        const lines = issue.body.split("\n");
+        const fields: Record<string, string> = {};
+        let currentKey = "";
+        let currentVal = "";
+        for (const line of lines) {
+          const clean = line.replace(/^#+\s*/, "").replace(/\*\*/g, "").trim();
+          const km = clean.match(/^([^：:]+)[：:]\s*(.*)$/);
+          if (km && !clean.startsWith("由 SolHub")) {
+            if (currentKey) fields[currentKey] = currentVal.trim();
+            currentKey = km[1].trim();
+            currentVal = km[2];
+          } else if (currentKey && !clean.startsWith("由 SolHub") && clean) {
+            currentVal += "\n" + clean;
+          }
+        }
+        if (currentKey) fields[currentKey] = currentVal.trim();
+
+        const name = fields["产品提交"] || (issue.title || "").replace(/^\[SolHub\]\s*产品提交[：:]\s*/, "");
+        const desc = fields["一句话介绍"] || "";
+        const full = fields["详细描述"] || desc;
+        const url = fields["官网 URL"] || "";
+        const tags = fields["标签"] || "";
+        const dev = fields["开发者 / 团队"] || "";
+        const category = fields["分类"] || "";
+        const icon = fields["图标"] || "";
+        const date = (issue.created_at || "").slice(0, 10);
+
+        document.title = `${name} · SolHub`;
+        document.getElementById("cd-crumb")!.textContent = name;
+        (document.getElementById("cd-name") as HTMLElement).textContent = name;
+        (document.getElementById("cd-desc") as HTMLElement).textContent = desc;
+        (document.getElementById("cd-full") as HTMLElement).textContent = full;
+        (document.getElementById("cd-category") as HTMLElement).textContent = category || "—";
+        (document.getElementById("cd-dev") as HTMLElement).textContent = dev || "—";
+        (document.getElementById("cd-date") as HTMLElement).textContent = date || "—";
+
+        const iconEl = document.getElementById("cd-icon") as HTMLImageElement;
+        if (icon) iconEl.src = icon;
+        else iconEl.style.display = "none";
+
+        const tagsEl = document.getElementById("cd-tags")!;
+        if (tags) {
+          tags.split(/[,，]/).forEach((t: string) => {
+            const tag = t.trim();
+            if (tag) {
+              const span = document.createElement("span");
+              span.className = "badge border-border bg-secondary/50 text-muted-foreground";
+              span.textContent = `#${tag}`;
+              tagsEl.appendChild(span);
+            }
+          });
+        }
+
+        const visitEl = document.getElementById("cd-visit") as HTMLAnchorElement;
+        if (url) visitEl.href = url;
+        else visitEl.remove();
+      })
+      .catch(() => {
+        document.getElementById("cd-crumb")!.textContent = "加载失败";
+      });
+  }
+</script>

@@ -21,7 +21,7 @@ const metaDesc = en
   route="/submit/"
   locale={locale}
 >
-  <section class="border-b border-border bg-secondary/30 py-14">
+  <section class="border-b border-border bg-secondary/30 py-10 sm:py-14">
     <div class="container-page">
       <p class="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
         Launch
@@ -37,7 +37,7 @@ const metaDesc = en
     </div>
   </section>
 
-  <section class="py-12">
+  <section class="py-8 sm:py-12">
     <div class="container-page grid gap-10 lg:grid-cols-[1fr_280px]">
       <div>
         <SubmitForm client:load locale={locale} />
@@ -48,19 +48,19 @@ const metaDesc = en
           <ol class="mt-3 space-y-3 text-[13px] leading-6 text-muted-foreground">
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">01</span>
-              {en ? "Fill in the details and preview" : "填写信息并预览"}
+              {en ? "Fill in the details" : "填写产品信息"}
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">02</span>
-              {en ? "Choose type: product / external tool / hosted tool" : "选择类型：产品 / 工具外链 / 托管工具"}
+              {en ? "Click submit — email opens with all info" : "点击提交，邮箱自动打开"}
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">03</span>
-              {en ? "Submit — auto-published to the community list" : "提交即自动公开到社区列表"}
+              {en ? "Send the email" : "发送邮件即完成"}
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">04</span>
-              {en ? "Ranked picks are manually verified by SolHub" : "榜单精选位由 SolHub 人工核验后收录"}
+              {en ? "Verified within 24 hours" : "24 小时内核验并上线"}
             </li>
           </ol>
         </div>
@@ -68,8 +68,16 @@ const metaDesc = en
           <h2 class="text-sm font-bold text-foreground">{en ? "Verification & safety" : "核验与安全"}</h2>
           <p class="mt-2 text-[13px] leading-6 text-muted-foreground">
             {en
-              ? "Community submissions are auto-published but never fake a Verified badge; Verified is granted only to products that pass an actual check. Hosted tools run in a sandboxed iframe — scripts are restricted and the main site's data is out of reach; uploads are limited to self-contained HTML under 1MB."
-              : "社区提交自动公开但不会伪造 Verified 状态；Verified 仅授予实际核验通过的产品。托管工具在沙箱 iframe 中运行：脚本受限、无法访问主站数据；上传仅限 1MB 以内的自包含 HTML 文件。"}
+              ? "No GitHub account needed. We review within 24 hours and mark Verified."
+              : "无需 GitHub 账号。我们会在 24 小时内核验并标记 Verified。"}
+          </p>
+        </div>
+        <div class="card p-5">
+          <h2 class="text-sm font-bold text-foreground">{en ? "Modify or delete" : "修改或删除"}</h2>
+          <p class="mt-2 text-[13px] leading-6 text-muted-foreground">
+            {en
+              ? "Need to update or remove your product? Email soyoang@outlook.com from the same address you used to submit, with your product name — we'll process it within 24 hours."
+              : "提交后如需修改或删除产品，请用首次提交时的邮箱发邮件到 soyoang@outlook.com，注明产品名称，24 小时内处理。"}
           </p>
         </div>
       </aside>
