@@ -18,7 +18,7 @@ export const products: Product[] = [
     id: "solyoung",
     slug: "solyoung",
     name: "SolYoung",
-    icon: "/solhub/icons/solyoung.jpg",
+    icon: "/icons/solyoung.jpg",
     shortDescription: "一个把想法变成作品的人 —— 个人数字空间，持续运营。",
     description:
       "SolYoung 是独立创作者宋杨（Sol Young）的个人网站：以数字档案式排版承载作品集、此刻时间线、思考文章与产品入口，是个人品牌的主阵地。内容覆盖影像创作、AI 实践与轻量产品开发，持续更新。",
@@ -39,7 +39,7 @@ export const products: Product[] = [
     id: "solyoung-studio",
     slug: "solyoung-studio",
     name: "SolYoung Studio",
-    icon: "/solhub/icons/solyoung-studio.png",
+    icon: "/icons/solyoung-studio.png",
     shortDescription: "AI 个人网站、数字空间与轻量产品制作服务。",
     description:
       "SolYoung Studio 是面向创作者、自由职业者和小型品牌的服务型站点：从需求梳理、视觉设计到 AI 辅助制作与部署，把想法逐步变成真实可用的作品，并提供品牌与商业合作入口。",
@@ -60,7 +60,7 @@ export const products: Product[] = [
     id: "myos",
     slug: "myos",
     name: "My.OS",
-    icon: "/solhub/icons/myos.png",
+    icon: "/icons/myos.png",
     shortDescription: "属于独立创作者的本地工作台：记录 → 思考 → 创作 → 交付 → 归档。",
     description:
       "My.OS 是一套在线可用的个人创作系统：把记录、灵感、创作、项目、此刻与档案收拢在同一个入口，减少想法散落的焦虑，免费开放使用。",
@@ -80,7 +80,7 @@ export const products: Product[] = [
     id: "verity",
     slug: "verity",
     name: "Verity",
-    icon: "/solhub/icons/verity.png",
+    icon: "/icons/verity.png",
     shortDescription: "把 13 套人格测试收拢在一个站点，选一套就能开始测。",
     description:
       "Verity 是在线可用的测试集合站：结构统一的性格测试入口，结果即时生成，免费开放。适合想快速了解自己的人。",
@@ -100,7 +100,7 @@ export const products: Product[] = [
     id: "camsim",
     slug: "camsim",
     name: "CamSim",
-    icon: "/solhub/icons/camsim.png",
+    icon: "/icons/camsim.png",
     shortDescription: "相机参数模拟器：从想拍的效果反推光圈、快门与 ISO。",
     description:
       "CamSim 是面向摄影新手的交互工具：告诉它你想拍成什么样，得到一组可参考的光圈 / 快门 / ISO 参数，免费开放使用。",
