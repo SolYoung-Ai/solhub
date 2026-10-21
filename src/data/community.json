@@ -3,6 +3,7 @@
     "id": "ofx-atlas",
     "slug": "ofx-atlas",
     "name": "OFX Atlas",
+    "icon": "/icons/ofx-atlas.png",
     "shortDescription": "OFX 视频插件兼容性数据库 · 仅做官方导航",
     "description": "OFX Atlas 收录官网可核验的 OFX 视频插件，标注宿主兼容性证据等级与实测状态，提供对比、排错与快捷复制工具。本站不托管、不分发任何插件安装包，所有下载均跳转官方页面。",
     "websiteUrl": "https://ofx.solyoung.top",
@@ -11,7 +12,9 @@
     "developerName": "Sol Young",
     "publishedAt": "2026-10-21",
     "launchBatch": "Community",
-    "verificationStatus": "pending",
+    "verificationStatus": "verified",
+    "verificationMethod": "人工访问 https://ofx.solyoung.top，核对产品定位、功能与页面内容后核验通过。",
+    "verifiedAt": "2026-10-21",
     "isDemo": false
   }
 ]
