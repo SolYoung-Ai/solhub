@@ -81,9 +81,9 @@ export const products: Product[] = [
     slug: "verity",
     name: "Verity",
     icon: "/icons/verity.png",
-    shortDescription: "把 13 套人格测试收拢在一个站点，选一套就能开始测。",
+    shortDescription: "把人格、心理与行为测试收拢在一个站点，选一套就能开始测。",
     description:
-      "Verity 是在线可用的测试集合站：结构统一的性格测试入口，结果即时生成，免费开放。适合想快速了解自己的人。",
+      "Verity 是在线可用的测试集合站：结构统一的人格、心理与行为测试入口，测试持续上新，结果即时生成，免费开放。适合想快速了解自己的人。",
     websiteUrl: "https://verity.solyoung.top",
     category: "fun-tools",
     tags: ["personality", "quiz", "free"],

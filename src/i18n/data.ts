@@ -76,7 +76,7 @@ export const productShortEn: Record<string, string> = {
   solyoung: "A person who turns ideas into work — an ever-updated personal digital space.",
   "solyoung-studio": "AI-powered personal websites, digital spaces and lightweight product builds.",
   myos: "A local-first workspace for independent creators: capture → think → create → ship → archive.",
-  verity: "13 personality tests in one place — pick one and start.",
+  verity: "Personality, psychological and behavior tests in one place — pick one and start.",
   camsim: "Camera simulator: reverse-engineer aperture, shutter and ISO from the look you want.",
 };
 
@@ -88,7 +88,7 @@ export const productDescEn: Record<string, string> = {
   myos:
     "My.OS is an online personal creation system: records, inspiration, projects, now and archives in one entry point, reducing the anxiety of scattered ideas. Free to use.",
   verity:
-    "Verity is an online collection of 13 personality tests behind one consistent entry point, with instant results. Free to use — for people who want to understand themselves quickly.",
+    "Verity is an online collection of personality, psychological and behavior tests behind one consistent entry point, with new tests added over time and instant results. Free to use — for people who want to understand themselves quickly.",
   camsim:
     "CamSim is an interactive tool for photography beginners: tell it the look you want, get a reference set of aperture / shutter / ISO values. Free to use.",
 };
