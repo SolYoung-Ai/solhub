@@ -57,7 +57,6 @@ export const zh: Dict = {
   "search.emptyHint": "可以换个关键词，或者去提交一个产品。",
   "search.tools": "工具",
   "search.products": "产品",
-  "search.demoNote": "（含演示数据）",
   "search.shortcut": "↑↓ 选择 · Enter 打开 · Esc 关闭",
   "search.localNote": "所有数据在本地匹配，不发送搜索内容",
 
@@ -214,7 +213,6 @@ export const zh: Dict = {
   "about.v1": "当前核验方式为人工核验：编辑实际访问产品官网，核对名称、描述与站点可访问性，并记录核验时间。",
   "about.v2": "不允许仅凭用户填写的信息、图片上传或点击按钮自动显示 Verified。",
   "about.v3": "自动核验（Meta Tag、文件验证、DNS TXT）已预留接口说明，但功能尚未启用。",
-  "about.v4": "演示数据一律标记为 Unverified，并带有「演示数据」标识。",
   "about.rankingTitle": "榜单排序规则",
   "about.roadmapTitle": "路线图与已知限制",
   "about.roadmap1": "以下能力需要外部服务或后端支持，当前尚未接入：",
@@ -258,7 +256,6 @@ export const zh: Dict = {
   "product.visitSite": "访问官网",
   "product.related": "相关产品与工具",
   "product.relatedNone": "暂无相关条目",
-  "product.demoNote": "演示数据不会被授予任何核验状态。",
   "product.submitCta": "想加入榜单？提交你的产品，通过核验后将获得 Verified 状态。当前核验为人工核验，自动核验（Meta Tag / DNS TXT）功能尚未启用。",
   "product.back": "返回榜单",
 
@@ -325,7 +322,6 @@ export const en: Dict = {
   "search.emptyHint": "Try another keyword, or submit a product.",
   "search.tools": "Tools",
   "search.products": "Products",
-  "search.demoNote": "(includes demo data)",
   "search.shortcut": "↑↓ select · Enter open · Esc close",
   "search.localNote": "All matching runs locally — search text never leaves your browser",
 
@@ -482,7 +478,6 @@ export const en: Dict = {
   "about.v1": "Current method is manual review: an editor actually visits the site, checks the name, description and reachability, and records the timestamp.",
   "about.v2": "Verified is never granted automatically from form input, image uploads or button clicks.",
   "about.v3": "Automated verification (Meta Tag, file check, DNS TXT) is reserved but not enabled yet.",
-  "about.v4": "Demo data is always marked Unverified with a “Demo” badge.",
   "about.rankingTitle": "Ranking rules",
   "about.roadmapTitle": "Roadmap & known limits",
   "about.roadmap1": "The following need external services or backend support and are not yet wired up:",
@@ -526,7 +521,6 @@ export const en: Dict = {
   "product.visitSite": "Visit website",
   "product.related": "Related products & tools",
   "product.relatedNone": "Nothing related yet",
-  "product.demoNote": "Demo data never receives a verification state.",
   "product.submitCta": "Want to be listed? Submit your product; it earns Verified after passing actual review. Review is currently manual; automated checks (Meta Tag / DNS TXT) are not enabled yet.",
   "product.back": "Back to launches",
 

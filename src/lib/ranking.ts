@@ -5,10 +5,9 @@ import type { Product } from "@/data/types";
  *
  * 规则（透明、可解释，v1 以人工精选 + 核验状态为主，不包含任何随机分数）：
  * 1. 核验状态权重：verified(0) > pending(1) > unverified(2)；
- * 2. 演示数据排在所有真实数据之后；
- * 3. 配置了 rankPosition（人工精选顺序）的产品按 rankPosition 升序；
- * 4. 其余产品按 publishedAt（收录时间）倒序；
- * 5. 未来接入公开投票后，投票将用于同权重产品之间的辅助排序，不参与核验判定，
+ * 2. 配置了 rankPosition（人工精选顺序）的产品按 rankPosition 升序；
+ * 3. 其余产品按 publishedAt（收录时间）倒序；
+ * 4. 未来接入公开投票后，投票将用于同权重产品之间的辅助排序，不参与核验判定，
  *    不允许通过付费购买排名。
  */
 export function rankProducts(list: Product[]): Product[] {
@@ -44,10 +43,6 @@ export const rankingRules: { title: string; detail: string }[] = [
   {
     title: "人工精选",
     detail: "每周由 SolHub 编辑挑选值得关注的产品，配置明确的精选顺序（rankPosition）。",
-  },
-  {
-    title: "演示数据垫底",
-    detail: "演示数据（Demo）一律排在真实数据之后，并带有明确的「演示数据」标记。",
   },
   {
     title: "不购买排名",

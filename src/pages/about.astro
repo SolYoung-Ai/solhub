@@ -14,7 +14,6 @@ const en = locale === "en";
 const RULES_EN: { title: string; detail: string }[] = [
   { title: "Verified first", detail: "Products that passed actual verification rank before pending and unverified ones." },
   { title: "Human curation", detail: "Each week SolHub editors pick products worth attention with an explicit curated order (rankPosition)." },
-  { title: "Demo data last", detail: "Demo entries always rank after real data and carry a clear “demo data” badge." },
   { title: "No paid rankings", detail: "There is no voting or paid ranking today; if public voting is added later, votes only break ties between equal-weight products." },
 ];
 
@@ -82,7 +81,6 @@ const metaDesc = en
         <li>{en ? "Verification is currently <strong>manual within 24 hours</strong>: editors visit the product website, check name, description and reachability, and record the time." : "当前核验为<strong>人工核验，24 小时内完成</strong>：编辑实际访问产品官网，核对名称、描述与站点可访问性，并记录核验时间。"}</li>
         <li>{en ? "Verified can never be granted just by user-entered info, image uploads or button clicks." : "不允许仅凭用户填写的信息、图片上传或点击按钮自动显示 Verified。"}</li>
         <li>{en ? "Automatic verification (Meta Tag, file check, DNS TXT) is reserved with documented interfaces but not enabled yet." : "自动核验（Meta Tag、文件验证、DNS TXT）已预留接口说明，但功能尚未启用。"}</li>
-        <li>{en ? "Demo entries are always marked Unverified and carry a “demo data” badge." : "演示数据一律标记为 Unverified，并带有「演示数据」标识。"}</li>
       </ul>
 
       <h2>{en ? "Ranking rules" : "榜单排序规则"}</h2>
