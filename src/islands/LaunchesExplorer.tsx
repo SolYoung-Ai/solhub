@@ -293,8 +293,8 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
 
       <p className="mt-4 text-center text-xs text-muted-foreground">
         {locale === "en"
-          ? `${filtered.length} products · verification reflects actual SolHub checks; demo data is clearly marked`
-          : `共 ${filtered.length} 个产品 · 核验状态以 SolHub 实际核验为准，演示数据已明确标记`}
+          ? `${filtered.length} products · verification reflects actual SolHub checks`
+          : `共 ${filtered.length} 个产品 · 核验状态以 SolHub 实际核验为准`}
       </p>
     </div>
   );
