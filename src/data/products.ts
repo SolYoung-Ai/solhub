@@ -116,6 +116,26 @@ export const products: Product[] = [
     verifiedAt: "2026-10-16",
     isDemo: false,
   },
+  {
+    id: "solclip",
+    slug: "solclip",
+    name: "SolClip",
+    icon: "/icons/solclip.png",
+    shortDescription: "多平台短视频解析、下载与文案提取工具。",
+    description:
+      "SolClip 是面向内容创作者的短视频素材提取工具：粘贴抖音、小红书、微信视频号、哔哩哔哩的分享链接，即可解析公开作品、保存媒体文件，并提取发布文案、字幕与口播文字。仅处理公开内容，不提供付费、DRM 或登录权限绕过。",
+    websiteUrl: "https://clip.solyoung.top",
+    category: "creator-tools",
+    tags: ["video-parser", "subtitle", "content-creator", "douyin"],
+    developerName: "Sol Young",
+    publishedAt: "2026-10-25",
+    launchBatch: "Curated W43",
+    verificationStatus: "verified",
+    verificationMethod:
+      "人工访问 https://clip.solyoung.top（HTTP 200），核对产品名称、描述、支持平台与页面内容后核验通过。",
+    verifiedAt: "2026-10-25",
+    isDemo: false,
+  },
   ...(communityProducts as Product[]),
 ];
 
