@@ -136,6 +136,26 @@ export const products: Product[] = [
     verifiedAt: "2026-10-25",
     isDemo: false,
   },
+  {
+    id: "xinsight",
+    slug: "xinsight",
+    name: "X Account Insight",
+    icon: "/icons/xinsight.png",
+    shortDescription: "X 账号运营数据体检：本地导入、透明计算、可解释分析。",
+    description:
+      "X Account Insight 是面向 X（Twitter）运营者的数据体检工具：本地导入账号数据 CSV，透明计算关键运营指标，输出可解释的分析结果。所有数据在浏览器本地处理，不上传服务器，不触碰账号权限。",
+    websiteUrl: "https://x.insight.solyoung.top",
+    category: "growth-marketing",
+    tags: ["x-twitter", "analytics", "csv", "privacy"],
+    developerName: "Sol Young",
+    publishedAt: "2026-10-25",
+    launchBatch: "Curated W43",
+    verificationStatus: "verified",
+    verificationMethod:
+      "人工访问 https://x.insight.solyoung.top（HTTP 200），核对产品名称、定位与页面内容后核验通过。",
+    verifiedAt: "2026-10-25",
+    isDemo: false,
+  },
   ...(communityProducts as Product[]),
 ];
 
