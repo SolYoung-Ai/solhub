@@ -5,7 +5,9 @@
  */
 
 const API_BASE =
-  (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) || "https://solhub-auth.solyoung.top";
+  (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
+  // TODO: 待 solyoung.top DNS 迁移 Cloudflare 后改回自定义域名 solhub-auth.solyoung.top
+  "https://solhub-auth.solyoungwork.workers.dev";
 
 export interface AuthUser {
   login: string;
