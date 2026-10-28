@@ -147,8 +147,8 @@ export default {
       });
       const user = await userRes.json();
       if (!user.login) return json({ error: "cannot get user" }, 400);
-      // List issues created by this user
-      const res = await fetch(`${API}/repos/${REPO}/issues?creator=${encodeURIComponent(user.login)}&state=open&per_page=50`, {
+      // List all issues created by this user (open + closed,前端展示状态徽标)
+      const res = await fetch(`${API}/repos/${REPO}/issues?creator=${encodeURIComponent(user.login)}&state=all&per_page=50`, {
         headers: { Authorization: `Bearer ${token}`, "User-Agent": "SolHub" },
       });
       const issues = await res.json();
