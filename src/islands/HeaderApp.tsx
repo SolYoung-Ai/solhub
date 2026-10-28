@@ -12,12 +12,12 @@ import {
 } from "lucide-react";
 import type { SearchIndexEntry } from "@/data/types";
 import { searchIndex } from "@/lib/search";
+import { fetchMe, type AuthUser } from "@/lib/auth";
 import { cx } from "@/lib/utils";
 import { p } from "@/lib/paths";
 import { getDict, translate } from "@/i18n";
 import type { Locale } from "@/i18n";
-
-const API_BASE = import.meta.env.PUBLIC_SOLHUB_API || "https://solhub-auth.solyoungwork.workers.dev";
+import AuthDialog from "@/islands/AuthDialog";
 
 interface Props {
   currentRoute: string;
@@ -28,7 +28,13 @@ interface Props {
 export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
   const dict = getDict(locale);
+
+  useEffect(() => {
+    void fetchMe().then(setUser);
+  }, []);
 
   const NAV: { label: string; path: string; match: (r: string) => boolean }[] = [
     { label: translate(dict, "nav.discover"), path: "/", match: (r) => r === "/" },
@@ -111,6 +117,31 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
             <Search className="h-3.5 w-3.5" />
           </button>
 
+          {/* 登录 / 头像 - 所有屏幕都显示 */}
+          {user ? (
+            <a
+              href={p("/my-submissions/", locale)}
+              title={user.displayName || user.login}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border hover:border-foreground/40"
+            >
+              {user.avatar_url ? (
+                <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="font-display text-[13px] font-bold uppercase text-foreground">
+                  {(user.displayName || user.login).slice(0, 1)}
+                </span>
+              )}
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAuthOpen(true)}
+              className="inline-flex h-8 items-center gap-1 rounded-[2px] border border-border bg-card px-2.5 text-xs font-medium text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
+            >
+              {translate(dict, "nav.login")}
+            </button>
+          )}
+
           {/* 提交产品 - 桌面显示 */}
           <a href={p("/submit/", locale)} className="btn btn-accent hidden !h-8 px-2.5 sm:inline-flex !text-xs">
             {translate(dict, "nav.submit")}
@@ -129,6 +160,9 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
       {searchOpen && (
         <SearchDialog index={searchIndex} locale={locale} onClose={() => setSearchOpen(false)} />
       )}
+
+      {/* 登录 / 注册弹窗 */}
+      {authOpen && <AuthDialog locale={locale} onClose={() => setAuthOpen(false)} />}
       </header>
 
       {/* 移动端侧边菜单 */}
@@ -169,6 +203,23 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
               >
                 {translate(dict, "nav.submit")}
               </a>
+              {user ? (
+                <a
+                  href={p("/my-submissions/", locale)}
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium text-accent"
+                >
+                  {user.displayName || user.login}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setMenuOpen(false); setAuthOpen(true); }}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[15px] font-medium text-foreground/80 hover:bg-secondary/60"
+                >
+                  {translate(dict, "nav.login")}
+                </button>
+              )}
               <div className="flex items-center gap-4 px-3 py-3">
                 <LangButton locale={locale} currentRoute={currentRoute} />
                 <ThemeButton />
