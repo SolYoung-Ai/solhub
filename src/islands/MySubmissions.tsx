@@ -3,7 +3,7 @@ import { ExternalLink, Loader2, Lock, X, Pencil, Check, MapPin, Link as LinkIcon
 import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 
-const apiBase = import.meta.env.PUBLIC_SOLHUB_API || "";
+const apiBase = import.meta.env.PUBLIC_SOLHUB_API || "https://solhub-auth.solyoungwork.workers.dev";
 
 interface Profile {
   login: string;
@@ -21,6 +21,15 @@ interface GhIssue {
   html_url: string;
   state: string;
   created_at: string;
+}
+
+interface CommunityProduct {
+  slug: string;
+  name: string;
+  shortDescription?: string;
+  websiteUrl?: string;
+  verificationStatus?: string;
+  publishedAt?: string;
 }
 
 function parseBody(body: string | null) {
@@ -46,6 +55,7 @@ function parseBody(body: string | null) {
 export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   const en = locale === "en";
   const [issues, setIssues] = useState<GhIssue[]>([]);
+  const [products, setProducts] = useState<CommunityProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [notAuthed, setNotAuthed] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
@@ -68,7 +78,11 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         if (r.status === 401) { setNotAuthed(true); return []; }
         return r.json();
       })
-      .then((data) => setIssues((Array.isArray(data) ? data : []).filter((i) => i.state === "open")))
+      .then((data) => setIssues(Array.isArray(data) ? data : []))
+      .catch(() => {});
+    fetch(`${apiBase}/my-products`, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { products: [] }))
+      .then((data) => setProducts(Array.isArray(data?.products) ? data.products : []))
       .catch(() => {});
   }, []);
 
@@ -204,6 +218,49 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         </div>
       )}
 
+      {/* 已收录产品（community.json，含核验状态） */}
+      {products.length > 0 && (
+        <div className="mt-8">
+          <h2 className="font-display text-base font-bold text-foreground">
+            {en ? "Published products" : "已收录产品"}
+          </h2>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+            {products.map((prod) => (
+              <li key={prod.slug} className="card flex items-start justify-between gap-3 p-4">
+                <div className="min-w-0 flex-1">
+                  <a
+                    href={p(`/products/${prod.slug}/`, locale)}
+                    className="truncate text-sm font-bold text-foreground hover:text-accent"
+                  >
+                    {prod.name}
+                  </a>
+                  {prod.shortDescription && (
+                    <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-muted-foreground">
+                      {prod.shortDescription}
+                    </p>
+                  )}
+                </div>
+                <span
+                  className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] uppercase ${
+                    prod.verificationStatus === "verified"
+                      ? "bg-success/10 text-success"
+                      : "bg-warning/10 text-warning"
+                  }`}
+                >
+                  {prod.verificationStatus === "verified"
+                    ? en ? "Verified" : "已核验"
+                    : en ? "Pending" : "待核验"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* GitHub Issue 提交记录 */}
+      <h2 className={`font-display text-base font-bold text-foreground ${products.length > 0 ? "mt-10" : "mt-8"}`}>
+        {en ? "Issue submissions" : "Issue 投稿记录"}
+      </h2>
       {issues.length === 0 ? (
         <p className="mt-10 text-center text-sm text-muted-foreground">
           {en ? "No submissions yet. " : "还没有提交。"}
