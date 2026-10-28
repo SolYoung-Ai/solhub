@@ -1,0 +1,30 @@
+---
+import type { Locale } from "@/i18n";
+
+interface Props {
+  size?: number;
+  withText?: boolean;
+  textClass?: string;
+  markOnly?: boolean;
+  locale?: Locale;
+}
+
+const { size = 72, withText = true } = Astro.props;
+---
+
+<span class="inline-flex items-center leading-none" aria-label="SolHub">
+  <img
+    src={`${import.meta.env.BASE_PATH}solhub-mark.png`}
+    alt=""
+    width={size}
+    height={size}
+    class="shrink-0 block"
+  />
+  {
+    withText && (
+      <span class="font-display text-[32px] font-bold leading-none tracking-tight text-foreground">
+        SolHub
+      </span>
+    )
+  }
+</span>

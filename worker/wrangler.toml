@@ -1,0 +1,8 @@
+name = "solhub-auth"
+main = "index.js"
+compatibility_date = "2024-01-01"
+account_id = "01624aee8adc7c5730447831e3bb38ab"
+
+[[kv_namespaces]]
+binding = "PROFILES"
+id = "bad8c625ab4846eb97b71b7166a3fab0"

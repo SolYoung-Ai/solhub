@@ -1,0 +1,134 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { siteConfig } from "@/data/site";
+import { products } from "@/data/products";
+import { tools } from "@/data/tools";
+import { categories } from "@/data/categories";
+import { rankProducts } from "@/lib/ranking";
+import { getIcon } from "@/lib/icons";
+import { p } from "@/lib/paths";
+import ProductCard from "@/components/ProductCard.astro";
+import SectionHeading from "@/components/SectionHeading.astro";
+import HeroSearch from "@/islands/HeroSearch.tsx";
+import LaunchesExplorer from "@/islands/LaunchesExplorer.tsx";
+import type { Locale } from "@/i18n";
+import { categoryDescription } from "@/i18n/data";
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+
+const featured = rankProducts(products).slice(0, 3);
+const newLaunches = rankProducts(products).slice(3, 7);
+
+const metaTitle = en ? `${siteConfig.name} — Discover. Build. Share.` : siteConfig.name;
+const metaDesc = en
+  ? "Products worth discovering, tools worth using. SolHub is an indie-product discovery platform and free online toolbox: explore what indie developers are building and use simple, practical, free tools."
+  : "值得被发现的产品，值得被使用的工具。SolHub 是独立产品发现平台与在线工具箱：探索独立开发者正在创造的产品，使用简单、实用、免费的在线工具，让独立创作更高效。";
+---
+
+<BaseLayout
+  title={metaTitle}
+  description={metaDesc}
+  route="/"
+  locale={locale}
+>
+  <!-- ===== Hero ===== -->
+  <section class="relative overflow-hidden">
+    <div
+      class="pointer-events-none absolute inset-0"
+      aria-hidden="true"
+      style="background-image: radial-gradient(circle at 50% 0%, rgb(232 112 40 / 0.08), transparent 55%)"
+    />
+    <div class="container-page relative py-12 text-center sm:py-20">
+      <p class="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-accent sm:mb-4 sm:text-[11px]">
+        SolHub · Discover · Build · Share
+      </p>
+      <p class="mx-auto mt-2 max-w-2xl text-[15px] leading-7 text-muted-foreground sm:text-base">
+        {en ? (
+          <>Explore products indie developers are building, use simple, practical, free online tools,<br class="hidden sm:block" />and ship every good idea faster.</>
+        ) : (
+          <>探索独立开发者正在创造的产品，使用简单、实用、免费的在线工具，<br class="hidden sm:block" />让每一个好想法更快落地。</>
+        )}
+      </p>
+
+      <div class="mx-auto mt-8 max-w-xl">
+        <HeroSearch client:load />
+      </div>
+
+      <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <a href={p("/launches/", locale)} class="btn bg-accent/10 text-accent hover:bg-accent/15 border border-accent/20">
+          {en ? "Explore All Products" : "浏览全部产品"}
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 本周产品榜单 ===== -->
+  <section class="border-t border-border bg-secondary/30 py-10 sm:py-16">
+    <div class="container-page">
+      <SectionHeading
+        eyebrow={en ? "Recent · All Products" : "近期 · 全部榜单"}
+        title={en ? "Recent product launches" : "近期全部榜单"}
+        description={en
+          ? "Products worth your attention recently. Ranked by curation + verification priority; full rules on the launches page."
+          : "近期值得关注的产品。榜单为人工精选 + 核验优先排序，完整规则见榜单页。"}
+        actionHref={p("/launches/", locale)}
+        actionLabel={en ? "View full rankings" : "查看完整榜单"}
+      />
+      <div class="grid gap-5 md:grid-cols-3">
+        {
+          featured.map((product, i) => (
+            <div class="animate-rise" style={`animation-delay:${i * 60}ms`}>
+              <ProductCard product={product} rank={i + 1} highlight={true} locale={locale} />
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 全部产品榜单 ===== -->
+  <section class="border-t border-border bg-secondary/30 py-10 sm:py-16">
+    <div class="container-page">
+      <SectionHeading
+        eyebrow="All Products"
+        title={en ? "All products" : "全部产品榜单"}
+        description={en
+          ? "Products and tools submitted by indie developers — verified within 24 hours."
+          : "独立开发者提交的产品和工具，24 小时内完成核验。"}
+        actionHref={p("/launches/", locale)}
+        actionLabel={en ? "View all products" : "查看全部产品"}
+      />
+      <LaunchesExplorer client:load products={products} locale={locale} />
+    </div>
+  </section>
+
+  <!-- ===== 提交引导 ===== -->
+  <section class="py-10 sm:py-16">
+    <div class="container-page">
+      <div class="card relative overflow-hidden p-8 text-center sm:p-12">
+        <div
+          class="pointer-events-none absolute inset-0"
+          aria-hidden="true"
+          style="background-image: radial-gradient(circle at 80% 20%, rgb(232 112 40 / 0.1), transparent 50%)"
+        />
+        <h2 class="font-display relative text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          {en ? "Built a website, app or AI tool yourself?" : "自己做了一款网站、软件或 AI 工具？"}
+        </h2>
+        <p class="relative mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
+          {en
+            ? "Submit it to SolHub and let more indie developers and users find it. Submissions are auto-published to the community list; you can also upload a self-contained HTML tool to run in a sandbox right here."
+            : "把它提交到 SolHub，让更多独立开发者与使用者发现它。提交即自动公开到社区列表；也可以上传自包含 HTML，让工具直接在本站沙箱内运行。"}
+        </p>
+        <a href={p("/submit/", locale)} class="btn btn-accent relative mt-6 !h-10 px-6">
+          {en ? "Submit a Product" : "提交你的产品"}
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

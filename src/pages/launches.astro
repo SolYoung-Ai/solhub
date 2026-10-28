@@ -1,0 +1,57 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { products } from "@/data/products";
+import { rankingRules } from "@/lib/ranking";
+import LaunchesExplorer from "@/islands/LaunchesExplorer.tsx";
+import CommunityFeed from "@/islands/CommunityFeed.tsx";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+
+const RULES_EN: { title: string; detail: string }[] = [
+  { title: "Verified first", detail: "Products that passed actual verification rank before pending and unverified ones." },
+  { title: "Human curation", detail: "Each week SolHub editors pick products worth attention with an explicit curated order (rankPosition)." },
+  { title: "No paid rankings", detail: "There is no voting or paid ranking today; if public voting is added later, votes only break ties between equal-weight products." },
+];
+
+const metaDesc = en
+  ? "SolHub launches: browse what indie developers are building, filter by category, sort by newest, with transparent verification status."
+  : "SolHub 近期产品榜单：浏览独立开发者正在创造的产品，按分类筛选、按最新收录排序，核验状态透明可解释。";
+---
+
+<BaseLayout
+  title={en ? "Product Launches" : "近期产品榜单"}
+  description={metaDesc}
+  route="/launches/"
+  locale={locale}
+>
+  <section class="border-b border-border bg-secondary/30 py-6 sm:py-8">
+    <div class="container-page">
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
+          {en ? "Product Launches" : "近期产品榜单"}
+        </h1>
+        <span class="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] text-muted-foreground">
+          {en ? "Verified first" : "核验优先"}
+        </span>
+        <span class="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] text-muted-foreground">
+          {en ? "Human curated" : "人工精选"}
+        </span>
+        <span class="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] text-muted-foreground">
+          {en ? "No paid rankings" : "不购买排名"}
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <section class="py-8 sm:py-12">
+    <div class="container-page">
+      <LaunchesExplorer client:load products={products} locale={locale} />
+    </div>
+  </section>
+</BaseLayout>

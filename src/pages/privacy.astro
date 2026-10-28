@@ -1,0 +1,92 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+
+const metaDesc = en
+  ? "SolHub privacy: tools run locally in your browser; GitHub OAuth login only reads your public profile; submissions are public GitHub Issues."
+  : "SolHub 隐私说明：工具在浏览器本地运行；GitHub 登录仅读取公开资料；提交内容为公开 GitHub Issue。";
+---
+
+<BaseLayout
+  title={en ? "Privacy" : "隐私说明"}
+  description={metaDesc}
+  route="/privacy/"
+  locale={locale}
+>
+  <section class="border-b border-border bg-secondary/30 py-14">
+    <div class="container-page">
+      <p class="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
+        Privacy
+      </p>
+      <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+        {en ? "Privacy" : "隐私说明"}
+      </h1>
+      <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
+        {en ? <>SolHub 的原则：<strong>尽量减少数据收集</strong>。本页说明实际数据流向。</> : <>SolHub 的原则：<strong>尽量减少数据收集</strong>。本页说明实际数据流向。</>}
+      </p>
+    </div>
+  </section>
+
+  <section class="py-12">
+    <div class="container-page prose-solhub max-w-3xl">
+      <h2>{en ? "GitHub Login" : "GitHub 登录"}</h2>
+      <p>
+        {en
+          ? <>Login uses GitHub OAuth. We only read your <strong>public profile</strong> (username, avatar). We do not access your private repositories, private email, or account settings. After login, a session token is stored in an HttpOnly cookie on this domain.</>
+          : <>登录使用 GitHub OAuth。我们仅读取你的<strong>公开资料</strong>（用户名、头像）。不访问你的私有仓库、私人邮箱或账户设置。登录后会话令牌存储在本站的 HttpOnly Cookie 中。</>}
+      </p>
+      <ul>
+        <li>{en ? "What we collect: GitHub username, avatar image URL." : "收集内容：GitHub 用户名、头像图片地址。"}</li>
+        <li>{en ? "What we don't collect: private email, private repos, organizations, settings." : "不收集：私人邮箱、私有仓库、组织、设置。"}</li>
+        <li>{en ? "Logout clears the session cookie immediately." : "退出登录立即清除会话 Cookie。"}</li>
+      </ul>
+
+      <h2>{en ? "Product Submissions" : "产品提交"}</h2>
+      <p>
+        {en
+          ? <>Submitted products are stored as <strong>public GitHub Issues</strong> in the SolHub repository. You don't need a GitHub account to submit — fill the form and send directly. Once submitted:</>
+          : <>提交的产品以<strong>公开 GitHub Issue</strong>形式存储。提交无需 GitHub 账号，填完表单直接发送即可。提交后：</>}
+      </p>
+      <ul>
+        <li>{en ? "Your product name, description, and website link are public." : "产品名称、描述和官网链接是公开的。"}</li>
+        <li>{en ? "SolHub reviews within 24 hours and marks Verified." : "SolHub 在 24 小时内核验并标记 Verified。"}</li>
+        <li>{en ? "No private data (email, phone) is required during submission." : "提交过程不需要填写私人数据（邮箱、电话）。"}</li>
+      </ul>
+
+      <h2>{en ? "Tools run locally" : "工具在本地运行"}</h2>
+      <p>
+        {en
+          ? <>All online tools run entirely in your browser. Your input is <strong>never sent to any server</strong>.</>
+          : <>所有在线工具都在浏览器本地运行。你的输入内容<strong>不会发送到任何服务器</strong>。</>}
+      </p>
+
+      <h2>{en ? "No tracking" : "不跟踪"}</h2>
+      <p>
+        {en
+          ? <>SolHub does not use analytics scripts, ad trackers, or third-party cookies. The only network requests are: loading the page itself, fetching the public product list from GitHub API, and the GitHub OAuth login flow.</>
+          : <>SolHub 不使用分析脚本、广告跟踪器或第三方 Cookie。唯一的网络请求是：加载页面本身、从 GitHub API 拉取公开产品列表、以及 GitHub OAuth 登录流程。</>}
+      </p>
+
+      <h2>{en ? "Static hosting" : "页面静态托管"}</h2>
+      <p>
+        {en
+          ? "SolHub is a static site on GitHub Pages. The hosting platform may record standard access logs (IP, browser type, request time) for infrastructure purposes — this is universal hosting behavior."
+          : "SolHub 是静态网站，部署于 GitHub Pages。托管平台可能出于基础设施目的记录标准访问日志（IP、浏览器类型、请求时间），这是所有托管服务的通用行为。"}
+      </p>
+
+      <h2>{en ? "Changes" : "变更"}</h2>
+      <p>
+        {en
+          ? "This page will be updated as features evolve."
+          : "本说明会随网站功能变化更新。"}
+      </p>
+    </div>
+  </section>
+</BaseLayout>
