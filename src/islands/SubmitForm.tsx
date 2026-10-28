@@ -27,6 +27,7 @@ import {
   type CloudbaseSubmissionPayload,
 } from "@/lib/cloudbase";
 import { isValidHttpUrl } from "@/lib/utils";
+import { fetchMe, type AuthUser } from "@/lib/auth";
 import { Message } from "@/components/tool-ui";
 import type { Submission } from "@/data/types";
 import type { Locale } from "@/i18n";
@@ -75,8 +76,13 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [result, setResult] = useState<{ mode: SubmissionMode; message: string; url?: string } | null>(null);
   const [draftJson, setDraftJson] = useState("");
+  const [me, setMe] = useState<AuthUser | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cloudbaseReady = useMemo(() => isCloudBaseConfigured(), []);
+
+  useEffect(() => {
+    void fetchMe().then(setMe);
+  }, []);
   const githubRepo = submissionConfig.githubIssueRepo ?? null;
   const modes = useMemo(() => {
     const remote = Boolean(submissionConfig.remoteEndpoint);
@@ -152,11 +158,55 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     tool_type: form.kind === "tool" ? form.toolType : undefined,
   });
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const e = validate();
     setErrors(e);
     if (Object.values(e).some(Boolean)) return;
 
+    const payload = buildPayload();
+
+    /* 已登录：提交到认证服务，自动收录到个人名下（community.json） */
+    if (me) {
+      setStatus("submitting");
+      try {
+        const apiBase = (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) || "https://solhub-auth.solyoung.top";
+        const res = await fetch(`${apiBase.replace(/\/$/, "")}/publish`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: payload.name,
+            shortDescription: payload.short_description,
+            description: payload.description,
+            websiteUrl: payload.url,
+            category: payload.category,
+            tags: payload.tags,
+            iconUrl: payload.icon_url,
+            developerName: payload.developer,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus("error");
+          setResult({ mode: "cloudbase", message: data.error || `提交失败（${res.status}）` });
+          return;
+        }
+        setStatus("success");
+        setResult({
+          mode: "cloudbase",
+          message: en
+            ? "Submitted! Your product has been added under your account and is pending review. You can manage it in My Account."
+            : "提交成功！产品已收录到你的账号名下，等待人工复核。可以在「个人中心」随时编辑或删除。",
+        });
+        return;
+      } catch {
+        setStatus("error");
+        setResult({ mode: "cloudbase", message: en ? "Network error. Please retry." : "网络错误，请稍后重试。" });
+        return;
+      }
+    }
+
+    /* 未登录：保留原有邮件提交通道 */
     const hasUploadedIcon = form.iconUrl.trim().startsWith("data:");
     const lines = [
       `产品名称：${form.name.trim()}`,
@@ -186,9 +236,13 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     });
   };
 
-  const modeNote = en
-    ? "Fill the form and click submit — your email client opens with all info pre-filled. Send it and we'll review within 24 hours."
-    : "填完表单点击提交，邮箱会自动打开并填好所有信息，发送即完成，我们会在 24 小时内核验。";
+  const modeNote = me
+    ? (en
+      ? "Submitting while logged in: your product is added under your account instantly and can be managed in My Account. We review within 24 hours."
+      : "登录状态提交：产品会立即收录到你的账号名下，可在「个人中心」随时编辑或删除；我们会在 24 小时内核验。")
+    : (en
+      ? "Fill the form and click submit — your email client opens with all info pre-filled. Send it and we'll review within 24 hours."
+      : "填完表单点击提交，邮箱会自动打开并填好所有信息，发送即完成，我们会在 24 小时内核验。");
 
   return (
     <div className="space-y-6">
@@ -387,7 +441,9 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           </button>
           <button type="submit" disabled={status === "submitting"} className="btn btn-accent !h-10 px-6">
             {status === "submitting" ? (
-              <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {en ? "Opening email…" : "打开邮箱…"}</>
+              <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {me ? (en ? "Submitting…" : "提交中…") : (en ? "Opening email…" : "打开邮箱…")}</>
+            ) : me ? (
+              <>{en ? "Submit" : "提交产品"}</>
             ) : (
               <>{en ? "Submit via email" : "发送邮件提交"}</>
             )}
@@ -431,9 +487,16 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           <p className="mt-2 text-[13px] leading-6 text-foreground/75">{result.message}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {result.mode === "cloudbase" && (
-              <a href={p("/launches/", locale)} className="btn btn-accent !h-8 px-3 text-xs">
-                {en ? "View community products" : "查看社区产品"} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              </a>
+              <>
+                <a href={p("/launches/", locale)} className="btn btn-accent !h-8 px-3 text-xs">
+                  {en ? "View community products" : "查看社区产品"} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+                {me && (
+                  <a href={p("/my-submissions/", locale)} className="btn btn-outline !h-8 px-3 text-xs">
+                    {en ? "My account" : "前往个人中心"}
+                  </a>
+                )}
+              </>
             )}
             {result.mode === "github-issue" && result.url && (
               <a href={result.url} target="_blank" rel="noopener noreferrer" className="btn btn-accent !h-8 px-3 text-xs">

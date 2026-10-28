@@ -1,4 +1,6 @@
 import type { Product, SearchIndexEntry, Tool } from "@/data/types";
+
+export type { SearchIndexEntry };
 import { categoryName } from "@/data/categories";
 import { productCategoryName } from "@/data/product-categories";
 import type { Locale } from "@/i18n";
