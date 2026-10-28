@@ -169,7 +169,9 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     if (me) {
       setStatus("submitting");
       try {
-        const apiBase = (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) || "https://solhub-auth.solyoung.top";
+        const apiBase =
+          (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
+          "https://solhub-auth.solyoungwork.workers.dev";
         const res = await fetch(`${apiBase.replace(/\/$/, "")}/publish`, {
           method: "POST",
           credentials: "include",
