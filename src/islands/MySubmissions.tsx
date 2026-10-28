@@ -14,7 +14,9 @@ import { p } from "@/lib/paths";
 import { fetchMe, logout, saveProfile, type AuthUser } from "@/lib/auth";
 import type { Locale } from "@/i18n";
 
-const apiBase = (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) || "https://solhub-auth.solyoung.top";
+const apiBase =
+  (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
+  "https://solhub-auth.solyoungwork.workers.dev";
 
 function base(): string {
   return apiBase.replace(/\/$/, "");
