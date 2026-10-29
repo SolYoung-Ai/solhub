@@ -21,26 +21,5 @@
     "verificationMethod": "人工访问 https://ofx.solyoung.top，核对产品定位、功能与页面内容后核验通过。",
     "verifiedAt": "2026-10-21",
     "isDemo": false
-  },
-  {
-    "id": "-mvtpuk2u",
-    "slug": "-mvtpuk2u",
-    "name": "烧烤烧烤烧烤烧烤",
-    "shortDescription": "睡觉睡觉睡觉睡觉",
-    "description": "睡觉睡觉睡觉时睡觉",
-    "websiteUrl": "https://rankcert.com/product/listed-firm",
-    "icon": "",
-    "category": "ai-tools",
-    "tags": [
-      "在家睡觉睡觉睡觉"
-    ],
-    "developerName": "自己在家自己",
-    "publishedAt": "2026-10-29",
-    "launchBatch": "Community",
-    "verificationStatus": "verified",
-    "verificationMethod": "官网链接自动检测可访问，已自动收录上线",
-    "isDemo": false,
-    "submittedBy": "soyoang@qq.com",
-    "verifiedAt": "2026-10-29"
   }
 ]
