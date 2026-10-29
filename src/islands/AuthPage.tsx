@@ -81,10 +81,10 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
   const benefits: { icon: ReactNode; title: string; desc: string }[] = [
     {
       icon: <Zap className="h-4 w-4" aria-hidden="true" />,
-      title: en ? "One-click publishing" : "提交即收录",
+      title: en ? "One-click publishing" : "提交即上线",
       desc: en
-        ? "Submit while logged in and your product goes live instantly under your account — no email needed."
-        : "登录后提交产品一键收录到你的账号名下，无需再走邮件流程。",
+        ? "Submit while logged in — if your link opens, the product goes live on the community list instantly."
+        : "登录后提交，官网链接可正常打开即自动收录上线，无需等待审核。",
     },
     {
       icon: <Pencil className="h-4 w-4" aria-hidden="true" />,
@@ -95,10 +95,10 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
     },
     {
       icon: <ShieldCheck className="h-4 w-4" aria-hidden="true" />,
-      title: en ? "Priority verification" : "优先核验",
+      title: en ? "Auto verification" : "自动核验",
       desc: en
-        ? "Logged-in submissions are verified and marked Verified within 24 hours, with priority."
-        : "登录提交的产品 24 小时内优先人工核验并标记 Verified。",
+        ? "Link reachability is checked automatically at submit time — no waiting for manual review."
+        : "提交时自动检测链接可达性，通过即上线，无需等待人工核验。",
     },
     {
       icon: <CheckCircle2 className="h-4 w-4" aria-hidden="true" />,

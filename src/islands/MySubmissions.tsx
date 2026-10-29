@@ -1,17 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
+import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
 import {
+  Camera,
   Check,
   ExternalLink,
   Link as LinkIcon,
   Loader2,
   LogIn,
+  LogOut,
   MapPin,
+  PackagePlus,
   Pencil,
   Trash2,
   User,
 } from "lucide-react";
 import { p } from "@/lib/paths";
-import { fetchMe, logout, saveProfile, type AuthUser } from "@/lib/auth";
+import { avatarOf, fetchMe, logout, resizeImageToDataUrl, saveProfile, type AuthUser } from "@/lib/auth";
 import type { Locale } from "@/i18n";
 
 const apiBase =
@@ -44,6 +47,29 @@ interface CommunityProduct {
   publishedAt?: string;
 }
 
+/* ---------- 错误兜底：任何渲染异常都显示可恢复的提示，而不是空白 ---------- */
+
+class PanelErrorBoundary extends Component<{ children: ReactNode }, { err: Error | null }> {
+  state = { err: null as Error | null };
+  static getDerivedStateFromError(err: Error) {
+    return { err };
+  }
+  render() {
+    if (this.state.err) {
+      return (
+        <div className="py-20 text-center">
+          <p className="text-sm font-bold text-foreground">页面出错了</p>
+          <p className="mt-2 text-xs text-muted-foreground">{this.state.err.message || "未知错误"}</p>
+          <button type="button" onClick={() => window.location.reload()} className="btn btn-outline mt-4 !h-9 px-4 text-xs">
+            刷新页面重试
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function parseBody(body: string | null) {
   if (!body) return {} as Record<string, string>;
   const map: Record<string, string> = {};
@@ -64,17 +90,27 @@ function parseBody(body: string | null) {
   return map;
 }
 
-export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
+export default function MySubmissionsWithBoundary({ locale = "zh" }: { locale?: Locale }) {
+  return (
+    <PanelErrorBoundary>
+      <MySubmissions locale={locale} />
+    </PanelErrorBoundary>
+  );
+}
+
+function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   const en = locale === "en";
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [issues, setIssues] = useState<GhIssue[]>([]);
   const [products, setProducts] = useState<CommunityProduct[]>([]);
 
   /* 资料编辑 */
   const [editingProfile, setEditingProfile] = useState(false);
-  const [pf, setPf] = useState({ displayName: "", bio: "", location: "", website: "" });
+  const [pf, setPf] = useState({ displayName: "", bio: "", location: "", website: "", avatar: "" });
   const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   /* 产品管理 */
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
@@ -89,38 +125,69 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         const data = await res.json();
         setProducts(Array.isArray(data?.products) ? data.products : []);
       }
-    } catch { /* 忽略 */ }
+    } catch { /* 忽略，产品区显示空态 */ }
   }, []);
 
   useEffect(() => {
     void (async () => {
-      const me = await fetchMe();
-      setUser(me);
-      setLoading(false);
-      if (!me) return;
-      setPf({
-        displayName: me.displayName || "",
-        bio: me.bio || "",
-        location: me.location || "",
-        website: me.website || "",
-      });
-      if (me.authType === "github") {
-        try {
-          const res = await fetch(`${base()}/my-issues`, { credentials: "include", cache: "no-store" });
-          if (res.ok) setIssues(await res.json());
-        } catch { /* 忽略 */ }
+      try {
+        const me = await fetchMe();
+        setUser(me);
+        if (!me) {
+          setLoading(false);
+          return;
+        }
+        setPf({
+          displayName: me.displayName || "",
+          bio: me.bio || "",
+          location: me.location || "",
+          website: me.website || "",
+          avatar: me.avatar || "",
+        });
+        if (me.authType === "github") {
+          try {
+            const res = await fetch(`${base()}/my-issues`, { credentials: "include", cache: "no-store" });
+            if (res.ok) setIssues(await res.json());
+          } catch { /* 忽略 */ }
+        }
+        await loadProducts();
+      } catch {
+        setLoadFailed(true);
+      } finally {
+        setLoading(false);
       }
-      await loadProducts();
     })();
   }, [loadProducts]);
 
+  const pickAvatar = async (file: File | undefined) => {
+    if (!file) return;
+    setProfileError(null);
+    try {
+      const dataUrl = await resizeImageToDataUrl(file, 256, 0.85);
+      setPf((v) => ({ ...v, avatar: dataUrl }));
+    } catch {
+      setProfileError(en ? "Failed to read image." : "图片读取失败，请换一张试试。");
+    }
+  };
+
   const saveProfileEdit = async () => {
     setProfileSaving(true);
-    const result = await saveProfile(pf);
+    setProfileError(null);
+    const payload: Record<string, string> = {
+      displayName: pf.displayName,
+      bio: pf.bio,
+      location: pf.location,
+      website: pf.website,
+    };
+    /* 只有当用户新选了头像时才提交 avatar 字段 */
+    if (pf.avatar !== (user?.avatar || "")) payload.avatar = pf.avatar;
+    const result = await saveProfile(payload);
     setProfileSaving(false);
     if (result.ok) {
-      setUser((u) => (u ? { ...u, ...pf } : u));
+      setUser((u) => (u ? { ...u, ...(payload as Partial<AuthUser>) } : u));
       setEditingProfile(false);
+    } else {
+      setProfileError(result.error || "保存失败");
     }
   };
 
@@ -203,7 +270,7 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     );
   }
 
-  /* 未登录：登录引导（邮箱注册 / 登录） */
+  /* 未登录：登录引导 */
   if (!user) {
     return (
       <div className="py-20 text-center">
@@ -221,6 +288,11 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
             {en ? "Submit a product" : "先去提交一个产品"}
           </a>
         </div>
+        {loadFailed && (
+          <p className="mt-4 text-xs text-destructive">
+            {en ? "Network error, data may be stale. Try refreshing." : "网络异常，数据可能不完整，可尝试刷新。"}
+          </p>
+        )}
         <p className="mt-4 text-xs text-muted-foreground">
           {en
             ? "Email + password sign-in. Your session is stored in a secure cookie."
@@ -231,52 +303,51 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   }
 
   const isGithub = user.authType === "github";
+  const avatar = avatarOf(user);
 
   return (
-    <div className="py-10">
-      <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
-        {en ? "My account" : "个人中心"}
-      </h1>
-      <div className="mt-1 flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {en
-            ? "Manage your profile and everything you've submitted to SolHub."
-            : "管理你的个人资料与提交到 SolHub 的全部内容。"}
-        </p>
-        <button
-          onClick={() => { void logout().then(() => window.location.reload()); }}
-          className="btn btn-outline !h-8 px-4 text-xs text-muted-foreground hover:text-destructive"
-        >
-          {en ? "Log out" : "退出登录"}
-        </button>
-      </div>
+    <div className="pb-10">
+      {/* ---------- X 风格个人主页头部 ---------- */}
+      <div className="overflow-hidden rounded-[4px] border border-border bg-card">
+        {/* 封面条 */}
+        <div className="h-28 bg-gradient-to-r from-accent/25 via-accent/10 to-transparent sm:h-36" aria-hidden="true" />
 
-      {/* 个人资料卡 */}
-      <div className="card mt-6 p-5">
         {!editingProfile ? (
-          <div className="flex items-start gap-4">
-            {user.avatar_url ? (
-              <img src={user.avatar_url} alt="" className="h-14 w-14 rounded-full border border-border" />
-            ) : (
-              <span className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-secondary">
-                <User className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-              </span>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-lg font-bold text-foreground">
-                  {user.displayName || (isGithub ? user.login : (en ? "Anonymous creator" : "匿名创作者"))}
-                </h2>
-                <span className="truncate text-xs text-muted-foreground">
-                  {isGithub ? `@${user.login}` : user.email}
+          <div className="px-5 pb-5 sm:px-7 sm:pb-6">
+            <div className="-mt-10 flex items-end justify-between sm:-mt-12">
+              {avatar ? (
+                <img src={avatar} alt="" className="h-20 w-20 rounded-full border-4 border-card bg-card object-cover sm:h-24 sm:w-24" />
+              ) : (
+                <span className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-card bg-secondary sm:h-24 sm:w-24">
+                  <User className="h-9 w-9 text-muted-foreground" aria-hidden="true" />
                 </span>
+              )}
+              <div className="flex gap-2">
+                <button onClick={() => { setEditingProfile(true); setProfileError(null); }} className="btn btn-outline !h-8 gap-1.5 px-4 text-xs">
+                  <Pencil className="h-3 w-3" /> {en ? "Edit profile" : "编辑资料"}
+                </button>
+                <button
+                  onClick={() => { void logout().then(() => window.location.reload()); }}
+                  className="btn btn-outline !h-8 gap-1.5 px-4 text-xs text-muted-foreground hover:text-destructive"
+                >
+                  <LogOut className="h-3 w-3" /> {en ? "Log out" : "退出登录"}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <h1 className="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
+                {user.displayName || (isGithub ? user.login : (en ? "Anonymous creator" : "匿名创作者"))}
+              </h1>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">
+                {isGithub ? `@${user.login}` : user.email}
                 {!isGithub && (
-                  <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
-                    {en ? "Email" : "邮箱账号"}
+                  <span className="ml-2 rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] uppercase">
+                    {en ? "Email account" : "邮箱账号"}
                   </span>
                 )}
-              </div>
-              {user.bio && <p className="mt-1 text-sm text-foreground/70">{user.bio}</p>}
+              </p>
+              {user.bio && <p className="mt-2 text-sm leading-6 text-foreground/80">{user.bio}</p>}
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 {user.location && (
                   <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{user.location}</span>
@@ -286,49 +357,63 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                     <LinkIcon className="h-3 w-3" />{user.website.replace(/^https?:\/\//, "")}
                   </a>
                 )}
-                {!isGithub && (
-                  <span className="inline-flex items-center gap-1">
-                    {en ? "Linked with GitHub:" : "GitHub 关联投稿："}
-                    <a
-                      href={`https://github.com/SolYoung-Ai/solhub/issues?q=is%3Aissue+author%3A${encodeURIComponent(user.login.split("@")[0])}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-accent hover:underline"
-                    >
-                      GitHub <ExternalLink className="inline h-3 w-3" />
-                    </a>
-                  </span>
-                )}
+                <span className="inline-flex items-center gap-1">
+                  <PackagePlus className="h-3 w-3" />
+                  {en ? `${products.length} product${products.length === 1 ? "" : "s"}` : `${products.length} 个产品`}
+                </span>
               </div>
             </div>
-            <button onClick={() => setEditingProfile(true)} className="btn btn-outline !h-8 shrink-0 gap-1.5 px-4 text-xs">
-              <Pencil className="h-3 w-3" /> {en ? "Edit" : "编辑"}
-            </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              {user.avatar_url ? (
-                <img src={user.avatar_url} alt="" className="h-12 w-12 rounded-full border border-border" />
+          /* 编辑资料 */
+          <div className="space-y-4 border-t border-border px-5 py-5 sm:px-7">
+            <p className="text-sm font-bold text-foreground">{en ? "Edit profile" : "编辑资料"}</p>
+            <div className="flex items-center gap-4">
+              {pf.avatar ? (
+                <img src={pf.avatar} alt="" className="h-16 w-16 rounded-full border border-border object-cover" />
               ) : (
-                <span className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-secondary">
-                  <User className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                <span className="flex h-16 w-16 items-center justify-center rounded-full border border-border bg-secondary">
+                  <User className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                 </span>
               )}
-              <span className="truncate text-xs text-muted-foreground">{isGithub ? `@${user.login}` : user.email}</span>
+              <label className="btn btn-outline cursor-pointer !h-8 gap-1.5 px-4 text-xs">
+                <Camera className="h-3.5 w-3.5" />
+                {en ? "Change avatar" : "更换头像"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => void pickAvatar(e.target.files?.[0])}
+                />
+              </label>
+              {pf.avatar !== (user.avatar || "") && (
+                <button
+                  type="button"
+                  onClick={() => setPf((v) => ({ ...v, avatar: user.avatar || "" }))}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {en ? "Reset" : "还原"}
+                </button>
+              )}
             </div>
-            <input value={pf.displayName} onChange={(e) => setPf({ ...pf, displayName: e.target.value })} className="input w-full" placeholder={en ? "Display name" : "昵称"} />
-            <textarea value={pf.bio} onChange={(e) => setPf({ ...pf, bio: e.target.value })} rows={2} className="input w-full resize-y" placeholder={en ? "Short bio" : "个人简介"} />
+            <p className="text-[11px] text-muted-foreground">
+              {en ? "Square image recommended; auto-cropped to 256×256." : "建议用正方形图片，会自动居中裁剪为 256×256。"}
+            </p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <input value={pf.location} onChange={(e) => setPf({ ...pf, location: e.target.value })} className="input w-full" placeholder={en ? "City" : "所在城市"} />
-              <input value={pf.website} onChange={(e) => setPf({ ...pf, website: e.target.value })} className="input w-full" placeholder={en ? "Website" : "个人网站"} />
+              <input value={pf.displayName} onChange={(e) => setPf({ ...pf, displayName: e.target.value })} className="input w-full" maxLength={40} placeholder={en ? "Display name" : "昵称"} />
+              <input value={pf.location} onChange={(e) => setPf({ ...pf, location: e.target.value })} className="input w-full" maxLength={40} placeholder={en ? "City" : "所在城市"} />
             </div>
+            <textarea value={pf.bio} onChange={(e) => setPf({ ...pf, bio: e.target.value })} rows={2} maxLength={200} className="input w-full resize-y" placeholder={en ? "Short bio" : "个人简介"} />
+            <input value={pf.website} onChange={(e) => setPf({ ...pf, website: e.target.value })} className="input w-full" placeholder={en ? "Website (https://…)" : "个人网站（https://…）"} />
+            {profileError && (
+              <p className="rounded-[3px] bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{profileError}</p>
+            )}
             <div className="flex gap-2">
               <button onClick={() => void saveProfileEdit()} disabled={profileSaving} className="btn btn-accent !h-8 gap-1.5 px-4 text-xs">
                 {profileSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                 {en ? "Save" : "保存"}
               </button>
-              <button onClick={() => setEditingProfile(false)} className="btn btn-outline !h-8 px-4 text-xs">
+              <button onClick={() => { setEditingProfile(false); setProfileError(null); }} className="btn btn-outline !h-8 px-4 text-xs">
                 {en ? "Cancel" : "取消"}
               </button>
             </div>
@@ -336,19 +421,31 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         )}
       </div>
 
-      {/* 已收录产品（可管理） */}
-      <h2 className="mt-10 font-display text-base font-bold text-foreground">
-        {en ? "My published products" : "我的收录产品"}
-      </h2>
+      {/* ---------- 我的产品 ---------- */}
+      <div className="mt-8 flex items-center justify-between">
+        <h2 className="font-display text-base font-bold text-foreground">
+          {en ? "My products" : "我的产品"}
+        </h2>
+        <a href={p("/submit/", locale)} className="btn btn-outline !h-8 gap-1.5 px-4 text-xs">
+          <PackagePlus className="h-3 w-3" /> {en ? "New submission" : "提交新产品"}
+        </a>
+      </div>
       {actionError && (
         <p className="mt-3 rounded-[3px] bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{actionError}</p>
       )}
       {products.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">
-          {en
-            ? "No products yet. Submit from the Submit page and they'll show up here."
-            : "还没有收录的产品。去「提交产品」页面提交，收录后会显示在这里，并可随时编辑或删除。"}
-        </p>
+        <div className="mt-4 rounded-[4px] border border-dashed border-border bg-secondary/30 py-14 text-center">
+          <PackagePlus className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
+          <p className="mt-3 text-sm font-medium text-foreground/70">{en ? "No products yet" : "暂无提交的产品"}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {en
+              ? "Submit your product with an accessible link — it goes live instantly."
+              : "去提交产品吧：官网链接可正常打开即可自动收录上线。"}
+          </p>
+          <a href={p("/submit/", locale)} className="btn btn-accent mt-4 !h-9 px-5 text-xs">
+            {en ? "Submit a product" : "去提交产品"}
+          </a>
+        </div>
       ) : (
         <ul className="mt-4 grid gap-4">
           {products.map((prod) => {
@@ -361,6 +458,9 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                   <input value={editForm.shortDescription} onChange={(e) => setEditForm({ ...editForm, shortDescription: e.target.value })} className="input w-full" placeholder={en ? "One-line description" : "一句话介绍"} maxLength={120} />
                   <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={4} className="input w-full resize-y" placeholder={en ? "Detailed description" : "详细描述"} maxLength={500} />
                   <input value={editForm.tags} onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })} className="input w-full" placeholder={en ? "Tags, comma-separated" : "标签，逗号分隔"} />
+                  <p className="text-[11px] text-muted-foreground">
+                    {en ? "If the website URL is changed, it must open correctly before saving." : "修改官网链接时，新链接必须可正常打开才能保存。"}
+                  </p>
                   <div className="flex gap-2">
                     <button onClick={() => void saveProduct(prod.slug)} disabled={savingSlug === prod.slug} className="btn btn-accent !h-8 gap-1.5 px-4 text-xs">
                       {savingSlug === prod.slug ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
@@ -388,7 +488,7 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                             : "bg-warning/10 text-warning"
                         }`}
                       >
-                        {prod.verificationStatus === "verified" ? (en ? "Verified" : "已核验") : (en ? "Pending" : "待核验")}
+                        {prod.verificationStatus === "verified" ? (en ? "Live" : "已上线") : (en ? "Pending" : "待核验")}
                       </span>
                     </div>
                     {prod.shortDescription && (

@@ -101,7 +101,7 @@ async function getSessionUser(request, env) {
     const userRaw = await env.PROFILES.get(`user:${s.email}`);
     if (!userRaw) return null;
     const user = JSON.parse(userRaw);
-    return { email: user.email, displayName: user.displayName || "", bio: user.bio || "", location: user.location || "", website: user.website || "" };
+    return { email: user.email, displayName: user.displayName || "", bio: user.bio || "", location: user.location || "", website: user.website || "", avatar: user.avatar || "" };
   } catch {
     return null;
   }
@@ -237,7 +237,7 @@ export default {
       if (request.method === "GET") {
         if (identity.type === "email") {
           const u = identity.user;
-          return json(request, { login: u.email, email: u.email, displayName: u.displayName, bio: u.bio, location: u.location, website: u.website });
+          return json(request, { login: u.email, email: u.email, displayName: u.displayName, bio: u.bio, location: u.location, website: u.website, avatar: u.avatar || "" });
         }
         let profile = {};
         if (env.PROFILES) {
@@ -255,6 +255,14 @@ export default {
           location: String(body.location || "").slice(0, 40),
           website: String(body.website || "").slice(0, 200),
         };
+        /* 头像：客户端压缩后的 data URL（≤200KB），邮箱用户存 KV */
+        if (typeof body.avatar === "string") {
+          if (body.avatar === "") {
+            allowed.avatar = "";
+          } else if (/^data:image\/(png|jpe?g|webp|gif);base64,/.test(body.avatar) && body.avatar.length <= 300000) {
+            allowed.avatar = body.avatar;
+          }
+        }
         if (identity.type === "email") {
           const key = `user:${identity.login}`;
           const raw = await env.PROFILES.get(key);
@@ -401,8 +409,9 @@ export default {
         developerName: String(data.developerName || identity.login).slice(0, 80),
         publishedAt: new Date().toISOString().slice(0, 10),
         launchBatch: "Community",
-        verificationStatus: "pending",
-        verificationMethod: "URL 自动检测通过，待人工复核",
+        verificationStatus: "verified",
+        verificationMethod: "官网链接自动检测可访问，已自动收录上线",
+        verifiedAt: new Date().toISOString().slice(0, 10),
         isDemo: false,
         submittedBy: identity.login,
       };
@@ -420,7 +429,7 @@ export default {
       });
       const writeData = await writeRes.json();
       if (!writeData.commit) return json(request, { error: "写入失败", detail: writeData }, 500);
-      return json(request, { ok: true, product: newProduct, message: "产品已自动收录，等待人工复核" });
+      return json(request, { ok: true, product: newProduct, message: "链接检测通过，产品已自动收录上线" });
     }
 
     /* ---------- 我的收录产品 ---------- */
@@ -461,6 +470,27 @@ export default {
       } else if (request.method === "PUT") {
         const body = await request.json();
         const p = community[idx];
+        /* 若修改了官网链接，重新检测可达性 */
+        if (body.websiteUrl) {
+          const nextUrl = String(body.websiteUrl);
+          if (nextUrl !== p.websiteUrl) {
+            if (!/^https?:\/\//.test(nextUrl)) return json(request, { error: "官网 URL 需以 http(s):// 开头" }, 400);
+            try {
+              const ctrl = new AbortController();
+              const t = setTimeout(() => ctrl.abort(), 5000);
+              const checkRes = await fetch(nextUrl, {
+                method: "HEAD", redirect: "follow", signal: ctrl.signal,
+                headers: { "User-Agent": "SolHub/1.0" },
+              });
+              clearTimeout(t);
+              if (!checkRes.ok && checkRes.status !== 301 && checkRes.status !== 302 && checkRes.status !== 403) {
+                return json(request, { error: `网站返回 ${checkRes.status}，链接需可正常打开才能保存` }, 400);
+              }
+            } catch {
+              return json(request, { error: "无法访问新的官网链接，请确认网站可以正常打开" }, 400);
+            }
+          }
+        }
         if (body.name) p.name = String(body.name).slice(0, 80);
         if (body.shortDescription) p.shortDescription = String(body.shortDescription).slice(0, 120);
         if (body.description) p.description = String(body.description).slice(0, 500);

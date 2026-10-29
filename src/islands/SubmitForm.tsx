@@ -197,8 +197,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
         setResult({
           mode: "cloudbase",
           message: en
-            ? "Submitted! Your product has been added under your account and is pending review. You can manage it in My Account."
-            : "提交成功！产品已收录到你的账号名下，等待人工复核。可以在「个人中心」随时编辑或删除。",
+            ? "Published! Your product is live on the community list (site rebuilds within ~2 minutes). Manage it anytime in My Account."
+            : "发布成功！产品已自动收录上线（网站约 2 分钟内刷新展示）。可以在「个人中心」随时编辑或删除。",
         });
         return;
       } catch {
@@ -240,8 +240,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
 
   const modeNote = me
     ? (en
-      ? "Submitting while logged in: your product is added under your account instantly and can be managed in My Account. We review within 24 hours."
-      : "登录状态提交：产品会立即收录到你的账号名下，可在「个人中心」随时编辑或删除；我们会在 24 小时内核验。")
+      ? "Submitting while logged in: if your link opens correctly, the product is verified automatically and goes live instantly — no manual review. Manage it in My Account."
+      : "登录状态提交：官网链接可以正常打开即可通过自动检测，产品立即收录上线，无需人工审核；可在「个人中心」随时编辑或删除。")
     : (en
       ? "Fill the form and click submit — your email client opens with all info pre-filled. Send it and we'll review within 24 hours."
       : "填完表单点击提交，邮箱会自动打开并填好所有信息，发送即完成，我们会在 24 小时内核验。");
@@ -275,8 +275,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           <p className="mt-1">{modeNote}</p>
           <p className="mt-1">
             {en
-              ? "Every submission is manually reviewed: we visit the site, check content completeness and authenticity, then mark it Verified."
-              : "每一条提交都会人工核验：我们会实际访问官网，核对内容真实性与完整性，通过后标记 Verified。"}
+              ? "Logged-in submissions are checked automatically (the link must open) and go live immediately. Anything violating laws or infringing others will be removed."
+              : "登录提交会自动检测链接可达性，通过即上线；仅违法违规或侵权内容会被下架。"}
           </p>
         </div>
       </div>

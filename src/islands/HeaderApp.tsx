@@ -2,17 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Languages,
+  LogOut,
   Menu,
   Monitor,
   Moon,
   Search,
   Smartphone,
   Sun,
+  UserRound,
   X,
 } from "lucide-react";
 import type { SearchIndexEntry } from "@/data/types";
 import { searchIndex } from "@/lib/search";
-import { fetchMe, type AuthUser } from "@/lib/auth";
+import { avatarOf, fetchMe, logout, type AuthUser } from "@/lib/auth";
 import { cx } from "@/lib/utils";
 import { p } from "@/lib/paths";
 import { getDict, translate } from "@/i18n";
@@ -28,11 +30,20 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const dict = getDict(locale);
+  const en = locale === "en";
 
   useEffect(() => {
     void fetchMe().then(setUser);
   }, []);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const close = () => setUserMenuOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [userMenuOpen]);
 
   const NAV: { label: string; path: string; match: (r: string) => boolean }[] = [
     { label: translate(dict, "nav.discover"), path: "/", match: (r) => r === "/" },
@@ -115,21 +126,50 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
             <Search className="h-3.5 w-3.5" />
           </button>
 
-          {/* 登录 / 头像 - 所有屏幕都显示 */}
+          {/* 登录 / 用户菜单 */}
           {user ? (
-            <a
-              href={p("/my-submissions/", locale)}
-              title={user.displayName || user.login}
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border hover:border-foreground/40"
-            >
-              {user.avatar_url ? (
-                <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="font-display text-[13px] font-bold uppercase text-foreground">
-                  {(user.displayName || user.login).slice(0, 1)}
-                </span>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setUserMenuOpen((v) => !v); }}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border hover:border-foreground/40"
+                aria-label={user.displayName || user.login}
+                aria-expanded={userMenuOpen}
+              >
+                {avatarOf(user) ? (
+                  <img src={avatarOf(user)} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="font-display text-[13px] font-bold uppercase text-foreground">
+                    {(user.displayName || user.login).slice(0, 1)}
+                  </span>
+                )}
+              </button>
+              {userMenuOpen && (
+                <div
+                  className="absolute right-0 top-9 z-50 w-44 overflow-hidden rounded-[4px] border border-border bg-card py-1 shadow-xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="border-b border-border px-3 py-2">
+                    <p className="truncate text-[13px] font-bold text-foreground">{user.displayName || user.login}</p>
+                    {user.email && <p className="truncate text-[11px] text-muted-foreground">{user.email}</p>}
+                  </div>
+                  <a
+                    href={p("/my-submissions/", locale)}
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
+                  >
+                    <UserRound className="h-3.5 w-3.5" /> {en ? "My account" : "个人中心"}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => { setUserMenuOpen(false); void logout().then(() => window.location.reload()); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-foreground/80 hover:bg-secondary hover:text-destructive"
+                  >
+                    <LogOut className="h-3.5 w-3.5" /> {en ? "Log out" : "退出登录"}
+                  </button>
+                </div>
               )}
-            </a>
+            </div>
           ) : (
             <a
               href={p("/login/", locale)}
@@ -198,13 +238,22 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
                 {translate(dict, "nav.submit")}
               </a>
               {user ? (
-                <a
-                  href={p("/my-submissions/", locale)}
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium text-accent"
-                >
-                  {user.displayName || user.login}
-                </a>
+                <>
+                  <a
+                    href={p("/my-submissions/", locale)}
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium text-accent"
+                  >
+                    {user.displayName || user.login}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => { setMenuOpen(false); void logout().then(() => window.location.reload()); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[15px] font-medium text-foreground/80 hover:bg-secondary/60"
+                  >
+                    <LogOut className="h-4 w-4" /> {en ? "Log out" : "退出登录"}
+                  </button>
+                </>
               ) : (
                 <a
                   href={p("/login/", locale)}
