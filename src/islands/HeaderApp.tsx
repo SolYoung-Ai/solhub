@@ -17,7 +17,6 @@ import { cx } from "@/lib/utils";
 import { p } from "@/lib/paths";
 import { getDict, translate } from "@/i18n";
 import type { Locale } from "@/i18n";
-import AuthDialog from "@/islands/AuthDialog";
 
 interface Props {
   currentRoute: string;
@@ -29,7 +28,6 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [authOpen, setAuthOpen] = useState(false);
   const dict = getDict(locale);
 
   useEffect(() => {
@@ -133,13 +131,12 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
               )}
             </a>
           ) : (
-            <button
-              type="button"
-              onClick={() => setAuthOpen(true)}
+            <a
+              href={p("/login/", locale)}
               className="inline-flex h-8 items-center gap-1 rounded-[2px] border border-border bg-card px-2.5 text-xs font-medium text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
             >
               {translate(dict, "nav.login")}
-            </button>
+            </a>
           )}
 
           {/* 提交产品 - 桌面显示 */}
@@ -160,9 +157,6 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
       {searchOpen && (
         <SearchDialog index={searchIndex} locale={locale} onClose={() => setSearchOpen(false)} />
       )}
-
-      {/* 登录 / 注册弹窗 */}
-      {authOpen && <AuthDialog locale={locale} onClose={() => setAuthOpen(false)} />}
       </header>
 
       {/* 移动端侧边菜单 */}
@@ -212,13 +206,13 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
                   {user.displayName || user.login}
                 </a>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => { setMenuOpen(false); setAuthOpen(true); }}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[15px] font-medium text-foreground/80 hover:bg-secondary/60"
+                <a
+                  href={p("/login/", locale)}
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium text-foreground/80 hover:bg-secondary/60"
                 >
                   {translate(dict, "nav.login")}
-                </button>
+                </a>
               )}
               <div className="flex items-center gap-4 px-3 py-3">
                 <LangButton locale={locale} currentRoute={currentRoute} />

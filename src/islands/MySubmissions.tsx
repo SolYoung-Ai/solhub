@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { p } from "@/lib/paths";
 import { fetchMe, logout, saveProfile, type AuthUser } from "@/lib/auth";
-import AuthDialog from "@/islands/AuthDialog";
 import type { Locale } from "@/i18n";
 
 const apiBase =
@@ -82,7 +81,6 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   const [editForm, setEditForm] = useState({ name: "", shortDescription: "", description: "", websiteUrl: "", tags: "" });
   const [savingSlug, setSavingSlug] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [authOpen, setAuthOpen] = useState(false);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -216,9 +214,9 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
             : "登录后即可查看和管理你提交的产品与工具。"}
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
-          <button type="button" onClick={() => setAuthOpen(true)} className="btn btn-accent !h-10 px-5">
+          <a href={p("/login/?next=" + encodeURIComponent("/my-submissions/"), locale)} className="btn btn-accent !h-10 px-5">
             {en ? "Log in / Sign up" : "登录 / 注册"}
-          </button>
+          </a>
           <a href={p("/submit/", locale)} className="btn btn-outline !h-10 px-5">
             {en ? "Submit a product" : "先去提交一个产品"}
           </a>
@@ -228,7 +226,6 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
             ? "Email + password sign-in. Your session is stored in a secure cookie."
             : "使用邮箱 + 密码登录；会话保存在安全的 Cookie 中。"}
         </p>
-        {authOpen && <AuthDialog locale={locale} onClose={() => setAuthOpen(false)} />}
       </div>
     );
   }

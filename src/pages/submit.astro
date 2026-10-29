@@ -48,36 +48,47 @@ const metaDesc = en
           <ol class="mt-3 space-y-3 text-[13px] leading-6 text-muted-foreground">
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">01</span>
-              {en ? "Fill in the details" : "填写产品信息"}
+              {en ? "Log in (email + password, 10 seconds)" : "登录账号（邮箱 + 密码，10 秒注册）"}
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">02</span>
-              {en ? "Click submit — email opens with all info" : "点击提交，邮箱自动打开"}
+              {en ? "Fill in the details" : "填写产品信息"}
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">03</span>
-              {en ? "Send the email" : "发送邮件即完成"}
+              {en ? "Submit — published instantly under your account" : "点击提交，产品立即收录到你的账号名下"}
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">04</span>
-              {en ? "Verified within 24 hours" : "24 小时内核验并上线"}
+              {en ? "Verified within 24 hours, manage anytime" : "24 小时内人工核验，之后随时编辑或删除"}
             </li>
           </ol>
+          <p class="mt-3 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">
+            {en
+              ? "Not logged in? You can still submit via the email channel."
+              : "未登录也可以提交：走邮件通道，24 小时内同样核验上线。"}
+          </p>
         </div>
         <div class="card p-5">
-          <h2 class="text-sm font-bold text-foreground">{en ? "Verification & safety" : "核验与安全"}</h2>
-          <p class="mt-2 text-[13px] leading-6 text-muted-foreground">
-            {en
-              ? "No GitHub account needed. We review within 24 hours and mark Verified."
-              : "无需 GitHub 账号。我们会在 24 小时内核验并标记 Verified。"}
-          </p>
+          <h2 class="text-sm font-bold text-foreground">{en ? "Listing criteria" : "收录标准"}</h2>
+          <ul class="mt-2 space-y-1.5 text-[13px] leading-6 text-muted-foreground">
+            <li>· {en ? "Official site opens publicly" : "官网可公开访问"}</li>
+            <li>· {en ? "Info is real and complete" : "产品信息真实完整"}</li>
+            <li>· {en ? "Original, no infringing content" : "原创产品，无侵权内容"}</li>
+            <li>· {en ? "Ready to use, not a placeholder" : "已可正常使用，非半成品"}</li>
+          </ul>
         </div>
         <div class="card p-5">
           <h2 class="text-sm font-bold text-foreground">{en ? "Modify or delete" : "修改或删除"}</h2>
           <p class="mt-2 text-[13px] leading-6 text-muted-foreground">
             {en
-              ? "Need to update or remove your product? Email soyoang@outlook.com from the same address you used to submit, with your product name — we'll process it within 24 hours."
-              : "提交后如需修改或删除产品，请用首次提交时的邮箱发邮件到 soyoang@outlook.com，注明产品名称，24 小时内处理。"}
+              ? "Logged in? Edit or delete your products anytime from My Account — no email needed."
+              : "登录用户在「个人中心」即可随时编辑或删除自己收录的产品，无需发邮件。"}
+          </p>
+          <p class="mt-2 text-[13px] leading-6 text-muted-foreground">
+            {en
+              ? "Submitted via email? Email soyoang@outlook.com from the same address with your product name — processed within 24 hours."
+              : "邮件提交的用户：用提交时的邮箱发邮件到 soyoang@outlook.com 并注明产品名称，24 小时内处理。"}
           </p>
         </div>
       </aside>
