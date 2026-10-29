@@ -25,8 +25,8 @@
   {
     "id": "smoke-test-product-mvtljp4f",
     "slug": "smoke-test-product-mvtljp4f",
-    "name": "Smoke Test Product",
-    "shortDescription": "端到端冒烟测试产品",
+    "name": "Smoke Test Edited",
+    "shortDescription": "已修改为新描述",
     "description": "端到端冒烟测试产品",
     "websiteUrl": "https://example.com",
     "icon": "",
