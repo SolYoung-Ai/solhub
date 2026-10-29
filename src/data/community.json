@@ -21,25 +21,5 @@
     "verificationMethod": "äººå·¥è®¿é® https://ofx.solyoung.topï¼æ ¸å¯¹äº§åå®ä½ãåè½ä¸é¡µé¢åå®¹åæ ¸éªéè¿ã",
     "verifiedAt": "2026-10-21",
     "isDemo": false
-  },
-  {
-    "id": "smoke-test-product-mvtljp4f",
-    "slug": "smoke-test-product-mvtljp4f",
-    "name": "Smoke Test Edited",
-    "shortDescription": "已修改为新描述",
-    "description": "端到端冒烟测试产品",
-    "websiteUrl": "https://example.com",
-    "icon": "",
-    "category": "other",
-    "tags": [
-      "test"
-    ],
-    "developerName": "smoketest2026@solyoung.top",
-    "publishedAt": "2026-10-29",
-    "launchBatch": "Community",
-    "verificationStatus": "pending",
-    "verificationMethod": "URL 自动检测通过，待人工复核",
-    "isDemo": false,
-    "submittedBy": "smoketest2026@solyoung.top"
   }
 ]
