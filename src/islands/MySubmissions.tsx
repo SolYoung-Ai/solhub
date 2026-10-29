@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { p } from "@/lib/paths";
 import { fetchMe, logout, saveProfile, type AuthUser } from "@/lib/auth";
+import AuthDialog from "@/islands/AuthDialog";
 import type { Locale } from "@/i18n";
 
 const apiBase =
@@ -81,6 +82,7 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   const [editForm, setEditForm] = useState({ name: "", shortDescription: "", description: "", websiteUrl: "", tags: "" });
   const [savingSlug, setSavingSlug] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -203,29 +205,30 @@ export default function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     );
   }
 
-  /* 未登录：登录引导 */
+  /* 未登录：登录引导（邮箱注册 / 登录） */
   if (!user) {
     return (
       <div className="py-20 text-center">
         <LogIn className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden="true" />
         <p className="mt-4 text-sm text-muted-foreground">
           {en
-            ? "Log in to view and manage your submissions."
+            ? "Log in with email to view and manage your submissions."
             : "登录后即可查看和管理你提交的产品与工具。"}
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
-          <a href={`${base()}/auth`} className="btn btn-outline !h-10 px-5">
-            GitHub {en ? "Login" : "登录"}
-          </a>
-          <a href={p("/submit/", locale)} className="btn btn-accent !h-10 px-5">
+          <button type="button" onClick={() => setAuthOpen(true)} className="btn btn-accent !h-10 px-5">
+            {en ? "Log in / Sign up" : "登录 / 注册"}
+          </button>
+          <a href={p("/submit/", locale)} className="btn btn-outline !h-10 px-5">
             {en ? "Submit a product" : "先去提交一个产品"}
           </a>
         </div>
         <p className="mt-4 text-xs text-muted-foreground">
           {en
-            ? "Tip: use the Log in button in the top navigation for email sign-up / sign-in."
-            : "提示：也可以点右上角「登录」按钮，用邮箱注册或登录。"}
+            ? "Email + password sign-in. Your session is stored in a secure cookie."
+            : "使用邮箱 + 密码登录；会话保存在安全的 Cookie 中。"}
         </p>
+        {authOpen && <AuthDialog locale={locale} onClose={() => setAuthOpen(false)} />}
       </div>
     );
   }
