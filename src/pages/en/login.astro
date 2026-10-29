@@ -1,0 +1,15 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import AuthPage from "@/islands/AuthPage.tsx";
+
+const next = Astro.url.searchParams.get("next") ?? "";
+---
+
+<BaseLayout
+  title="Log in / Sign up · SolHub"
+  description="Log in or create a SolHub account: one-click publishing, manage your submissions anytime, priority verification."
+  route="/login/"
+  locale="en"
+>
+  <AuthPage client:load locale="en" next={next} />
+</BaseLayout>

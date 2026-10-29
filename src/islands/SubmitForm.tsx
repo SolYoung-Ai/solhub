@@ -248,7 +248,26 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
 
   return (
     <div className="space-y-6">
-      {/* 提交方式说明 */}
+      {/* 登录引导（未登录时） */}
+      {!me && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[3px] border border-accent/30 bg-accent/5 p-4">
+          <div className="text-[13px] leading-6">
+            <p className="font-bold text-foreground">
+              {en ? "Tip: log in to publish in one click" : "提示：登录后可以一键收录"}
+            </p>
+            <p className="mt-0.5 text-muted-foreground">
+              {en
+                ? "Logged-in submissions skip the email step and are managed from My Account."
+                : "登录后提交无需走邮件流程，产品直接收录到你的账号名下，随时可编辑或删除。"}
+            </p>
+          </div>
+          <a href={p("/login/?next=" + encodeURIComponent("/submit/"), locale)} className="btn btn-accent shrink-0 !h-9 px-4 text-xs">
+            {en ? "Log in / Sign up" : "登录 / 注册"}
+          </a>
+        </div>
+      )}
+
+      {/* 提交后会发生什么 */}
       <div className="flex items-start gap-2.5 rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
         <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
         <div>
@@ -256,10 +275,38 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           <p className="mt-1">{modeNote}</p>
           <p className="mt-1">
             {en
-              ? "No GitHub account needed. We review within 24 hours and mark Verified."
-              : "无需 GitHub 账号，提交后 24 小时内核验并标记 Verified。"}
+              ? "Every submission is manually reviewed: we visit the site, check content completeness and authenticity, then mark it Verified."
+              : "每一条提交都会人工核验：我们会实际访问官网，核对内容真实性与完整性，通过后标记 Verified。"}
           </p>
         </div>
+      </div>
+
+      {/* 收录标准 */}
+      <div className="rounded-[3px] border border-border bg-card p-4">
+        <p className="text-[13px] font-bold text-foreground">
+          {en ? "Listing criteria" : "收录标准"}
+        </p>
+        <ul className="mt-2 grid gap-1.5 text-[13px] leading-6 text-muted-foreground sm:grid-cols-2">
+          {(en
+            ? [
+              "The official site opens and is publicly accessible",
+              "Product info is real and complete (name, description, URL)",
+              "Original work — no infringing or illegal content",
+              "Ready to use, not a placeholder or under-construction page",
+            ]
+            : [
+              "官网可正常访问，无需登录即可浏览",
+              "产品信息真实完整（名称、介绍、链接一致）",
+              "原创产品，无侵权或违法违规内容",
+              "已可正常使用，不是占位页或半成品",
+            ]
+          ).map((item) => (
+            <li key={item} className="flex items-start gap-1.5">
+              <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
+              {item}
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* 类型切换 */}
@@ -306,6 +353,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
             label={form.kind === "product" ? (en ? "Product name" : "产品名称") : (en ? "Tool name" : "工具名称")}
             required
             error={errors.name}
+            hint={en ? "Shown in lists and search" : "将展示在列表与搜索中"}
           >
             <input
               type="text"
@@ -320,7 +368,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
             label={needsUrl ? (form.kind === "product" ? (en ? "Product website URL" : "产品官网 URL") : (en ? "Tool URL" : "工具访问 URL")) : (en ? "Tool page URL" : "工具主页 URL")}
             required={needsUrl}
             error={errors.websiteUrl}
-            hint={isHosted ? (en ? "Optional" : "可选") : undefined}
+            hint={isHosted ? (en ? "Optional" : "可选") : (en ? "We will visit it during review" : "核验时会实际访问")}
           >
             <input
               type="url"
@@ -349,18 +397,27 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
             value={form.shortDescription}
             onChange={(e) => set("shortDescription", e.target.value)}
             rows={2}
-            placeholder={en ? "One sentence on what problem it solves." : "用一句话说明它解决什么问题。"}
+            placeholder={en
+              ? "e.g. A free online JSON formatter that works offline in your browser."
+              : "例如：一款免费的在线 JSON 格式化工具，纯浏览器本地运行，无需登录。"}
             className="input resize-y"
             aria-required="true"
           />
         </Field>
 
-        <Field label={en ? "Detailed description" : "详细描述"} required error={errors.description} hint={`${form.description.length}/2000`}>
+        <Field
+          label={en ? "Detailed description" : "详细描述"}
+          required
+          error={errors.description}
+          hint={`${form.description.length}/2000`}
+        >
           <textarea
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
             rows={5}
-            placeholder={en ? "Details: what it is, who it helps, and what makes it special." : "详细介绍：它是什么、为谁解决什么问题、有什么特点。"}
+            placeholder={en
+              ? "Suggested structure:\n1. What it is — one sentence on the product\n2. Who it's for and what problem it solves\n3. Highlights — what makes it different"
+              : "建议按下面的结构写：\n1. 它是什么 —— 一句话说清产品定位\n2. 为谁解决什么问题 —— 目标用户与使用场景\n3. 有什么亮点 —— 与同类产品相比的差异点"}
             className="input resize-y"
             aria-required="true"
           />
@@ -387,7 +444,11 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label={en ? "Icon" : "图标"} error={errors.iconUrl} hint={en ? "Optional — upload or paste URL" : "可选 — 上传或粘贴 URL"}>
+          <Field
+            label={en ? "Icon" : "图标"}
+            error={errors.iconUrl}
+            hint={en ? "Square, ≥128×128 PNG/JPG" : "建议正方形 ≥128×128，PNG/JPG"}
+          >
             <div className="flex gap-2">
               <input
                 type="url"
@@ -427,7 +488,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           </Field>
         </div>
 
-        <Field label={en ? "Contact" : "联系方式"} hint={en ? "Optional" : "可选"}>
+        <Field label={en ? "Contact" : "联系方式"} hint={en ? "For review contact only — never shown publicly" : "仅用于核验联系，不会公开显示"}>
           <input
             type="text"
             value={form.contact}
