@@ -4,17 +4,42 @@
     "slug": "ofx-atlas",
     "name": "OFX Atlas",
     "icon": "/icons/ofx-atlas.png",
-    "shortDescription": "OFX 视频插件兼容性数据库 · 仅做官方导航",
-    "description": "OFX Atlas 收录官网可核验的 OFX 视频插件，标注宿主兼容性证据等级与实测状态，提供对比、排错与快捷复制工具。本站不托管、不分发任何插件安装包，所有下载均跳转官方页面。",
+    "shortDescription": "OFX è§é¢æä»¶å¼å®¹æ§æ°æ®åº Â· ä»åå®æ¹å¯¼èª",
+    "description": "OFX Atlas æ¶å½å®ç½å¯æ ¸éªç OFX è§é¢æä»¶ï¼æ æ³¨å®¿ä¸»å¼å®¹æ§è¯æ®ç­çº§ä¸å®æµç¶æï¼æä¾å¯¹æ¯ãæéä¸å¿«æ·å¤å¶å·¥å·ãæ¬ç«ä¸æç®¡ãä¸ååä»»ä½æä»¶å®è£åï¼ææä¸è½½åè·³è½¬å®æ¹é¡µé¢ã",
     "websiteUrl": "https://ofx.solyoung.top",
     "category": "creator-tools",
-    "tags": ["ofx", "video-editing", "plugin", "compatibility"],
+    "tags": [
+      "ofx",
+      "video-editing",
+      "plugin",
+      "compatibility"
+    ],
     "developerName": "Sol Young",
     "publishedAt": "2026-10-21",
     "launchBatch": "Community",
     "verificationStatus": "verified",
-    "verificationMethod": "人工访问 https://ofx.solyoung.top，核对产品定位、功能与页面内容后核验通过。",
+    "verificationMethod": "äººå·¥è®¿é® https://ofx.solyoung.topï¼æ ¸å¯¹äº§åå®ä½ãåè½ä¸é¡µé¢åå®¹åæ ¸éªéè¿ã",
     "verifiedAt": "2026-10-21",
     "isDemo": false
+  },
+  {
+    "id": "smoke-test-product-mvtljp4f",
+    "slug": "smoke-test-product-mvtljp4f",
+    "name": "Smoke Test Product",
+    "shortDescription": "端到端冒烟测试产品",
+    "description": "端到端冒烟测试产品",
+    "websiteUrl": "https://example.com",
+    "icon": "",
+    "category": "other",
+    "tags": [
+      "test"
+    ],
+    "developerName": "smoketest2026@solyoung.top",
+    "publishedAt": "2026-10-29",
+    "launchBatch": "Community",
+    "verificationStatus": "pending",
+    "verificationMethod": "URL 自动检测通过，待人工复核",
+    "isDemo": false,
+    "submittedBy": "smoketest2026@solyoung.top"
   }
 ]
