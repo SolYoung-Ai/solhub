@@ -8,7 +8,12 @@
     "description": "OFX Atlas 收录官网可核验的 OFX 视频插件，标注宿主兼容性证据等级与实测状态，提供对比、排错与快捷复制工具。本站不托管、不分发任何插件安装包，所有下载均跳转官方页面。",
     "websiteUrl": "https://ofx.solyoung.top",
     "category": "creator-tools",
-    "tags": ["ofx", "video-editing", "plugin", "compatibility"],
+    "tags": [
+      "ofx",
+      "video-editing",
+      "plugin",
+      "compatibility"
+    ],
     "developerName": "Sol Young",
     "publishedAt": "2026-10-21",
     "launchBatch": "Community",
@@ -16,5 +21,25 @@
     "verificationMethod": "人工访问 https://ofx.solyoung.top，核对产品定位、功能与页面内容后核验通过。",
     "verifiedAt": "2026-10-21",
     "isDemo": false
+  },
+  {
+    "id": "-mvtpuk2u",
+    "slug": "-mvtpuk2u",
+    "name": "烧烤烧烤烧烤烧烤",
+    "shortDescription": "睡觉睡觉睡觉睡觉",
+    "description": "睡觉睡觉睡觉时睡觉",
+    "websiteUrl": "https://rankcert.com/product/listed-firm",
+    "icon": "",
+    "category": "ai-tools",
+    "tags": [
+      "在家睡觉睡觉睡觉"
+    ],
+    "developerName": "自己在家自己",
+    "publishedAt": "2026-10-29",
+    "launchBatch": "Community",
+    "verificationStatus": "pending",
+    "verificationMethod": "URL 自动检测通过，待人工复核",
+    "isDemo": false,
+    "submittedBy": "soyoang@qq.com"
   }
 ]
