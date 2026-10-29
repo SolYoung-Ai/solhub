@@ -384,7 +384,7 @@ export default {
       const fileData = await fileRes.json();
       let community = [];
       if (fileData.content) {
-        try { community = JSON.parse(atob(fileData.content.replace(/\n/g, ""))); } catch { community = []; }
+        try { community = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))))); } catch { community = []; }
       }
 
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) + "-" + Date.now().toString(36);
@@ -434,7 +434,7 @@ export default {
       const fileData = await fileRes.json();
       let community = [];
       if (fileData.content) {
-        try { community = JSON.parse(atob(fileData.content.replace(/\n/g, ""))); } catch {}
+        try { community = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))))); } catch {}
       }
       return json(request, { products: community.filter((p) => p.submittedBy === identity.login), sha: fileData.sha });
     }
@@ -451,7 +451,7 @@ export default {
       const fileData = await fileRes.json();
       let community = [];
       if (fileData.content) {
-        try { community = JSON.parse(atob(fileData.content.replace(/\n/g, ""))); } catch {}
+        try { community = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))))); } catch {}
       }
       const idx = community.findIndex((p) => p.slug === slug && p.submittedBy === identity.login);
       if (idx === -1) return json(request, { error: "产品不存在或不是你的" }, 404);
