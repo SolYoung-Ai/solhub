@@ -45,8 +45,8 @@ export default function AuthDialog({ locale = "zh", onClose }: { locale?: Locale
   return (
     <div className="fixed inset-0 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-label={en ? "Authentication" : "登录 / 注册"}>
       <div className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
-      <div className="absolute inset-x-0 top-1/2 mx-auto w-full max-w-sm -translate-y-1/2 px-4">
-        <div className="animate-dialog-in rounded-[4px] border border-border bg-card p-6 shadow-xl">
+      <div className="absolute inset-0 flex items-center justify-center px-4">
+        <div className="animate-dialog-in max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-[4px] border border-border bg-card p-6 shadow-xl">
           <button
             type="button"
             onClick={onClose}
