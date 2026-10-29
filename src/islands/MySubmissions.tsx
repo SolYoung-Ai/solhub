@@ -16,7 +16,7 @@ import type { Locale } from "@/i18n";
 
 const apiBase =
   (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
-  "https://solhub-auth.solyoungwork.workers.dev";
+  "https://solhub-auth.solyoung.top";
 
 function base(): string {
   return apiBase.replace(/\/$/, "");
