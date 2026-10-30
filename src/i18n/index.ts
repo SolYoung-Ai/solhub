@@ -36,6 +36,7 @@ export const zh: Dict = {
   // 导航
   "nav.discover": "发现",
   "nav.launches": "榜单",
+  "nav.world": "世界",
   "nav.tools": "工具",
   "nav.about": "关于",
   "nav.mySubmissions": "我的提交",
@@ -303,6 +304,7 @@ export const en: Dict = {
   // Nav
   "nav.discover": "Discover",
   "nav.launches": "Launches",
+  "nav.world": "World",
   "nav.tools": "Tools",
   "nav.about": "About",
   "nav.mySubmissions": "My submissions",

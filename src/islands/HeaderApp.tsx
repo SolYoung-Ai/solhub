@@ -48,6 +48,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
   const NAV: { label: string; path: string; match: (r: string) => boolean }[] = [
     { label: translate(dict, "nav.discover"), path: "/", match: (r) => r === "/" },
     { label: translate(dict, "nav.launches"), path: "/launches/", match: (r) => r.startsWith("/launches/") },
+    { label: translate(dict, "nav.world"), path: "/world/", match: (r) => r.startsWith("/world/") },
     { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", match: (r) => r.startsWith("/my-submissions/") },
     { label: translate(dict, "nav.about"), path: "/about/", match: (r) => r.startsWith("/about/") },
   ];
