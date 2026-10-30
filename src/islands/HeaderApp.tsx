@@ -361,15 +361,15 @@ function ViewportButton() {
 
 function Logo({ locale = "zh" }: { locale?: Locale }) {
   return (
-    <a href={p("/", locale)} className="inline-flex items-center leading-none" aria-label="SolHub">
+    <a href={p("/", locale)} className="inline-flex items-center gap-2 leading-none" aria-label="SolHub">
       <img
         src="/solhub-mark.png"
         alt=""
-        width={56}
-        height={56}
+        width={28}
+        height={28}
         className="shrink-0"
       />
-      <span className="font-display text-[20px] font-bold tracking-tight text-foreground">SolHub</span>
+      <span className="font-display text-[19px] font-bold tracking-tight text-foreground">SolHub</span>
     </a>
   );
 }

@@ -9,10 +9,10 @@ interface Props {
   locale?: Locale;
 }
 
-const { size = 72, withText = true } = Astro.props;
+const { size = 28, withText = true } = Astro.props;
 ---
 
-<span class="inline-flex items-center leading-none" aria-label="SolHub">
+<span class="inline-flex items-center gap-2 leading-none" aria-label="SolHub">
   <img
     src={`${import.meta.env.BASE_PATH}solhub-mark.png`}
     alt=""
@@ -22,7 +22,7 @@ const { size = 72, withText = true } = Astro.props;
   />
   {
     withText && (
-      <span class="font-display text-[32px] font-bold leading-none tracking-tight text-foreground">
+      <span class="font-display text-[19px] font-bold leading-none tracking-tight text-foreground">
         SolHub
       </span>
     )
