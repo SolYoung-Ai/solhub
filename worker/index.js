@@ -175,6 +175,38 @@ async function authorOf(env, login) {
   return { login, name: profile.displayName || login, avatar: profile.avatar || "" };
 }
 
+/** 读取仓库里的社区产品数据（只读，失败返回空数组，不阻塞页面）。 */
+async function readCommunity(env) {
+  if (!env.GITHUB_PAT) return [];
+  try {
+    const fileRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json?ref=main`, {
+      headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
+    });
+    const fileData = await fileRes.json();
+    if (!fileData.content) return [];
+    return JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, "")))));
+  } catch {
+    return [];
+  }
+}
+
+/** 从社区数据里挑出某人提交的产品，裁成卡片需要的字段。 */
+function productsOf(community, login) {
+  return community
+    .filter((p) => p.submittedBy === login)
+    .map((p) => ({
+      slug: p.slug,
+      name: p.name,
+      shortDescription: p.shortDescription || "",
+      icon: p.icon || "",
+      websiteUrl: p.websiteUrl || "",
+      category: p.category || "other",
+      tags: Array.isArray(p.tags) ? p.tags.slice(0, 6) : [],
+      verificationStatus: p.verificationStatus || "pending",
+      publishedAt: p.publishedAt || "",
+    }));
+}
+
 async function hydratePost(env, id, viewer) {
   const [p, likes, comments] = await Promise.all([
     kvGetJSON(env, `post:${id}`, null),
@@ -766,24 +798,33 @@ export default {
       }
 
       if (action === "") {
-        const author = await authorOf(env, target);
-        const followers = await kvGetJSON(env, `followers:${target}`, []);
-        const following = await kvGetJSON(env, `following:${target}`, []);
-        const postIds = await kvGetJSON(env, `feed:user:${target}`, []);
+        const [author, followers, following, postIds, myFollowing, community, user] = await Promise.all([
+          authorOf(env, target),
+          kvGetJSON(env, `followers:${target}`, []),
+          kvGetJSON(env, `following:${target}`, []),
+          kvGetJSON(env, `feed:user:${target}`, []),
+          viewer ? kvGetJSON(env, `following:${viewer}`, []) : Promise.resolve([]),
+          readCommunity(env),
+          kvGetJSON(env, `user:${target}`, null),
+        ]);
         const posts = await feedPosts(env, postIds, viewer, 30);
-        let isFollowing = false;
-        if (viewer) {
-          const myFollowing = await kvGetJSON(env, `following:${viewer}`, []);
-          isFollowing = myFollowing.includes(target);
-        }
+        const products = productsOf(community, target);
         return json(request, {
-          user: author,
+          user: {
+            ...author,
+            bio: user?.bio || "",
+            location: user?.location || "",
+            website: user?.website || "",
+            joinedAt: user?.createdAt || "",
+          },
           followerCount: followers.length,
           followingCount: following.length,
           postCount: postIds.length,
-          isFollowing,
+          productCount: products.length,
+          isFollowing: myFollowing.includes(target),
           isSelf: viewer === target,
           posts,
+          products,
         });
       }
     }

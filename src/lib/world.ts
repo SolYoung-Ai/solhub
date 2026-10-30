@@ -33,14 +33,37 @@ export interface WorldComment {
   createdAt: string;
 }
 
+/** 用户主页里展示的产品卡片（来自社区收录数据） */
+export interface WorldProduct {
+  slug: string;
+  name: string;
+  shortDescription: string;
+  icon?: string;
+  websiteUrl: string;
+  category: string;
+  tags: string[];
+  verificationStatus: "verified" | "pending" | "unverified";
+  publishedAt?: string;
+}
+
 export interface PublicProfile {
-  user: { login: string; name: string; avatar?: string };
+  user: {
+    login: string;
+    name: string;
+    avatar?: string;
+    bio?: string;
+    location?: string;
+    website?: string;
+    joinedAt?: string;
+  };
   followerCount: number;
   followingCount: number;
   postCount: number;
+  productCount: number;
   isFollowing: boolean;
   isSelf: boolean;
   posts: WorldPost[];
+  products: WorldProduct[];
 }
 
 export interface FollowUser {
