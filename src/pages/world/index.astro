@@ -1,0 +1,26 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import WorldFeed from "@/islands/WorldFeed.tsx";
+---
+
+<BaseLayout
+  title="世界 · SolHub"
+  description="SolHub 世界：发布动态、分享链接、点赞评论，关注你喜欢的独立开发者。"
+  route="/world/"
+  locale="zh"
+>
+  <section class="border-b border-border bg-secondary/30 py-8 sm:py-10">
+    <div class="container-page">
+      <p class="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">World</p>
+      <h1 class="font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">世界</h1>
+      <p class="mt-2 max-w-2xl text-[14px] leading-7 text-muted-foreground">
+        独立开发者的公共广场：发布在做什么、提问、分享产品链接，点赞评论关注，都在这里。
+      </p>
+    </div>
+  </section>
+  <section class="py-6 sm:py-8">
+    <div class="container-page">
+      <WorldFeed client:load locale="zh" />
+    </div>
+  </section>
+</BaseLayout>

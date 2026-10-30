@@ -128,6 +128,94 @@ async function getIdentity(request, env) {
   return null;
 }
 
+/* ---------------- 世界（社交）：帖子 / 点赞 / 评论 / 关注 ---------------- */
+
+const POST_MAX = 500;
+const COMMENT_MAX = 300;
+const FEED_CAP = 300;
+
+async function kvGetJSON(env, key, fallback) {
+  const raw = await env.PROFILES.get(key);
+  if (!raw) return fallback;
+  try { return JSON.parse(raw); } catch { return fallback; }
+}
+async function kvPutJSON(env, key, val) {
+  await env.PROFILES.put(key, JSON.stringify(val));
+}
+
+function newId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+/** 取用户展示信息快照（昵称/头像） */
+async function displayOf(env, identity) {
+  if (identity.type === "email") {
+    const u = identity.user;
+    return {
+      login: u.email,
+      name: u.displayName || u.email.split("@")[0],
+      avatar: u.avatar || "",
+    };
+  }
+  const profile = await kvGetJSON(env, `profile:${identity.login}`, {});
+  return {
+    login: identity.login,
+    name: profile.displayName || identity.login,
+    avatar: identity.avatar_url || profile.avatar || "",
+  };
+}
+
+async function authorOf(env, login) {
+  if (login && login.includes("@")) {
+    const user = await kvGetJSON(env, `user:${login}`, null);
+    if (user) return { login, name: user.displayName || login.split("@")[0], avatar: user.avatar || "" };
+    return { login, name: login.split("@")[0], avatar: "" };
+  }
+  const profile = await kvGetJSON(env, `profile:${login}`, {});
+  return { login, name: profile.displayName || login, avatar: profile.avatar || "" };
+}
+
+async function hydratePost(env, id, viewer) {
+  const [p, likes, comments] = await Promise.all([
+    kvGetJSON(env, `post:${id}`, null),
+    kvGetJSON(env, `post:${id}:likes`, []),
+    kvGetJSON(env, `post:${id}:comments`, []),
+  ]);
+  if (!p) return null;
+  return {
+    ...p,
+    likeCount: likes.length,
+    likedByMe: viewer ? likes.includes(viewer) : false,
+    commentCount: comments.length,
+  };
+}
+
+async function feedPosts(env, ids, viewer, limit) {
+  const slice = ids.slice(0, limit);
+  const posts = await Promise.all(slice.map((id) => hydratePost(env, id, viewer)));
+  return posts.filter(Boolean);
+}
+
+async function pushFeed(env, key, id) {
+  const list = await kvGetJSON(env, key, []);
+  list.unshift(id);
+  await kvPutJSON(env, key, list.slice(0, FEED_CAP));
+}
+
+async function removeFromFeed(env, key, id) {
+  const list = await kvGetJSON(env, key, []);
+  const next = list.filter((x) => x !== id);
+  await kvPutJSON(env, key, next);
+}
+
+async function toggleInList(env, key, value) {
+  const list = await kvGetJSON(env, key, []);
+  const has = list.includes(value);
+  const next = has ? list.filter((x) => x !== value) : [value, ...list];
+  await kvPutJSON(env, key, next);
+  return !has;
+}
+
 /* ---------------- 主路由 ---------------- */
 
 export default {
@@ -513,6 +601,191 @@ export default {
       const writeData = await writeRes.json();
       if (!writeData.commit) return json(request, { error: "写入失败", detail: writeData }, 500);
       return json(request, { ok: true });
+    }
+
+    /* ---------- 世界：信息流 ---------- */
+    if (url.pathname === "/world" && request.method === "GET") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      const viewer = identity ? identity.login : null;
+      const tab = url.searchParams.get("tab") || "latest";
+      const author = url.searchParams.get("author") || "";
+      const limit = Math.min(Number(url.searchParams.get("limit") || 30) || 30, 60);
+
+      let ids = [];
+      if (author) {
+        ids = await kvGetJSON(env, `feed:user:${author}`, []);
+      } else if (tab === "following" && viewer) {
+        const following = await kvGetJSON(env, `following:${viewer}`, []);
+        const all = (await kvGetJSON(env, "feed:global", [])).slice(0, 120);
+        const recs = await Promise.all(all.map((id) => kvGetJSON(env, `post:${id}`, null)));
+        recs.forEach((p, i) => {
+          if (ids.length >= limit) return;
+          if (p && (following.includes(p.author) || p.author === viewer)) ids.push(all[i]);
+        });
+      } else {
+        ids = await kvGetJSON(env, "feed:global", []);
+      }
+
+      const posts = await feedPosts(env, ids, viewer, limit);
+      return json(request, { posts, viewer });
+    }
+
+    /* ---------- 世界：发帖 ---------- */
+    if (url.pathname === "/world/posts" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录后再发布" }, 401);
+
+      /* 频率限制：同一账号 30 秒一条 */
+      const rlKey = `rl:post:${identity.login}`;
+      const last = await env.PROFILES.get(rlKey);
+      if (last && Date.now() - Number(last) < 30000) {
+        const wait = Math.ceil((30000 - (Date.now() - Number(last))) / 1000);
+        return json(request, { error: `发布太频繁，请 ${wait} 秒后再试` }, 429);
+      }
+
+      let body;
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const text = String(body.text || "").trim().slice(0, POST_MAX);
+      const linkUrl = String(body.linkUrl || "").trim().slice(0, 500);
+      if (!text && !linkUrl) return json(request, { error: "内容不能为空" }, 400);
+      if (linkUrl && !/^https?:\/\//.test(linkUrl)) return json(request, { error: "链接需以 http(s):// 开头" }, 400);
+
+      const author = await displayOf(env, identity);
+      const id = newId();
+      const post = {
+        id,
+        author: author.login,
+        authorName: author.name,
+        authorAvatar: author.avatar,
+        text,
+        linkUrl,
+        createdAt: new Date().toISOString(),
+      };
+      await Promise.all([
+        kvPutJSON(env, `post:${id}`, post),
+        kvPutJSON(env, `post:${id}:likes`, []),
+        kvPutJSON(env, `post:${id}:comments`, []),
+        env.PROFILES.put(rlKey, String(Date.now()), { expirationTtl: 120 }),
+      ]);
+      await Promise.all([
+        pushFeed(env, "feed:global", id),
+        pushFeed(env, `feed:user:${author.login}`, id),
+      ]);
+      return json(request, { ok: true, post: { ...post, likeCount: 0, likedByMe: false, commentCount: 0 } });
+    }
+
+    /* ---------- 世界：单帖操作（删除 / 点赞 / 评论） ---------- */
+    if (url.pathname.startsWith("/world/posts/")) {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const parts = url.pathname.split("/").filter(Boolean); // world posts <id> [like|comments]
+      const id = parts[2];
+      const action = parts[3] || "";
+      const identity = await getIdentity(request, env);
+      const viewer = identity ? identity.login : null;
+      const post = await kvGetJSON(env, `post:${id}`, null);
+      if (!post) return json(request, { error: "帖子不存在或已删除" }, 404);
+
+      if (action === "" && request.method === "DELETE") {
+        if (!identity || post.author !== identity.login) return json(request, { error: "只能删除自己的帖子" }, 403);
+        await env.PROFILES.delete(`post:${id}`);
+        await env.PROFILES.delete(`post:${id}:likes`);
+        await env.PROFILES.delete(`post:${id}:comments`);
+        await removeFromFeed(env, "feed:global", id);
+        await removeFromFeed(env, `feed:user:${post.author}`, id);
+        return json(request, { ok: true });
+      }
+
+      if (action === "like" && request.method === "POST") {
+        if (!identity) return json(request, { error: "登录后才能点赞" }, 401);
+        const liked = await toggleInList(env, `post:${id}:likes`, viewer);
+        const likes = await kvGetJSON(env, `post:${id}:likes`, []);
+        return json(request, { ok: true, liked, likeCount: likes.length });
+      }
+
+      if (action === "comments") {
+        if (request.method === "GET") {
+          const comments = await kvGetJSON(env, `post:${id}:comments`, []);
+          return json(request, { comments });
+        }
+        if (request.method === "POST") {
+          if (!identity) return json(request, { error: "登录后才能评论" }, 401);
+          const rlKey = `rl:comment:${identity.login}`;
+          const last = await env.PROFILES.get(rlKey);
+          if (last && Date.now() - Number(last) < 10000) {
+            return json(request, { error: "评论太频繁，请稍后再试" }, 429);
+          }
+          let body;
+          try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+          const text = String(body.text || "").trim().slice(0, COMMENT_MAX);
+          if (!text) return json(request, { error: "评论不能为空" }, 400);
+          const who = await displayOf(env, identity);
+          const comments = await kvGetJSON(env, `post:${id}:comments`, []);
+          const comment = {
+            id: newId(),
+            author: who.login,
+            authorName: who.name,
+            authorAvatar: who.avatar,
+            text,
+            createdAt: new Date().toISOString(),
+          };
+          comments.push(comment);
+          await kvPutJSON(env, `post:${id}:comments`, comments.slice(-200));
+          await env.PROFILES.put(rlKey, String(Date.now()), { expirationTtl: 60 });
+          return json(request, { ok: true, comment, commentCount: comments.length });
+        }
+      }
+    }
+
+    /* ---------- 世界：用户公开主页 / 关注 ---------- */
+    if (url.pathname.startsWith("/users/")) {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const parts = url.pathname.split("/").filter(Boolean); // users <login> [follow|following|followers]
+      const target = decodeURIComponent(parts[1] || "");
+      const action = parts[2] || "";
+      const identity = await getIdentity(request, env);
+      const viewer = identity ? identity.login : null;
+
+      if (action === "follow" && request.method === "POST") {
+        if (!identity) return json(request, { error: "登录后才能关注" }, 401);
+        if (viewer === target) return json(request, { error: "不能关注自己" }, 400);
+        const nowFollowing = await toggleInList(env, `following:${viewer}`, target);
+        await toggleInList(env, `followers:${target}`, viewer);
+        const followers = await kvGetJSON(env, `followers:${target}`, []);
+        return json(request, { ok: true, following: nowFollowing, followerCount: followers.length });
+      }
+
+      if (action === "following" || action === "followers") {
+        const list = await kvGetJSON(env, `${action}:${target}`, []);
+        const users = [];
+        for (const login of list.slice(0, 100)) {
+          users.push(await authorOf(env, login));
+        }
+        return json(request, { users });
+      }
+
+      if (action === "") {
+        const author = await authorOf(env, target);
+        const followers = await kvGetJSON(env, `followers:${target}`, []);
+        const following = await kvGetJSON(env, `following:${target}`, []);
+        const postIds = await kvGetJSON(env, `feed:user:${target}`, []);
+        const posts = await feedPosts(env, postIds, viewer, 30);
+        let isFollowing = false;
+        if (viewer) {
+          const myFollowing = await kvGetJSON(env, `following:${viewer}`, []);
+          isFollowing = myFollowing.includes(target);
+        }
+        return json(request, {
+          user: author,
+          followerCount: followers.length,
+          followingCount: following.length,
+          postCount: postIds.length,
+          isFollowing,
+          isSelf: viewer === target,
+          posts,
+        });
+      }
     }
 
     return json(request, { error: "not found" }, 404);
