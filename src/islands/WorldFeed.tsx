@@ -57,6 +57,12 @@ function linkify(text: string): React.ReactNode[] {
   });
 }
 
+/* 登录名即邮箱，X 风格只展示 @ 前缀的本地名，不暴露完整邮箱 */
+function cleanHandle(login: string): string {
+  if (login.includes("@")) return login.split("@")[0];
+  return login;
+}
+
 /* ---------------- 头像 ---------------- */
 function Avatar({
   name,
@@ -272,21 +278,20 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
 
   return (
     <div className="mx-auto w-full max-w-2xl">
-      {/* ============ 顶部栏：左上角加号发布按钮 + Tab ============ */}
-      <div className="sticky top-14 z-30 -mx-4 border-b border-border bg-background/95 px-4 backdrop-blur-md sm:-mx-6 sm:px-6">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={openComposer}
-            aria-label={en ? "New post" : "发布新帖"}
-            title={en ? "New post" : "发布新帖"}
-            className="-ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-sm transition-transform hover:opacity-90 active:scale-95"
-          >
-            <Feather className="h-[18px] w-[18px]" aria-hidden="true" />
-          </button>
-
-          {!viewUser && (
-            <div className="flex flex-1 items-center">
+      {/* ============ 顶部栏：发布 + 最新/关注 Tab（X 风格） ============ */}
+      {!viewUser && (
+        <div className="sticky top-14 z-30 -mx-4 border-b border-border bg-background/90 backdrop-blur-md sm:-mx-6">
+          <div className="flex items-center gap-1 px-2 sm:px-3">
+            <button
+              type="button"
+              onClick={openComposer}
+              aria-label={en ? "New post" : "发布新帖"}
+              title={en ? "New post" : "发布新帖"}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-sm transition-transform hover:opacity-90 active:scale-95"
+            >
+              <Feather className="h-[18px] w-[18px]" aria-hidden="true" />
+            </button>
+            <div className="flex flex-1 items-stretch">
               {([
                 { key: "latest", label: en ? "Latest" : "最新" },
                 { key: "following", label: en ? "Following" : "关注" },
@@ -301,39 +306,19 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                     }
                     setTab(t.key);
                   }}
-                  className={`-mb-px min-w-[80px] flex-1 border-b-2 py-3 text-[14px] font-semibold transition-colors sm:flex-none ${
+                  className={`-mb-px flex-1 border-b-2 py-3.5 text-[15px] font-semibold transition-colors ${
                     tab === t.key
                       ? "border-accent text-foreground"
-                      : "border-transparent text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
+                      : "border-transparent text-muted-foreground hover:bg-secondary/30 hover:text-foreground"
                   }`}
                 >
                   {t.label}
                 </button>
               ))}
             </div>
-          )}
-
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {me ? (
-              <button
-                type="button"
-                onClick={() => openUser(me.login)}
-                className="inline-flex items-center gap-2 rounded-full border border-border py-1 pl-1 pr-3 text-[12px] font-medium text-foreground/80 hover:border-foreground/30"
-              >
-                <Avatar name={me.displayName || me.login} src={avatarOf(me)} className="h-6 w-6 text-[10px]" />
-                <span className="hidden sm:inline">{me.displayName || me.login}</span>
-              </button>
-            ) : (
-              <a
-                href={p("/login/?next=" + encodeURIComponent("/world/"), locale)}
-                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-foreground px-4 text-[12px] font-semibold text-background hover:opacity-90"
-              >
-                <LogIn className="h-3.5 w-3.5" /> {en ? "Log in" : "登录"}
-              </a>
-            )}
           </div>
         </div>
-      </div>
+      )}
 
       {/* ============ 用户主页视图 ============ */}
       {viewUser && (
@@ -378,7 +363,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
 
                 <div className="mt-3">
                   <p className="font-display text-lg font-bold text-foreground">{userProfile.user.name}</p>
-                  <p className="text-[13px] text-muted-foreground">@{userProfile.user.login}</p>
+                  <p className="text-[13px] text-muted-foreground">@{cleanHandle(userProfile.user.login)}</p>
                   {userProfile.user.bio && (
                     <p className="mt-2 whitespace-pre-wrap text-[14px] leading-6 text-foreground/85">{userProfile.user.bio}</p>
                   )}
@@ -483,13 +468,13 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
         </div>
       )}
 
-      {/* ============ 时间线 ============ */}
+      {/* ============ 时间线（X 风格：通栏 + 1px 分割线） ============ */}
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 border-t border-border py-16 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> {en ? "Loading…" : "加载中…"}
         </div>
       ) : posts.length === 0 ? (
-        <div className="mt-8 rounded-[10px] border border-dashed border-border py-14 text-center">
+        <div className="border-t border-border py-14 text-center">
           <Globe2 className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium text-foreground/70">
             {viewUser
@@ -507,9 +492,9 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="divide-y divide-border border-t border-border">
           {posts.map((post) => (
-            <li key={post.id} id={`post-${post.id}`} className="py-3.5 transition-colors hover:bg-secondary/15">
+            <li key={post.id} id={`post-${post.id}`} className="px-4 py-3 transition-colors hover:bg-secondary/20">
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -520,16 +505,16 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                   <Avatar name={post.authorName || post.author} src={post.authorAvatar} />
                 </button>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-1.5">
+                  <div className="flex items-center gap-1 text-[15px]">
                     <button
                       type="button"
                       onClick={() => openUser(post.author)}
-                      className="truncate text-[14px] font-bold text-foreground hover:underline"
+                      className="truncate font-bold text-foreground hover:underline"
                     >
                       {post.authorName}
                     </button>
-                    <span className="truncate text-[13px] text-muted-foreground">@{post.author}</span>
-                    <span className="shrink-0 text-[13px] text-muted-foreground">· {timeAgo(post.createdAt, locale)}</span>
+                    <span className="truncate text-muted-foreground">@{cleanHandle(post.author)}</span>
+                    <span className="shrink-0 text-muted-foreground">· {timeAgo(post.createdAt, locale)}</span>
                     {me && me.login === post.author && (
                       <button
                         type="button"
@@ -551,18 +536,20 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                       href={ensureHttps(post.linkUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-2 flex items-center gap-2 rounded-[8px] border border-border bg-secondary/30 px-3 py-2 text-xs text-foreground/80 transition-colors hover:border-accent/40"
+                      className="mt-2 block rounded-[12px] border border-border bg-secondary/20 px-3 py-2.5 text-xs text-foreground/80 transition-colors hover:border-accent/40"
                     >
-                      <Link2 className="h-3.5 w-3.5 shrink-0 text-accent" />
-                      <span className="truncate">{hostOf(post.linkUrl)}</span>
-                      <span className="ml-auto shrink-0 text-muted-foreground">{en ? "Open" : "打开"}</span>
+                      <span className="flex items-center gap-2">
+                        <Link2 className="h-3.5 w-3.5 shrink-0 text-accent" />
+                        <span className="truncate">{hostOf(post.linkUrl)}</span>
+                        <span className="ml-auto shrink-0 text-muted-foreground">{en ? "Open" : "打开"}</span>
+                      </span>
                     </a>
                   )}
-                  <div className="mt-2 flex max-w-md items-center justify-between text-[13px] text-muted-foreground">
+                  <div className="mt-2 flex max-w-sm items-center justify-between text-[13px] text-muted-foreground">
                     <button
                       type="button"
                       onClick={() => void openCommentPanel(post)}
-                      className="group inline-flex items-center gap-1.5 transition-colors hover:text-accent"
+                      className="group inline-flex items-center gap-1.5 rounded-full transition-colors hover:text-accent"
                       aria-label={en ? "Comment" : "评论"}
                     >
                       <span className="-m-1.5 rounded-full p-1.5 transition-colors group-hover:bg-accent/10">
@@ -573,7 +560,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                     <button
                       type="button"
                       onClick={() => void onLike(post)}
-                      className={`group inline-flex items-center gap-1.5 transition-colors hover:text-destructive ${post.likedByMe ? "text-destructive" : ""}`}
+                      className={`group inline-flex items-center gap-1.5 rounded-full transition-colors hover:text-destructive ${post.likedByMe ? "text-destructive" : ""}`}
                       aria-label={en ? "Like" : "点赞"}
                     >
                       <span className="-m-1.5 rounded-full p-1.5 transition-colors group-hover:bg-destructive/10">
@@ -584,7 +571,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                     <button
                       type="button"
                       onClick={() => void share(post)}
-                      className="group inline-flex items-center gap-1.5 transition-colors hover:text-accent"
+                      className="group inline-flex items-center gap-1.5 rounded-full transition-colors hover:text-accent"
                       aria-label={en ? "Share" : "分享"}
                     >
                       <span className="-m-1.5 rounded-full p-1.5 transition-colors group-hover:bg-accent/10">
