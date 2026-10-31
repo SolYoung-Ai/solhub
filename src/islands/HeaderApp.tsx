@@ -180,11 +180,6 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
             </a>
           )}
 
-          {/* 提交产品 - 桌面显示 */}
-          <a href={p("/submit/", locale)} className="btn btn-accent hidden !h-8 px-2.5 sm:inline-flex !text-xs">
-            {translate(dict, "nav.submit")}
-          </a>
-
           <span className="mx-0.5 hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
           {/* 语言/主题 - 桌面显示 */}
           <div className="hidden sm:flex items-center gap-1">
@@ -231,13 +226,6 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
             </nav>
             <div className="mx-5 my-3 border-t border-border/50" />
             <div className="px-3 py-2">
-              <a
-                href={p("/submit/", locale)}
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium text-foreground/80 hover:bg-secondary/60"
-              >
-                {translate(dict, "nav.submit")}
-              </a>
               {user ? (
                 <>
                   <a
