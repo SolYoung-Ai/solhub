@@ -528,7 +528,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <a href={p(`/products/${prod.slug}/`, locale)} className="truncate text-sm font-bold text-foreground hover:text-accent">
+                      <a href={prod.websiteUrl} target="_blank" rel="noopener noreferrer" className="truncate text-sm font-bold text-foreground hover:text-accent">
                         {prod.name}
                       </a>
                       <span

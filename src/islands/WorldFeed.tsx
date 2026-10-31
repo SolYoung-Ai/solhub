@@ -439,7 +439,9 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                         {userProfile.products.map((prod) => (
                           <li key={prod.slug}>
                             <a
-                              href={p(`/products/${prod.slug}/`, locale)}
+                              href={prod.websiteUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               className="flex items-start gap-3 py-3 transition-colors hover:bg-secondary/30"
                             >
                               {prod.icon ? (
