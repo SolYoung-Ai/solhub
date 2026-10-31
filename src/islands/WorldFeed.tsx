@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { p } from "@/lib/paths";
 import { avatarOf, fetchMe, type AuthUser } from "@/lib/auth";
+import { ensureHttps } from "@/lib/utils";
 import {
   addComment,
   createPost,
@@ -386,7 +387,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                       <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{userProfile.user.location}</span>
                     )}
                     {userProfile.user.website && (
-                      <a href={userProfile.user.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">
+                      <a href={ensureHttps(userProfile.user.website)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">
                         <Link2 className="h-3.5 w-3.5" />{hostOf(userProfile.user.website)}
                       </a>
                     )}
@@ -439,7 +440,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                         {userProfile.products.map((prod) => (
                           <li key={prod.slug}>
                             <a
-                              href={prod.websiteUrl}
+                              href={ensureHttps(prod.websiteUrl)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-start gap-3 py-3 transition-colors hover:bg-secondary/30"
@@ -547,7 +548,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                   )}
                   {post.linkUrl && (
                     <a
-                      href={post.linkUrl}
+                      href={ensureHttps(post.linkUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-2 flex items-center gap-2 rounded-[3px] border border-border bg-secondary/30 px-3 py-2 text-xs text-foreground/80 transition-colors hover:border-accent/40"
