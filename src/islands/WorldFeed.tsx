@@ -5,8 +5,8 @@ import {
   CalendarDays,
   Check,
   ExternalLink,
-  Feather,
   Globe2,
+  Pencil,
   Heart,
   Link2,
   Loader2,
@@ -289,7 +289,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
               title={en ? "New post" : "发布新帖"}
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-sm transition-transform hover:opacity-90 active:scale-95"
             >
-              <Feather className="h-[18px] w-[18px]" aria-hidden="true" />
+              <Pencil className="h-[18px] w-[18px]" aria-hidden="true" />
             </button>
             <div className="flex flex-1 items-stretch">
               {([
