@@ -35,6 +35,7 @@ import {
   timeAgo,
   toggleFollow,
   toggleLike,
+  isOfficial,
   type PublicProfile,
   type WorldComment,
   type WorldPost,
@@ -364,6 +365,11 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                 <div className="mt-3">
                   <p className="font-display text-lg font-bold text-foreground">{userProfile.user.name}</p>
                   <p className="text-[13px] text-muted-foreground">@{cleanHandle(userProfile.user.login)}</p>
+                  {isOfficial(userProfile.user.login) && (
+                    <span className="mt-1 inline-flex w-fit items-center rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold leading-none text-accent-foreground">
+                      {en ? "Official Account" : "官方账号"}
+                    </span>
+                  )}
                   {userProfile.user.bio && (
                     <p className="mt-2 whitespace-pre-wrap text-[14px] leading-6 text-foreground/85">{userProfile.user.bio}</p>
                   )}
@@ -514,6 +520,11 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                       {post.authorName}
                     </button>
                     <span className="truncate text-muted-foreground">@{cleanHandle(post.author)}</span>
+                    {isOfficial(post.author) && (
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-accent-foreground">
+                        {en ? "Official" : "官方"}
+                      </span>
+                    )}
                     <span className="shrink-0 text-muted-foreground">· {timeAgo(post.createdAt, locale)}</span>
                     {me && me.login === post.author && (
                       <button
