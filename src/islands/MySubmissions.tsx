@@ -331,7 +331,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   return (
     <div className="pb-10">
       {/* ---------- X 风格个人主页头部 ---------- */}
-      <div className="overflow-hidden rounded-[4px] border border-border bg-card">
+      <div className="overflow-hidden rounded-[10px] border border-border bg-card">
         {/* 封面条 */}
         <div className="h-28 bg-gradient-to-r from-accent/25 via-accent/10 to-transparent sm:h-36" aria-hidden="true" />
 
@@ -429,7 +429,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
             <textarea value={pf.bio} onChange={(e) => setPf({ ...pf, bio: e.target.value })} rows={2} maxLength={200} className="input w-full resize-y" placeholder={en ? "Short bio" : "个人简介"} />
             <input value={pf.website} onChange={(e) => setPf({ ...pf, website: e.target.value })} className="input w-full" placeholder={en ? "Website (https://…)" : "个人网站（https://…）"} />
             {profileError && (
-              <p className="rounded-[3px] bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{profileError}</p>
+              <p className="rounded-[8px] bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{profileError}</p>
             )}
             <div className="flex gap-2">
               <button onClick={() => void saveProfileEdit()} disabled={profileSaving} className="btn btn-accent !h-8 gap-1.5 px-4 text-xs">
@@ -470,7 +470,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
       </div>
 
       {actionError && (
-        <p className="mt-3 rounded-[3px] bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{actionError}</p>
+        <p className="mt-3 rounded-[8px] bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{actionError}</p>
       )}
 
       {/* 产品 */}
@@ -485,7 +485,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         </a>
       </div>
       {products.length === 0 ? (
-        <div className="mt-4 rounded-[4px] border border-dashed border-border bg-secondary/30 py-14 text-center">
+        <div className="mt-4 rounded-[10px] border border-dashed border-border bg-secondary/30 py-14 text-center">
           <PackagePlus className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium text-foreground/70">{en ? "No products yet" : "暂无提交的产品"}</p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -581,7 +581,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
             </a>
           </div>
           {myPosts.length === 0 ? (
-            <div className="mt-4 rounded-[4px] border border-dashed border-border bg-secondary/30 py-14 text-center">
+            <div className="mt-4 rounded-[10px] border border-dashed border-border bg-secondary/30 py-14 text-center">
               <p className="text-sm font-medium text-foreground/70">{en ? "No posts yet" : "还没有发过帖子"}</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {en ? "Share what you're building in the World." : "去「世界」分享你在做什么、丢个产品链接。"}
@@ -591,7 +591,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
               </a>
             </div>
           ) : (
-            <ul className="mt-4 divide-y divide-border rounded-[4px] border border-border bg-card">
+            <ul className="mt-4 divide-y divide-border rounded-[10px] border border-border bg-card">
               {myPosts.map((post) => (
                 <li key={post.id} className="px-4 py-3">
                   <p className="text-[11px] text-muted-foreground">{timeAgo(post.createdAt, locale)}</p>
@@ -628,7 +628,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> {en ? "Loading…" : "加载中…"}
             </div>
           ) : followList.length === 0 ? (
-            <div className="mt-4 rounded-[4px] border border-dashed border-border bg-secondary/30 py-14 text-center">
+            <div className="mt-4 rounded-[10px] border border-dashed border-border bg-secondary/30 py-14 text-center">
               <p className="text-sm font-medium text-foreground/70">
                 {tab === "following"
                   ? (en ? "You're not following anyone yet" : "还没有关注任何人")
@@ -646,7 +646,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
           ) : (
             <ul className="mt-4 grid gap-3 sm:grid-cols-2">
               {followList.map((u) => (
-                <li key={u.login} className="flex items-center gap-3 rounded-[4px] border border-border bg-card px-4 py-3">
+                <li key={u.login} className="flex items-center gap-3 rounded-[10px] border border-border bg-card px-4 py-3">
                   {u.avatar ? (
                     <img src={u.avatar} alt="" className="h-9 w-9 rounded-full border border-border object-cover" />
                   ) : (

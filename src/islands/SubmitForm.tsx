@@ -250,7 +250,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     <div className="space-y-6">
       {/* 登录引导（未登录时） */}
       {!me && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[3px] border border-accent/30 bg-accent/5 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-accent/30 bg-accent/5 p-4">
           <div className="text-[13px] leading-6">
             <p className="font-bold text-foreground">
               {en ? "Tip: log in to publish in one click" : "提示：登录后可以一键收录"}
@@ -268,7 +268,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       )}
 
       {/* 提交后会发生什么 */}
-      <div className="flex items-start gap-2.5 rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+      <div className="flex items-start gap-2.5 rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
         <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
         <div>
           <p className="font-semibold text-foreground/80">{en ? "What happens after you submit" : "提交后会发生什么"}</p>
@@ -282,7 +282,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       </div>
 
       {/* 收录标准 */}
-      <div className="rounded-[3px] border border-border bg-card p-4">
+      <div className="rounded-[8px] border border-border bg-card p-4">
         <p className="text-[13px] font-bold text-foreground">
           {en ? "Listing criteria" : "收录标准"}
         </p>
@@ -382,7 +382,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
         </div>
 
         {isHosted && (
-          <div className="rounded-[3px] border border-dashed border-border-strong bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+          <div className="rounded-[8px] border border-dashed border-border-strong bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
             <p className="font-semibold text-foreground/80">{en ? "Attach your HTML file to the email" : "请将 HTML 文件作为附件添加到邮件"}</p>
             <p className="mt-1">
               {en
@@ -655,7 +655,7 @@ function TypeTab({
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`flex flex-col items-start gap-1 rounded-[3px] border p-3.5 text-left transition-colors ${
+      className={`flex flex-col items-start gap-1 rounded-[8px] border p-3.5 text-left transition-colors ${
         active
           ? "border-accent/50 bg-accent/5"
           : "border-border bg-card hover:border-border-strong"

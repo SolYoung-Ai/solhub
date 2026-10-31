@@ -49,13 +49,13 @@ export default function UuidGenerator({ locale = "zh" }: { locale?: Locale }) {
         </ToolSection>
       )}
 
-      <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+      <div className="rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
         <p className="font-semibold text-foreground/80">{locale === "en" ? "Notes" : "说明"}</p>
         <p className="mt-1.5">
           {locale === "en" ? (
-            <>Generated with the browser's <code className="rounded-[2px] bg-secondary px-1 font-mono text-xs">crypto.randomUUID()</code> (Web Crypto API) — no network, no history.</>
+            <>Generated with the browser's <code className="rounded-[6px] bg-secondary px-1 font-mono text-xs">crypto.randomUUID()</code> (Web Crypto API) — no network, no history.</>
           ) : (
-            <>使用浏览器 <code className="rounded-[2px] bg-secondary px-1 font-mono text-xs">crypto.randomUUID()</code>{" "}
+            <>使用浏览器 <code className="rounded-[6px] bg-secondary px-1 font-mono text-xs">crypto.randomUUID()</code>{" "}
               （Web Crypto API）生成，无需联网，不记录任何历史。</>
           )}
         </p>

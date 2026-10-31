@@ -148,7 +148,7 @@ export default function RobotsGenerator({ locale = "zh" }: { locale?: Locale }) 
         <ToolSection label={locale === "en" ? "Preview" : "预览"}>
           <ResultBox>{output || (locale === "en" ? "# Configure rules on the left to generate robots.txt" : "# 在左侧配置规则后生成 robots.txt")}</ResultBox>
         </ToolSection>
-        <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+        <div className="rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
           <p className="font-semibold text-foreground/80">{locale === "en" ? "Purpose & limits" : "用途与限制"}</p>
           <ul className="mt-1.5 list-disc space-y-1.5 pl-5">
             {(locale === "en" ? EXPLANATIONS_EN : robotsExplanations).map((e) => (

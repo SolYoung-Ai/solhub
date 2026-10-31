@@ -52,7 +52,7 @@ export default function TextCounter({ locale = "zh" }: { locale?: Locale }) {
         <ClearButton onClick={() => setText("")} disabled={!text} />
       </div>
 
-      <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+      <div className="rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
         <p className="font-semibold text-foreground/80">{t(locale, "tools.text-counter.ruleTitle")}</p>
         <ul className="mt-1.5 list-disc space-y-1 pl-5">
           <li>{locale === "en" ? "English counts words by whitespace; Chinese counts consecutive Han characters (e.g. 「你好世界」 = 1 Chinese word)." : "英文按空白分词统计词数；中文按连续汉字序列计数（如「你好世界」计 1 个中文词）。"}</li>

@@ -69,7 +69,7 @@ export default function TimestampConverter({ locale = "zh" }: { locale?: Locale 
             aria-label={t(locale, "tools.timestamp-converter.tsLabel")}
           />
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-[2px] border border-border bg-card p-0.5" role="group" aria-label={locale === "en" ? "Timestamp unit" : "时间戳单位"}>
+            <div className="inline-flex rounded-[6px] border border-border bg-card p-0.5" role="group" aria-label={locale === "en" ? "Timestamp unit" : "时间戳单位"}>
               {(
                 [
                   ["s", locale === "en" ? "sec" : "秒"],
@@ -81,7 +81,7 @@ export default function TimestampConverter({ locale = "zh" }: { locale?: Locale 
                   type="button"
                   onClick={() => setUnit(key)}
                   aria-pressed={unit === key}
-                  className={`rounded-[2px] px-2.5 py-1 text-xs font-medium transition-colors ${
+                  className={`rounded-[6px] px-2.5 py-1 text-xs font-medium transition-colors ${
                     unit === key ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -123,7 +123,7 @@ export default function TimestampConverter({ locale = "zh" }: { locale?: Locale 
         {tsResult && <ResultBox>{tsResult}</ResultBox>}
       </div>
 
-      <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground lg:col-span-2">
+      <div className="rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground lg:col-span-2">
         <p className="font-semibold text-foreground/80">{locale === "en" ? "Timezone notes" : "时区说明"}</p>
         <p className="mt-1.5">
           {locale === "en" ? (

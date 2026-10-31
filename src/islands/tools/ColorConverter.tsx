@@ -71,7 +71,7 @@ export default function ColorConverter({ locale = "zh" }: { locale?: Locale }) {
         <>
           <ToolSection label={t(locale, "tools.color-converter.previewLabel")}>
             <div
-              className="h-24 w-full rounded-[3px] border border-border"
+              className="h-24 w-full rounded-[8px] border border-border"
               style={{ backgroundColor: parsed.hex }}
               role="img"
               aria-label={`${locale === "en" ? "Color preview" : "颜色预览"} ${parsed.hex}`}

@@ -66,13 +66,13 @@ export default function MarkdownEditor({ locale = "zh" }: { locale?: Locale }) {
         <div>
           <p className="label">{locale === "en" ? "Preview" : "预览"}</p>
           <div
-            className="prose-solhub scroll-x min-h-[560px] w-full rounded-[3px] border border-border bg-card p-4"
+            className="prose-solhub scroll-x min-h-[560px] w-full rounded-[8px] border border-border bg-card p-4"
             dangerouslySetInnerHTML={{ __html: html }}
           />
         </div>
       </div>
 
-      <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+      <div className="rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
         <p className="font-semibold text-foreground/80">{locale === "en" ? "Security note" : "安全说明"}</p>
         <p className="mt-1.5">
           {locale === "en" ? "Preview output is sanitized with DOMPurify: scripts, inline events and dangerous tags are removed, so untrusted HTML never executes. Everything runs locally." : "预览输出经过 DOMPurify 净化，脚本、内联事件与危险标签会被移除，不可信 HTML 不会在预览中执行。内容只在浏览器本地处理。"}

@@ -65,7 +65,7 @@ export default function PasswordGenerator({ locale = "zh" }: { locale?: Locale }
               ["symbols", t(locale, "tools.password-generator.includeSymbols")],
             ] as const
           ).map(([key, label]) => (
-            <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-[2px] border border-border bg-card px-3 py-2.5 text-sm hover:bg-secondary/50">
+            <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-[6px] border border-border bg-card px-3 py-2.5 text-sm hover:bg-secondary/50">
               <input
                 type="checkbox"
                 checked={options[key]}
@@ -92,7 +92,7 @@ export default function PasswordGenerator({ locale = "zh" }: { locale?: Locale }
         <ResultBox className="!text-base !font-bold tracking-wider">{password}</ResultBox>
       )}
 
-      <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+      <div className="rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
         <p className="font-semibold text-foreground/80">{locale === "en" ? "Security notes" : "安全说明"}</p>
         <ul className="mt-1.5 list-disc space-y-1 pl-5">
           <li>{locale === "en" ? "Uses the browser's native crypto.getRandomValues() — not pseudo-random." : "使用浏览器原生安全随机数（crypto.getRandomValues），非伪随机。"}</li>

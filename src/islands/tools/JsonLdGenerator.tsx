@@ -133,7 +133,7 @@ export default function JsonLdGenerator({ locale = "zh" }: { locale?: Locale }) 
             </div>
           )}
         </ToolSection>
-        <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+        <div className="rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
           <p className="font-semibold text-foreground/80">{locale === "en" ? "Notes" : "说明"}</p>
           <ul className="mt-1.5 list-disc space-y-1 pl-5">
             <li>{locale === "en" ? "Structured data should only include information that truly exists on the page." : "结构化数据只能填写页面上真实存在的信息。"}</li>

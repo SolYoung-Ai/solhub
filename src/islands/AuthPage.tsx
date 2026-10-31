@@ -123,7 +123,7 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
           <ul className="mt-6 space-y-5">
             {benefits.map((b) => (
               <li key={b.title} className="flex gap-3">
-                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] bg-accent/10 text-accent">
+                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-accent/10 text-accent">
                   {b.icon}
                 </span>
                 <div>
@@ -133,7 +133,7 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
               </li>
             ))}
           </ul>
-          <p className="mt-8 rounded-[3px] border border-dashed border-border bg-secondary/40 p-4 text-xs leading-6 text-muted-foreground">
+          <p className="mt-8 rounded-[8px] border border-dashed border-border bg-secondary/40 p-4 text-xs leading-6 text-muted-foreground">
             {en
               ? "Sessions are stored in secure HttpOnly cookies; passwords are hashed with PBKDF2 (100k iterations). We can never see your password."
               : "会话保存在安全的 HttpOnly Cookie 中；密码经 PBKDF2（10 万次迭代）加盐哈希存储，任何人（包括我们）都无法查看原文。"}
@@ -142,15 +142,15 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
 
         {/* 右侧：表单卡片 */}
         <div className="order-1 lg:order-2">
-          <div className="rounded-[4px] border border-border bg-card p-6 shadow-sm sm:p-8">
+          <div className="rounded-[10px] border border-border bg-card p-6 shadow-sm sm:p-8">
             {/* Tab 切换 */}
-            <div role="tablist" className="mb-6 grid grid-cols-2 gap-1 rounded-[3px] border border-border bg-secondary/50 p-1">
+            <div role="tablist" className="mb-6 grid grid-cols-2 gap-1 rounded-[8px] border border-border bg-secondary/50 p-1">
               <button
                 type="button"
                 role="tab"
                 aria-selected={mode === "login"}
                 onClick={() => { setMode("login"); setError(null); }}
-                className={`flex items-center justify-center gap-1.5 rounded-[2px] py-2 text-sm font-medium transition-colors ${
+                className={`flex items-center justify-center gap-1.5 rounded-[6px] py-2 text-sm font-medium transition-colors ${
                   mode === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -162,7 +162,7 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
                 role="tab"
                 aria-selected={mode === "register"}
                 onClick={() => { setMode("register"); setError(null); }}
-                className={`flex items-center justify-center gap-1.5 rounded-[2px] py-2 text-sm font-medium transition-colors ${
+                className={`flex items-center justify-center gap-1.5 rounded-[6px] py-2 text-sm font-medium transition-colors ${
                   mode === "register" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -231,7 +231,7 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
               </label>
 
               {error && (
-                <p className="rounded-[3px] bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive" role="alert">{error}</p>
+                <p className="rounded-[8px] bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive" role="alert">{error}</p>
               )}
 
               <button type="submit" disabled={busy} className="btn btn-accent !h-11 w-full justify-center !text-sm">

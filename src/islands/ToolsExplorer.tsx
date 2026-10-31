@@ -46,7 +46,7 @@ export default function ToolsExplorer({ tools, initialCategory, locale = "zh" }:
             type="button"
             onClick={() => setCategory("all")}
             className={cx(
-              "rounded-[2px] border px-2.5 py-1 text-xs font-medium transition-colors",
+              "rounded-[6px] border px-2.5 py-1 text-xs font-medium transition-colors",
               category === "all"
                 ? "border-foreground bg-foreground text-background"
                 : "border-border bg-card text-foreground/70 hover:border-foreground/40",
@@ -60,7 +60,7 @@ export default function ToolsExplorer({ tools, initialCategory, locale = "zh" }:
               type="button"
               onClick={() => setCategory(c.slug)}
               className={cx(
-                "rounded-[2px] border px-2.5 py-1 text-xs font-medium transition-colors",
+                "rounded-[6px] border px-2.5 py-1 text-xs font-medium transition-colors",
                 category === c.slug
                   ? "border-foreground bg-foreground text-background"
                   : "border-border bg-card text-foreground/70 hover:border-foreground/40",
@@ -102,7 +102,7 @@ export default function ToolsExplorer({ tools, initialCategory, locale = "zh" }:
                 className="card group flex h-full flex-col p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-[3px] border border-border bg-secondary text-foreground/80 transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-[8px] border border-border bg-secondary text-foreground/80 transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
                     <Icon className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <span className="badge border-success/30 bg-success/10 text-success">{translate(dict, "common.free")}</span>

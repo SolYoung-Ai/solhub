@@ -142,7 +142,7 @@ export function Message({
     success: "border-success/30 bg-success/10 text-success",
   }[tone];
   return (
-    <p role={tone === "error" ? "alert" : "status"} className={cx("rounded-[2px] border px-3 py-2 text-[13px] leading-5", cls)}>
+    <p role={tone === "error" ? "alert" : "status"} className={cx("rounded-[6px] border px-3 py-2 text-[13px] leading-5", cls)}>
       {children}
     </p>
   );
@@ -172,7 +172,7 @@ export function ResultBox({ children, className }: { children: ReactNode; classN
   return (
     <pre
       className={cx(
-        "scroll-x max-h-[420px] w-full rounded-[3px] border border-border bg-secondary/40 p-3.5 font-mono text-[13px] leading-6 whitespace-pre-wrap break-all text-foreground/85",
+        "scroll-x max-h-[420px] w-full rounded-[8px] border border-border bg-secondary/40 p-3.5 font-mono text-[13px] leading-6 whitespace-pre-wrap break-all text-foreground/85",
         className,
       )}
     >

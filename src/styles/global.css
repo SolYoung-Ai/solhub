@@ -10,26 +10,26 @@
    圆角：2px 级别（近直角）· 阴影：暖色调低透明度
    ============================================================ */
 @theme {
-  --color-background: #f4f0e7;
-  --color-foreground: #1d1a15;
-  --color-card: #faf7f0;
-  --color-card-foreground: #1d1a15;
-  --color-secondary: #efeadd;
-  --color-secondary-foreground: #1d1a15;
-  --color-muted: #efeadd;
-  --color-muted-foreground: #97917f;
+  --color-background: #ffffff;
+  --color-foreground: #1b1a18;
+  --color-card: #ffffff;
+  --color-card-foreground: #1b1a18;
+  --color-secondary: #faf7f2;
+  --color-secondary-foreground: #1b1a18;
+  --color-muted: #f6f4ef;
+  --color-muted-foreground: #74716a;
   --color-accent: #e87028;
-  --color-accent-foreground: #1d1a15;
-  --color-destructive: #a8432f;
-  --color-destructive-foreground: #fdfbf5;
-  --color-success: #4f6b52;
-  --color-success-foreground: #f4f0e7;
-  --color-warning: #8a6a2f;
-  --color-warning-foreground: #fdfbf5;
-  --color-border: #1d1a1524;
-  --color-border-strong: #1d1a1538;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #e0245e;
+  --color-destructive-foreground: #ffffff;
+  --color-success: #1aa06d;
+  --color-success-foreground: #ffffff;
+  --color-warning: #c98a2b;
+  --color-warning-foreground: #ffffff;
+  --color-border: #e8e4dd;
+  --color-border-strong: #d8d3ca;
   --color-ring: #e87028;
-  --color-ink: #1d1a15;
+  --color-ink: #1b1a18;
 
   --font-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC",
     "Microsoft YaHei", "Helvetica Neue", Arial, "Apple Color Emoji",
@@ -40,10 +40,10 @@
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
     "Liberation Mono", monospace;
 
-  --radius-xs: 1px;
-  --radius-sm: 2px;
-  --radius-md: 3px;
-  --radius-lg: 4px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 
   --shadow-2xs: 0 1px 2px 0 rgb(40 30 10 / 0.05);
   --shadow-xs: 0 1px 3px 0 rgb(40 30 10 / 0.06);
@@ -59,26 +59,26 @@
 /* ---------- Dark theme ---------- */
 /* 深色主题覆盖同一套设计令牌（暖黑基调，保持品牌气质） */
 html.dark {
-  --color-background: #17140f;
-  --color-foreground: #ece7db;
-  --color-card: #201c15;
-  --color-card-foreground: #ece7db;
-  --color-secondary: #2a251c;
-  --color-secondary-foreground: #ece7db;
-  --color-muted: #2a251c;
-  --color-muted-foreground: #a39c8a;
+  --color-background: #0e0d0c;
+  --color-foreground: #f3efe9;
+  --color-card: #161514;
+  --color-card-foreground: #f3efe9;
+  --color-secondary: #1c1a18;
+  --color-secondary-foreground: #f3efe9;
+  --color-muted: #1c1a18;
+  --color-muted-foreground: #9a958c;
   --color-accent: #f0853f;
-  --color-accent-foreground: #17140f;
-  --color-destructive: #d06a50;
-  --color-destructive-foreground: #fdfbf5;
-  --color-success: #7fa486;
-  --color-success-foreground: #17140f;
-  --color-warning: #c9a25f;
-  --color-warning-foreground: #17140f;
-  --color-border: #ece7db1f;
-  --color-border-strong: #ece7db2e;
+  --color-accent-foreground: #16120c;
+  --color-destructive: #ec5a86;
+  --color-destructive-foreground: #16120c;
+  --color-success: #5fc295;
+  --color-success-foreground: #16120c;
+  --color-warning: #d8b066;
+  --color-warning-foreground: #16120c;
+  --color-border: #ffffff14;
+  --color-border-strong: #ffffff24;
   --color-ring: #f0853f;
-  --color-ink: #ece7db;
+  --color-ink: #f3efe9;
 
   --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
   --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.4);
@@ -153,7 +153,7 @@ html.viewport-mobile .container-page {
     @apply mx-auto w-full max-w-[72rem] px-4 sm:px-6 lg:px-8;
   }
   .btn {
-    @apply inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[2px] px-4 text-sm font-medium transition-all duration-150 select-none disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium transition-all duration-150 select-none disabled:pointer-events-none disabled:opacity-50;
   }
   .btn-primary {
     @apply bg-foreground text-background hover:opacity-85 active:translate-y-px;
@@ -168,13 +168,13 @@ html.viewport-mobile .container-page {
     @apply text-foreground hover:bg-secondary active:translate-y-px;
   }
   .card {
-    @apply rounded-[3px] border border-border bg-card;
+    @apply rounded-[12px] border border-border bg-card;
   }
   .input {
-    @apply w-full rounded-[2px] border border-border-strong bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none focus:ring-2 focus:ring-ring/25;
+    @apply w-full rounded-[10px] border border-border-strong bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none focus:ring-2 focus:ring-ring/25;
   }
   .badge {
-    @apply inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-px text-[11px] leading-4 font-medium;
+    @apply inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[11px] leading-4 font-medium;
   }
   .label {
     @apply mb-1.5 block text-[13px] font-medium text-foreground;
@@ -201,7 +201,7 @@ html.viewport-mobile .container-page {
     @apply text-foreground underline decoration-accent/60 underline-offset-2 hover:decoration-accent;
   }
   .prose-solhub code {
-    @apply rounded-[2px] bg-secondary px-1.5 py-0.5 font-mono text-[13px];
+    @apply rounded-[6px] bg-secondary px-1.5 py-0.5 font-mono text-[13px];
   }
   .prose-solhub blockquote {
     @apply my-4 border-l-2 border-accent/60 pl-4 text-muted-foreground italic;

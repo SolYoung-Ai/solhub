@@ -32,7 +32,7 @@ export default function HeroSearch() {
 
   return (
     <div ref={boxRef} className="relative mx-auto w-full max-w-xl">
-      <div className="flex items-center gap-3 rounded-[4px] border border-border-strong bg-card px-4 py-3.5 shadow-md transition-all duration-200 focus-within:border-foreground/40 focus-within:shadow-lg">
+      <div className="flex items-center gap-3 rounded-[10px] border border-border-strong bg-card px-4 py-3.5 shadow-md transition-all duration-200 focus-within:border-foreground/40 focus-within:shadow-lg">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <input
           type="text"
@@ -56,7 +56,7 @@ export default function HeroSearch() {
         )}
       </div>
       {open && query.trim() && results.length > 0 && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[4px] border border-border bg-card shadow-xl">
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[10px] border border-border bg-card shadow-xl">
           <ul className="max-h-80 overflow-y-auto py-1">
             {results.map((r, i) => (
               <li key={r.slug}>
@@ -79,7 +79,7 @@ export default function HeroSearch() {
         </div>
       )}
       {open && query.trim() && results.length === 0 && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-[4px] border border-border bg-card px-4 py-3 text-[13px] text-muted-foreground shadow-xl">
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-[10px] border border-border bg-card px-4 py-3 text-[13px] text-muted-foreground shadow-xl">
           {translate(dict, "search.emptyTitle", { q: query.trim() })}
         </div>
       )}

@@ -337,7 +337,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
 
       {/* ============ 用户主页视图 ============ */}
       {viewUser && (
-        <div className="mt-4 overflow-hidden rounded-[4px] border border-border bg-card">
+        <div className="mt-4 overflow-hidden rounded-[10px] border border-border bg-card">
           {/* 返回条 */}
           <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
             <button type="button" onClick={closeUser} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground">
@@ -429,7 +429,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
               {userTab === "products" && (
                   <div className="p-4">
                     {userProfile.products.length === 0 ? (
-                      <div className="rounded-[3px] border border-dashed border-border py-10 text-center">
+                      <div className="rounded-[8px] border border-dashed border-border py-10 text-center">
                         <Package className="mx-auto h-7 w-7 text-muted-foreground/60" aria-hidden="true" />
                         <p className="mt-2 text-[13px] text-muted-foreground">
                           {en ? "No products submitted yet." : "还没有提交过产品。"}
@@ -446,9 +446,9 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                               className="flex items-start gap-3 py-3 transition-colors hover:bg-secondary/30"
                             >
                               {prod.icon ? (
-                                <img src={prod.icon} alt="" className="h-10 w-10 shrink-0 rounded-[3px] border border-border object-cover" />
+                                <img src={prod.icon} alt="" className="h-10 w-10 shrink-0 rounded-[8px] border border-border object-cover" />
                               ) : (
-                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] bg-secondary font-display text-[15px] font-bold uppercase text-foreground">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-secondary font-display text-[15px] font-bold uppercase text-foreground">
                                   {prod.name.slice(0, 1)}
                                 </span>
                               )}
@@ -489,7 +489,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
           <Loader2 className="h-4 w-4 animate-spin" /> {en ? "Loading…" : "加载中…"}
         </div>
       ) : posts.length === 0 ? (
-        <div className="mt-8 rounded-[4px] border border-dashed border-border py-14 text-center">
+        <div className="mt-8 rounded-[10px] border border-dashed border-border py-14 text-center">
           <Globe2 className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium text-foreground/70">
             {viewUser
@@ -551,7 +551,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                       href={ensureHttps(post.linkUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-2 flex items-center gap-2 rounded-[3px] border border-border bg-secondary/30 px-3 py-2 text-xs text-foreground/80 transition-colors hover:border-accent/40"
+                      className="mt-2 flex items-center gap-2 rounded-[8px] border border-border bg-secondary/30 px-3 py-2 text-xs text-foreground/80 transition-colors hover:border-accent/40"
                     >
                       <Link2 className="h-3.5 w-3.5 shrink-0 text-accent" />
                       <span className="truncate">{hostOf(post.linkUrl)}</span>
@@ -595,7 +595,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
 
                   {/* 评论区 */}
                   {openComments === post.id && (
-                    <div className="mt-3 rounded-[3px] border border-border bg-secondary/20 p-3">
+                    <div className="mt-3 rounded-[8px] border border-border bg-secondary/20 p-3">
                       {(comments[post.id] || []).length === 0 ? (
                         <p className="text-xs text-muted-foreground">{en ? "No comments yet." : "还没有评论。"}</p>
                       ) : (
@@ -650,13 +650,13 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
         <div className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain animate-fade-in" role="dialog" aria-modal="true" aria-label={en ? "New post" : "发布新帖"}>
           <div className="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]" onClick={closeComposer} aria-hidden="true" />
           <div className="relative flex min-h-full items-start justify-center p-4 sm:items-center">
-            <div className="animate-dialog-in my-auto w-full max-w-lg rounded-[4px] border border-border bg-card p-4 shadow-xl sm:p-5">
+            <div className="animate-dialog-in my-auto w-full max-w-lg rounded-[10px] border border-border bg-card p-4 shadow-xl sm:p-5">
               <div className="flex items-center justify-between">
                 <h3 className="font-display text-base font-bold text-foreground">{en ? "New post" : "发布新帖"}</h3>
                 <button
                   type="button"
                   onClick={closeComposer}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-muted-foreground hover:bg-secondary hover:text-foreground"
                   aria-label={en ? "Close" : "关闭"}
                 >
                   <X className="h-4 w-4" />
@@ -723,7 +723,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
 
       {/* 轻提示 */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 rounded-[3px] bg-foreground px-4 py-2 text-xs text-background shadow-lg">
+        <div className="fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 rounded-[8px] bg-foreground px-4 py-2 text-xs text-background shadow-lg">
           <span className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5" />{toast}</span>
         </div>
       )}

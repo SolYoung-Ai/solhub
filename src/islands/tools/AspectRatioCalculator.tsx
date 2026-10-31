@@ -59,7 +59,7 @@ export default function AspectRatioCalculator({ locale = "zh" }: { locale?: Loca
                   setRatio(r.value);
                   setError(null);
                 }}
-                className="rounded-[2px] border border-border bg-card px-2 py-1 text-xs text-foreground/80 transition-colors hover:border-accent hover:text-accent"
+                className="rounded-[6px] border border-border bg-card px-2 py-1 text-xs text-foreground/80 transition-colors hover:border-accent hover:text-accent"
                 title={r.label}
               >
                 {r.value}
