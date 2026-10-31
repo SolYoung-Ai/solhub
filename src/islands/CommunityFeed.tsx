@@ -136,11 +136,11 @@ export default function CommunityFeed({
                   src={item.iconUrl}
                   alt=""
                   loading="lazy"
-                  className="h-10 w-10 shrink-0 rounded-[3px] border border-border object-cover"
+                  className="h-10 w-10 shrink-0 rounded-[8px] border border-border object-cover"
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-border bg-secondary text-sm font-bold text-accent">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-border bg-secondary text-sm font-bold text-accent">
                   {item.name.trim().charAt(0).toUpperCase()}
                 </span>
               )}

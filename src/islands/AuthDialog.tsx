@@ -52,24 +52,24 @@ export default function AuthDialog({ locale = "zh", onClose }: { locale?: Locale
       {/* 整层可滚动：内容再高也不会把顶部（邮箱框）裁出屏幕 */}
       <div className="absolute inset-0 overflow-y-auto overscroll-contain">
         <div className="flex min-h-full items-center justify-center px-4 py-6">
-          <div className="animate-dialog-in relative w-full max-w-sm rounded-[4px] border border-border bg-card p-5 shadow-xl">
+          <div className="animate-dialog-in relative w-full max-w-sm rounded-[10px] border border-border bg-card p-5 shadow-xl">
             <button
               type="button"
               onClick={onClose}
-              className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+              className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-muted-foreground hover:bg-secondary hover:text-foreground"
               aria-label={en ? "Close" : "关闭"}
             >
               <X className="h-4 w-4" />
             </button>
 
             {/* Tab 切换 */}
-            <div role="tablist" className="mb-4 grid grid-cols-2 gap-1 rounded-[3px] border border-border bg-secondary/50 p-1">
+            <div role="tablist" className="mb-4 grid grid-cols-2 gap-1 rounded-[8px] border border-border bg-secondary/50 p-1">
               <button
                 type="button"
                 role="tab"
                 aria-selected={mode === "login"}
                 onClick={() => { setMode("login"); setError(null); }}
-                className={`flex items-center justify-center gap-1.5 rounded-[2px] py-1.5 text-[13px] font-medium transition-colors ${
+                className={`flex items-center justify-center gap-1.5 rounded-[6px] py-1.5 text-[13px] font-medium transition-colors ${
                   mode === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -81,7 +81,7 @@ export default function AuthDialog({ locale = "zh", onClose }: { locale?: Locale
                 role="tab"
                 aria-selected={mode === "register"}
                 onClick={() => { setMode("register"); setError(null); }}
-                className={`flex items-center justify-center gap-1.5 rounded-[2px] py-1.5 text-[13px] font-medium transition-colors ${
+                className={`flex items-center justify-center gap-1.5 rounded-[6px] py-1.5 text-[13px] font-medium transition-colors ${
                   mode === "register" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -147,7 +147,7 @@ export default function AuthDialog({ locale = "zh", onClose }: { locale?: Locale
               </label>
 
               {error && (
-                <p className="rounded-[3px] bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{error}</p>
+                <p className="rounded-[8px] bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{error}</p>
               )}
 
               <button type="submit" disabled={busy} className="btn btn-accent !h-10 w-full justify-center">

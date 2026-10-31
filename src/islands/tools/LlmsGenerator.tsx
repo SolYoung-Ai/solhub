@@ -87,7 +87,7 @@ export default function LlmsGenerator({ locale = "zh" }: { locale?: Locale }) {
                 <button
                   type="button"
                   onClick={() => setPages((list) => list.filter((_, i) => i !== index))}
-                  className="inline-flex h-8 w-8 items-center justify-center self-center rounded-[2px] text-muted-foreground hover:bg-secondary hover:text-destructive"
+                  className="inline-flex h-8 w-8 items-center justify-center self-center rounded-[6px] text-muted-foreground hover:bg-secondary hover:text-destructive"
                   aria-label={`${locale === "en" ? "Delete page" : "删除页面"} ${index + 1}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -121,7 +121,7 @@ export default function LlmsGenerator({ locale = "zh" }: { locale?: Locale }) {
             </div>
           )}
         </ToolSection>
-        <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+        <div className="rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
           <p className="font-semibold text-foreground/80">{locale === "en" ? "Notes" : "说明"}</p>
           <p className="mt-1.5">
             {locale === "en" ? "llms.txt is a community-proposed format that helps LLMs quickly understand your site structure and content. It is not a search-engine standard, and adoption depends on each AI product. Relative paths are resolved against the site URL." : "llms.txt 是社区提出的格式，用于让 LLM 快速理解网站结构与内容。它并非搜索引擎标准，是否被采用取决于各 AI 产品。相对路径会自动基于网站网址补全。"}

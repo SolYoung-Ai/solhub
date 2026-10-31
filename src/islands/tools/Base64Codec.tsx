@@ -84,7 +84,7 @@ export default function Base64Codec({ locale = "zh" }: { locale?: Locale }) {
         </ToolSection>
       )}
 
-      <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+      <div className="rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
         <p className="font-semibold text-foreground/80">{locale === "en" ? "Notes" : "说明"}</p>
         <ul className="mt-1.5 list-disc space-y-1 pl-5">
           <li>{locale === "en" ? "Text is UTF-8 encoded first, so Chinese, emoji etc. encode correctly." : "编码前先将文本转为 UTF-8 字节，因此中文、emoji 等都能正确编码。"}</li>

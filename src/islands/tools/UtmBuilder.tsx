@@ -95,7 +95,7 @@ export default function UtmBuilder({ locale = "zh" }: { locale?: Locale }) {
             </div>
           )}
         </ToolSection>
-        <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+        <div className="rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
           <p className="font-semibold text-foreground/80">{locale === "en" ? "Notes" : "说明"}</p>
           <ul className="mt-1.5 list-disc space-y-1 pl-5">
             <li>{locale === "en" ? "Existing query params on the target URL are kept; UTM params are appended." : "目标网址已有的查询参数会完整保留，UTM 参数自动追加。"}</li>

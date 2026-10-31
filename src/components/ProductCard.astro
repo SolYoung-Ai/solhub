@@ -36,7 +36,7 @@ function initials(name: string): string {
     rank !== undefined && (
       <span
         class:list={[
-          "font-display absolute -top-2 -left-2 flex h-7 w-7 items-center justify-center rounded-[2px] text-sm font-bold",
+          "font-display absolute -top-2 -left-2 flex h-7 w-7 items-center justify-center rounded-[6px] text-sm font-bold",
           rank === 1 && "bg-accent text-accent-foreground",
           rank === 2 && "bg-foreground text-background",
           rank === 3 && "bg-secondary text-foreground border border-border",
@@ -55,11 +55,11 @@ function initials(name: string): string {
           src={product.icon}
           alt=""
           loading="lazy"
-          class="h-11 w-11 shrink-0 rounded-[3px] border border-border bg-card object-cover"
+          class="h-11 w-11 shrink-0 rounded-[8px] border border-border bg-card object-cover"
         />
       ) : (
         <span
-          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-[3px] border border-border bg-secondary font-display text-[15px] font-bold text-foreground/70"
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border border-border bg-secondary font-display text-[15px] font-bold text-foreground/70"
           aria-hidden="true"
         >
           {initials(product.name)}

@@ -186,7 +186,7 @@ export default function ImageCompressor({ locale = "zh" }: { locale?: Locale }) 
       {state && (
         <div className="grid gap-4 lg:grid-cols-2">
           <ToolSection label={locale === "en" ? "Preview" : "压缩预览"}>
-            <img src={state.outputUrl} alt={locale === "en" ? "Compressed result preview" : "压缩结果预览"} className="max-h-[360px] w-full rounded-[3px] border border-border object-contain" />
+            <img src={state.outputUrl} alt={locale === "en" ? "Compressed result preview" : "压缩结果预览"} className="max-h-[360px] w-full rounded-[8px] border border-border object-contain" />
           </ToolSection>
           <div className="space-y-3">
             <ToolSection label={locale === "en" ? "Compression stats" : "压缩统计"}>
@@ -211,7 +211,7 @@ export default function ImageCompressor({ locale = "zh" }: { locale?: Locale }) 
                 </div>
               </dl>
             </ToolSection>
-            <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+            <div className="rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
               <p className="font-semibold text-foreground/80">{locale === "en" ? "Limits" : "限制说明"}</p>
               <ul className="mt-1.5 list-disc space-y-1 pl-5">
                 <li>{locale === "en" ? "PNG (with transparency) is flattened to white when converting to JPEG." : "PNG（含透明通道）转为 JPEG 时会填充白色背景。"}</li>

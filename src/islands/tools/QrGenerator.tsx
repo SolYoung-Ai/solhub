@@ -113,12 +113,12 @@ export default function QrGenerator({ locale = "zh" }: { locale?: Locale }) {
           <div className="card flex min-h-[280px] items-center justify-center p-6">
             <canvas
               ref={canvasRef}
-              className="max-h-[360px] max-w-full rounded-[2px] border border-border bg-white"
+              className="max-h-[360px] max-w-full rounded-[6px] border border-border bg-white"
               aria-label={locale === "en" ? "QR preview" : "二维码预览"}
             />
           </div>
         </ToolSection>
-        <div className="rounded-[3px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
+        <div className="rounded-[8px] border border-border bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
           <p className="font-semibold text-foreground/80">{locale === "en" ? "Notes" : "说明"}</p>
           <p className="mt-1.5">
             {locale === "en" ? "Generated locally with the proven “qrcode” library — content never leaves your browser." : "使用成熟的 QR 编码库（qrcode）在浏览器本地生成，内容不会上传到任何服务器。"}

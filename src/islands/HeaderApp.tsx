@@ -86,7 +86,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] text-foreground hover:bg-secondary md:hidden"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] text-foreground hover:bg-secondary md:hidden"
             onClick={() => setMenuOpen((v) => !v)}
             aria-expanded={menuOpen}
             aria-label={menuOpen ? "关闭菜单" : "打开菜单"}
@@ -104,7 +104,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
               href={p(item.path, locale)}
               aria-current={item.match(currentRoute) ? "page" : undefined}
               className={cx(
-                "rounded-[2px] px-3 py-1.5 text-sm font-medium transition-colors",
+                "rounded-[6px] px-3 py-1.5 text-sm font-medium transition-colors",
                 item.match(currentRoute)
                   ? "bg-secondary text-foreground"
                   : "text-foreground/70 hover:bg-secondary/60 hover:text-foreground",
@@ -121,7 +121,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-[2px] border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
             aria-label="搜索"
           >
             <Search className="h-3.5 w-3.5" />
@@ -147,7 +147,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
               </button>
               {userMenuOpen && (
                 <div
-                  className="absolute right-0 top-9 z-50 w-44 overflow-hidden rounded-[4px] border border-border bg-card py-1 shadow-xl"
+                  className="absolute right-0 top-9 z-50 w-44 overflow-hidden rounded-[10px] border border-border bg-card py-1 shadow-xl"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="border-b border-border px-3 py-2">
@@ -174,7 +174,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
           ) : (
             <a
               href={p("/login/", locale)}
-              className="inline-flex h-8 items-center gap-1 rounded-[2px] border border-border bg-card px-2.5 text-xs font-medium text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
+              className="inline-flex h-8 items-center gap-1 rounded-[6px] border border-border bg-card px-2.5 text-xs font-medium text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
             >
               {translate(dict, "nav.login")}
             </a>
@@ -282,7 +282,7 @@ function IconButton({
     <button
       type="button" onClick={onClick} aria-label={label} title={label}
       aria-pressed={ariaPressed}
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] border border-border bg-card text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-border bg-card text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
     >
       {children}
     </button>
@@ -298,7 +298,7 @@ function LangButton({ locale, currentRoute }: { locale: Locale; currentRoute: st
       onClick={() => { try { localStorage.setItem("solhub:lang", other); } catch {} }}
       aria-label={other === "en" ? "Switch to English" : "切换到中文"}
       title={other === "en" ? "Switch to English" : "切换到中文"}
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] border border-border bg-card text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-border bg-card text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
     >
       <Languages className="h-3.5 w-3.5" aria-hidden="true" />
     </a>
@@ -391,7 +391,7 @@ function SearchDialog({
     <div className="fixed inset-0 z-50 animate-fade-in" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
       <div className="absolute inset-x-0 top-0 mx-auto w-full max-w-2xl px-4 pt-16 sm:pt-24">
-        <div className="animate-dialog-in overflow-hidden rounded-[4px] border border-border bg-card shadow-xl">
+        <div className="animate-dialog-in overflow-hidden rounded-[10px] border border-border bg-card shadow-xl">
           <div className="flex items-center gap-2 border-b border-border px-4">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <input
@@ -402,7 +402,7 @@ function SearchDialog({
               className="h-12 w-full bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none"
             />
             {query && (
-              <button type="button" onClick={() => setQuery("")} className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] text-muted-foreground hover:bg-secondary">
+              <button type="button" onClick={() => setQuery("")} className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground hover:bg-secondary">
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
@@ -416,7 +416,7 @@ function SearchDialog({
                 key={r.slug}
                 href={r.kind === "tool" ? p(`/tools/${r.slug}/`, locale) : p(`/products/${r.slug}/`, locale)}
                 onMouseEnter={() => setActive(i)}
-                className={cx("mx-1.5 flex items-center justify-between gap-3 rounded-[2px] px-2.5 py-2", active === i ? "bg-secondary" : "hover:bg-secondary/50")}
+                className={cx("mx-1.5 flex items-center justify-between gap-3 rounded-[6px] px-2.5 py-2", active === i ? "bg-secondary" : "hover:bg-secondary/50")}
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-foreground">{r.name}</span>

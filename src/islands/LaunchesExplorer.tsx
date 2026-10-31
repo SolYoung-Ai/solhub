@@ -104,7 +104,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
             type="button"
             onClick={() => setCategory("all")}
             className={cx(
-              "rounded-[2px] border px-2.5 py-1 text-xs font-medium transition-colors",
+              "rounded-[6px] border px-2.5 py-1 text-xs font-medium transition-colors",
               category === "all"
                 ? "border-foreground bg-foreground text-background"
                 : "border-border bg-card text-foreground/70 hover:border-foreground/40",
@@ -118,7 +118,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
               type="button"
               onClick={() => setCategory(c)}
               className={cx(
-                "rounded-[2px] border px-2.5 py-1 text-xs font-medium transition-colors",
+                "rounded-[6px] border px-2.5 py-1 text-xs font-medium transition-colors",
                 category === c
                   ? "border-foreground bg-foreground text-background"
                   : "border-border bg-card text-foreground/70 hover:border-foreground/40",
@@ -146,7 +146,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{locale === "en" ? "Sort" : "排序"}</span>
-            <div className="inline-flex rounded-[2px] border border-border bg-card p-0.5" role="group" aria-label={locale === "en" ? "Sort order" : "排序方式"}>
+            <div className="inline-flex rounded-[6px] border border-border bg-card p-0.5" role="group" aria-label={locale === "en" ? "Sort order" : "排序方式"}>
               {(
                 [
                   ["ranked", locale === "en" ? "Ranked" : "榜单顺序"],
@@ -159,7 +159,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                   onClick={() => setSort(key)}
                   aria-pressed={sort === key}
                   className={cx(
-                    "rounded-[2px] px-2.5 py-1 text-xs font-medium transition-colors",
+                    "rounded-[6px] px-2.5 py-1 text-xs font-medium transition-colors",
                     sort === key ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
@@ -180,7 +180,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
           </div>
         )}
 
-        <ul className="divide-y divide-border rounded-[3px] border border-border bg-card">
+        <ul className="divide-y divide-border rounded-[8px] border border-border bg-card">
           {shown.map((product) => {
             const rank = sort === "ranked" ? rankOf(product) : null;
             return (
@@ -201,9 +201,9 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                     </span>
                   )}
                   {product.icon ? (
-                    <img src={product.icon} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-[3px] border border-border bg-card object-cover" />
+                    <img src={product.icon} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-[8px] border border-border bg-card object-cover" />
                   ) : (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-border bg-secondary font-display text-sm font-bold text-foreground/70" aria-hidden="true">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-border bg-secondary font-display text-sm font-bold text-foreground/70" aria-hidden="true">
                       {product.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
@@ -252,9 +252,9 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                     </span>
                   )}
                   {item.icon ? (
-                    <img src={item.icon} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-[3px] border border-border bg-card object-cover" />
+                    <img src={item.icon} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-[8px] border border-border bg-card object-cover" />
                   ) : (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-border bg-secondary font-display text-sm font-bold text-foreground/70" aria-hidden="true">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-border bg-secondary font-display text-sm font-bold text-foreground/70" aria-hidden="true">
                       {item.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
