@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { p } from "@/lib/paths";
 import { avatarOf, fetchMe, logout, resizeImageToDataUrl, saveProfile, type AuthUser } from "@/lib/auth";
+import { ensureHttps } from "@/lib/utils";
 import { fetchFollowList, fetchProfile, timeAgo, type FollowUser, type PublicProfile, type WorldPost } from "@/lib/world";
 import type { Locale } from "@/i18n";
 
@@ -199,7 +200,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
       displayName: pf.displayName,
       bio: pf.bio,
       location: pf.location,
-      website: pf.website,
+      website: ensureHttps(pf.website),
     };
     /* 只有当用户新选了头像时才提交 avatar 字段 */
     if (pf.avatar !== (user?.avatar || "")) payload.avatar = pf.avatar;
@@ -375,7 +376,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                   <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{user.location}</span>
                 )}
                 {user.website && (
-                  <a href={user.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">
+                  <a href={ensureHttps(user.website)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">
                     <LinkIcon className="h-3 w-3" />{user.website.replace(/^https?:\/\//, "")}
                   </a>
                 )}
@@ -528,7 +529,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <a href={prod.websiteUrl} target="_blank" rel="noopener noreferrer" className="truncate text-sm font-bold text-foreground hover:text-accent">
+                      <a href={ensureHttps(prod.websiteUrl)} target="_blank" rel="noopener noreferrer" className="truncate text-sm font-bold text-foreground hover:text-accent">
                         {prod.name}
                       </a>
                       <span
@@ -546,7 +547,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                     )}
                     <div className="mt-3 flex flex-wrap gap-2">
                       {prod.websiteUrl && (
-                        <a href={prod.websiteUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline !h-7 gap-1.5 px-3 text-xs">
+                        <a href={ensureHttps(prod.websiteUrl)} target="_blank" rel="noopener noreferrer" className="btn btn-outline !h-7 gap-1.5 px-3 text-xs">
                           {en ? "Visit" : "访问"} <ExternalLink className="h-3 w-3" />
                         </a>
                       )}
@@ -598,7 +599,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                     <p className="mt-1 line-clamp-3 whitespace-pre-wrap break-words text-[13px] leading-6 text-foreground/90">{post.text}</p>
                   )}
                   {post.linkUrl && (
-                    <a href={post.linkUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[12px] text-accent hover:underline">
+                    <a href={ensureHttps(post.linkUrl)} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[12px] text-accent hover:underline">
                       <ExternalLink className="h-3 w-3" /> {post.linkUrl.replace(/^https?:\/\//, "").slice(0, 48)}
                     </a>
                   )}

@@ -24,6 +24,19 @@ export function isValidHttpUrl(value: string): boolean {
   }
 }
 
+/**
+ * 确保用户手填的网址带有协议头。
+ * 用户常漏写 https://（如只填 solyoung.top），若直接当作 href，
+ * 浏览器会当成站内相对路径跳转到 solhub.solyoung.top/solyoung.top 而 404。
+ * 这里在渲染 / 存储前统一补上 https://。
+ */
+export function ensureHttps(url: string): string {
+  const u = (url || "").trim();
+  if (!u) return u;
+  if (/^https?:\/\//i.test(u)) return u;
+  return "https://" + u.replace(/^[./]+/, "");
+}
+
 /** 格式化日期为 YYYY-MM-DD */
 export function formatDateIso(iso: string): string {
   const d = new Date(iso);
