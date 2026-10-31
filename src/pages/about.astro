@@ -58,29 +58,29 @@ const metaDesc = en
         <li><strong>{en ? "Build real, usable features first" : "先把真实可用的功能做好"}</strong>{en ? " — no hollow feature counts." : "，不追求空洞的功能数量。"}</li>
         <li><strong>{en ? "Every ranking, verification status and data source must be clear" : "所有排名、核验状态和数据来源必须清晰"}</strong>{en ? " — no fake traffic, user numbers or votes." : "，不使用虚构的访问量、用户数或投票数装饰页面。"}</li>
         <li><strong>{en ? "Tools run locally whenever possible" : "工具尽量在浏览器本地运行"}</strong>{en ? " — your input, images and sensitive data are never uploaded." : "，不上传你的输入、图片或敏感数据。"}</li>
-        <li><strong>{en ? "Community submissions are public but never fake verification" : "社区提交自动公开但绝不伪造核验"}</strong>{en ? ": submitting publishes to the community list, but Verified is granted only after an actual manual check." : "：提交即公开到社区列表，但 Verified 状态只授予人工实际核验通过的产品。"}</li>
+        <li><strong>{en ? "Community submissions are public, but verification is never faked" : "社区提交自动公开，但核验从不造假"}</strong>{en ? ": submissions publish to the community list, but Verified comes only from the system's real link-reachability check — never from user-entered info or a button click." : "：提交即公开到社区列表，但 Verified 只来自系统真实的链接可达性检测，绝不凭用户自填信息或点击按钮显示。"}</li>
       </ul>
 
       <h2>{en ? "Community submissions" : "社区提交"}</h2>
       <p>
         {en ? (
-          <>SolHub is connected to CloudBase (PostgreSQL) as the community submission backend: anyone's product / tool is <strong>auto-published</strong> to the community list without manual review; self-contained HTML tools can be uploaded and run in a <strong>sandboxed iframe</strong> here. Submitted content is not manually verified — judge for yourself. Ranked picks are still manually verified by SolHub.</>
+          <>SolHub uses an <strong>email account system</strong> as the identity basis for community submissions: sign up with your email — no GitHub account needed. When you submit a product you provide a link; the system automatically checks whether the link loads. If it is reachable, the product is published to the community list <strong>instantly</strong> and marked <strong>Verified</strong>, with no manual review. After signing in, you can manage your own products (add, edit, delete) from your personal center.</>
         ) : (
-          <>任何人填写表单即可提交产品，无需 GitHub 账号。提交后产品<strong>立即公开</strong>到社区列表；SolHub 在 24 小时内完成核验，通过后标记 Verified。提交者可登录 GitHub 在「我的提交」页面管理自己的产品。</>
+          <>SolHub 以<strong>邮箱账号体系</strong>作为社区提交的身份基础：用邮箱注册即可提交，无需 GitHub 账号。提交时填写产品链接，系统自动检测链接能否正常打开——<strong>可访问即即时公开</strong>到社区列表并标记为 <strong>Verified</strong>，无需任何人工审核。登录后，你可以在「个人中心」管理自己的产品（新增、编辑、删除）。</>
         )}
       </p>
 
       <h2 id="verification">{en ? "Verification" : "核验机制"}</h2>
       <p>
         {en ? "SolHub uses three verification states: " : "SolHub 使用三种核验状态："}
-        <strong>Verified</strong>{en ? " (passed a real check), " : "（已通过实际核验）、"}
-        <strong>Pending</strong>{en ? " (waiting), " : "（等待核验）、"}
+        <strong>Verified</strong>{en ? " (passed verification), " : "（已通过核验）、"}
+        <strong>Pending</strong>{en ? " (awaiting), " : "（等待核验）、"}
         <strong>Unverified</strong>{en ? " (not yet checked)." : "（尚未核验）。"}
       </p>
       <ul>
-        <li>{en ? "Verification is currently <strong>manual within 24 hours</strong>: editors visit the product website, check name, description and reachability, and record the time." : "当前核验为<strong>人工核验，24 小时内完成</strong>：编辑实际访问产品官网，核对名称、描述与站点可访问性，并记录核验时间。"}</li>
-        <li>{en ? "Verified can never be granted just by user-entered info, image uploads or button clicks." : "不允许仅凭用户填写的信息、图片上传或点击按钮自动显示 Verified。"}</li>
-        <li>{en ? "Automatic verification (Meta Tag, file check, DNS TXT) is reserved with documented interfaces but not enabled yet." : "自动核验（Meta Tag、文件验证、DNS TXT）已预留接口说明，但功能尚未启用。"}</li>
+        <li>{en ? "<strong>Automatic verification is live</strong>: for community submissions the system actually visits the link; if it loads, it is marked Verified and published instantly — a real technical check, not based on user-entered info." : "<strong>自动核验已上线</strong>：社区提交的产品，系统实际访问其链接，可正常打开即通过 Verified 并即时公开——这是真实的技术检测，而非凭用户填写的信息。"}</li>
+        <li>{en ? "Verified means the site is reachable and consistent with the listed info; it does not certify content authenticity, ownership or compliance." : "Verified 仅代表「站点可访问、信息一致」，不代表对内容真实性、归属或合规的深度审查。"}</li>
+        <li>{en ? "SolHub's editor-curated picks are still verified by a human. Meta Tag / DNS TXT ownership verification is not enabled yet." : "SolHub 编辑精选（榜单中的人工精选位）仍由人工实际核验；Meta Tag / DNS TXT 等归属证明验证暂未启用。"}</li>
       </ul>
 
       <h2>{en ? "Ranking rules" : "榜单排序规则"}</h2>
@@ -91,12 +91,18 @@ const metaDesc = en
       </ul>
 
       <h2 id="roadmap">{en ? "Roadmap & known limits" : "路线图与已知限制"}</h2>
-      <p>{en ? "Current features and upcoming:" : "当前已实现与计划中的功能："}</p>
+      <p>{en ? "Features already shipped:" : "已实现的功能："}</p>
       <ul>
-        <li><strong>{en ? "GitHub OAuth login" : "GitHub 登录"}</strong>{en ? " — implemented. Users can login, submit products, and manage their own submissions." : " — 已实现。用户可登录、提交产品、管理自己的提交。"}</li>
-        <li><strong>{en ? "Community submissions" : "社区提交"}</strong>{en ? " — implemented. No GitHub account needed; submit directly via form, products appear immediately and are verified within 24 hours." : " — 已实现。无需 GitHub 账号，表单直接提交，产品立即公开，24 小时内核验。"}</li>
-        <li><strong>{en ? "Automatic domain verification" : "自动域名核验"}</strong>{en ? ": Meta Tag / DNS TXT verification needs a backend service; verification is manual today." : "：Meta Tag / DNS TXT 核验需要后端服务，当前为人工核验。"}</li>
-        <li><strong>{en ? "Voting / favorites / comments" : "投票 / 收藏 / 评论"}</strong>{en ? ": planned for future; requires a user account system." : "：计划中，需要用户账号系统支持。"}</li>
+        <li><strong>{en ? "Email account system" : "邮箱账号系统"}</strong>{en ? " — sign-up, login and personal center; users manage their own products (add, edit, delete)." : " — 邮箱注册 / 登录 / 个人中心，用户可管理自己的产品（新增、编辑、删除）。"}</li>
+        <li><strong>{en ? "One-click community publishing" : "社区提交自动上线"}</strong>{en ? " — submit a product link, the system checks reachability, and if it opens it is auto-marked Verified and published, no manual review." : " — 提交产品链接，系统检测可达性，可打开即自动标记为 Verified 并公开，无需人工审核。"}</li>
+        <li><strong>{en ? "World (X-style social)" : "世界（X 风格社交）"}</strong>{en ? " — post, like, comment, follow, and public profiles that showcase a user's products." : " — 发帖、点赞、评论、关注，以及带产品的公开个人主页。"}</li>
+        <li><strong>{en ? "GitHub login" : "GitHub 登录"}</strong>{en ? " — connected as a secondary option (email is the primary entry today)." : " — 已接入，作为次要登录方式（当前主入口为邮箱）。"}</li>
+      </ul>
+      <p>{en ? "Known limits & planned:" : "已知限制与规划中："}</p>
+      <ul>
+        <li><strong>{en ? "Scope of auto-verification" : "自动核验的范围"}</strong>{en ? " — based on link reachability only; it does not check content authenticity, ownership or compliance. Meta Tag / DNS TXT ownership verification is not enabled yet." : " — 仅基于链接可达性，不校验内容真实性、归属与合规；Meta Tag / DNS TXT 等归属证明验证暂未启用。"}</li>
+        <li><strong>{en ? "Self-governed World" : "世界内容自治"}</strong>{en ? " — posts and comments are community-generated with no manual moderation or content filtering yet." : " — 帖子与评论由社区自发产生，暂无人工审核与内容过滤。"}</li>
+        <li><strong>{en ? "Public voting / favorites" : "公开投票 / 收藏"}</strong>{en ? " — still planned; today's ranking relies on verification status, editorial curation and publish time." : " — 仍在规划，当前榜单排序以核验状态、人工精选与收录时间为主。"}</li>
       </ul>
 
       <h2>{en ? "About us" : "关于我们"}</h2>
