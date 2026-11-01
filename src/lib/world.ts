@@ -71,6 +71,10 @@ export interface PublicProfile {
     bio?: string;
     location?: string;
     website?: string;
+    /** 联系方式（用户自愿公开） */
+    contact?: string;
+    /** 注册邮箱：仅当用户本人开启「公开邮箱」时才有值 */
+    email?: string;
     joinedAt?: string;
     /** 黄V 认证 */
     verified?: boolean;

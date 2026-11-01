@@ -175,10 +175,16 @@ async function publicUser(env, pidOrSid) {
   if (isEmailLogin(sid)) {
     const u = await kvGetJSON(env, `user:${sid}`, null);
     const handle = (u && u.handle) || handleFromEmail(sid);
-    return { login: handle, name: (u && u.displayName) || handle, avatar: (u && u.avatar) || "" };
+    return {
+      login: handle,
+      name: (u && u.displayName) || handle,
+      avatar: (u && u.avatar) || "",
+      /* 联系方式是用户主动填写的公开信息，可以展示；邮箱则不在这里暴露 */
+      contact: (u && u.contact) || "",
+    };
   }
   const profile = await kvGetJSON(env, `profile:${sid}`, {});
-  return { login: sid, name: profile.displayName || sid, avatar: profile.avatar || "" };
+  return { login: sid, name: profile.displayName || sid, avatar: profile.avatar || "", contact: profile.contact || "" };
 }
 
 /**
@@ -249,7 +255,18 @@ async function getSessionUser(request, env) {
     /* 被封禁的账号立即掉线（按匿名处理） */
     if (await env.PROFILES.get(`ban:${s.email}`)) return null;
     const user = JSON.parse(userRaw);
-    return { email: user.email, handle: user.handle || "", displayName: user.displayName || "", bio: user.bio || "", location: user.location || "", website: user.website || "", avatar: user.avatar || "", verified: !!user.verified };
+    return {
+      email: user.email,
+      handle: user.handle || "",
+      displayName: user.displayName || "",
+      bio: user.bio || "",
+      location: user.location || "",
+      website: user.website || "",
+      contact: user.contact || "",
+      emailPublic: !!user.emailPublic,
+      avatar: user.avatar || "",
+      verified: !!user.verified,
+    };
   } catch {
     return null;
   }
@@ -289,6 +306,108 @@ async function kvGetJSON(env, key, fallback) {
 }
 async function kvPutJSON(env, key, val) {
   await env.PROFILES.put(key, JSON.stringify(val));
+}
+
+/* ---------------- 限流（基于 Workers 内置 Cache API） ---------------- */
+
+const RL_PREFIX = "https://rl.solhub.internal/";
+
+/** 取客户端 IP（Cloudflare 注入 CF-Connecting-IP） */
+function clientIp(request) {
+  const raw = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For") || "";
+  return String(raw).split(",")[0].trim().slice(0, 64) || "unknown";
+}
+
+/**
+ * 读取限流计数（只读，不写入）。
+ * 用 Cache API 而不是 KV：免费额度每天只有 1,000 次写入，
+ * 若用 KV 记失败次数，一次暴力破解就能把发帖/评论的写入额度烧光（自我 DoS）。
+ * Cache 按机房生效，挡住「针对单个账号的暴力破解」已经足够。
+ */
+async function rateLimitPeek(key) {
+  try {
+    const hit = await caches.default.match(RL_PREFIX + encodeURIComponent(key));
+    if (!hit) return { count: 0, startedAt: 0 };
+    const rec = await hit.json();
+    return { count: rec && rec.n ? rec.n : 0, startedAt: rec && rec.t ? rec.t : 0 };
+  } catch {
+    return { count: 0, startedAt: 0 };
+  }
+}
+
+/** 记一次（失败/使用）并返回当前计数 */
+async function rateLimitHit(key, windowSec) {
+  try {
+    const url = RL_PREFIX + encodeURIComponent(key);
+    const cache = caches.default;
+    const hit = await cache.match(url);
+    const now = Date.now();
+    let n = 0;
+    let t = now;
+    if (hit) {
+      try {
+        const rec = await hit.json();
+        if (rec && now - rec.t < windowSec * 1000) { n = rec.n || 0; t = rec.t; }
+      } catch { /* 坏缓存忽略 */ }
+    }
+    n += 1;
+    await cache.put(url, new Response(JSON.stringify({ n, t }), {
+      headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${windowSec}` },
+    }));
+    return n;
+  } catch {
+    return 0;
+  }
+}
+
+/** 清空某个计数（成功登录后调用） */
+async function rateLimitClear(key) {
+  try {
+    await caches.default.delete(RL_PREFIX + encodeURIComponent(key));
+  } catch { /* 忽略 */ }
+}
+
+/** 距离限流窗口结束还有多少秒 */
+function retryAfterSec(startedAt, windowSec) {
+  return Math.max(1, Math.ceil((startedAt + windowSec * 1000 - Date.now()) / 1000));
+}
+
+/* ---------------- SSRF 防护 ---------------- */
+
+/** 本机/内网/云元数据地址：Worker 不应代为访问 */
+const PRIVATE_HOST_RES = [
+  /^localhost$/i,
+  /\.local$/i,
+  /\.internal$/i,
+  /\.home$/i,
+  /^127\./,
+  /^0\./,
+  /^10\./,
+  /^192\.168\./,
+  /^169\.254\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+  /^\[?::1\]?$/,
+  /^fc00:/i,
+  /^fe80:/i,
+  /^::$/,
+];
+
+/**
+ * 校验待访问的 URL：只允许 http(s)，且不能指向本机/内网/元数据地址。
+ * 返回 { ok: true, url } 或 { ok: false, error }。
+ */
+function assertPublicUrl(raw) {
+  let u;
+  try { u = new URL(String(raw || "").trim()); } catch { return { ok: false, error: "URL 格式不正确" }; }
+  if (u.protocol !== "http:" && u.protocol !== "https:") {
+    return { ok: false, error: "只支持 http(s) 链接" };
+  }
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (!host) return { ok: false, error: "URL 缺少主机名" };
+  if (PRIVATE_HOST_RES.some((re) => re.test(host))) {
+    return { ok: false, error: "不能指向本机或内网地址" };
+  }
+  return { ok: true, url: u };
 }
 
 function newId() {
@@ -863,6 +982,14 @@ export default {
       if (wanted && RESERVED_HANDLES.has(wanted)) return json(request, { error: "该用户名不可用" }, 409);
       if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
 
+      /* 限流：同一 IP 每小时最多注册 5 个账号，挡住批量注册/刷号 */
+      const regKey = `register:ip:${clientIp(request)}`;
+      const reg = await rateLimitPeek(regKey);
+      if (reg.count >= 5) {
+        return json(request, { error: `注册过于频繁，请 ${retryAfterSec(reg.startedAt, 3600)} 秒后再试` }, 429);
+      }
+      await rateLimitHit(regKey, 3600);
+
       const key = `user:${email}`;
       if (await env.PROFILES.get(key)) {
         return json(request, { error: "该邮箱已注册，请直接登录" }, 409);
@@ -888,15 +1015,32 @@ export default {
       const password = String(body.password || "");
       if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
 
+      /* 限流：单账号 15 分钟 8 次失败、单 IP 15 分钟 40 次失败，挡住暴力破解 */
+      const acctKey = `login:acct:${email}`;
+      const ipKey = `login:ip:${clientIp(request)}`;
+      const acct = await rateLimitPeek(acctKey);
+      if (acct.count >= 8) {
+        return json(request, { error: `密码尝试次数过多，请 ${retryAfterSec(acct.startedAt, 900)} 秒后再试` }, 429);
+      }
+      const ipState = await rateLimitPeek(ipKey);
+      if (ipState.count >= 40) {
+        return json(request, { error: `请求过于频繁，请 ${retryAfterSec(ipState.startedAt, 900)} 秒后再试` }, 429);
+      }
+
       const raw = await env.PROFILES.get(`user:${email}`);
-      if (!raw) return json(request, { error: "邮箱或密码错误" }, 401);
-      const user = JSON.parse(raw);
-      const hash = await hashPassword(password, user.passSalt);
-      if (hash !== user.passHash) return json(request, { error: "邮箱或密码错误" }, 401);
+      const user = raw ? JSON.parse(raw) : null;
+      /* 无论账号是否存在都做一次同样的 PBKDF2 运算，避免用响应耗时探测账号是否注册 */
+      const hash = await hashPassword(password, (user && user.passSalt) || "AAAAAAAAAAAAAAAAAAAAAA==");
+      if (!user || hash !== user.passHash) {
+        await rateLimitHit(acctKey, 900);
+        await rateLimitHit(ipKey, 900);
+        return json(request, { error: "邮箱或密码错误" }, 401);
+      }
       const ban = await banOf(env, email);
       if (ban) {
         return json(request, { error: ban.reason ? `账号已被封禁：${ban.reason}` : "账号已被封禁，如有疑问请联系管理员。" }, 403);
       }
+      await rateLimitClear(acctKey);
       const cookie = await createSession(request, env, email);
       await ensureUserHandle(env, email, user);
       return json(request, { ok: true, user: { login: user.handle || handleFromEmail(email), handle: user.handle || "", email, displayName: user.displayName || "" } }, 200, cookie);
@@ -972,7 +1116,18 @@ export default {
           const u = identity.user;
           const rec = await kvGetJSON(env, `user:${u.email}`, null);
           const handle = rec ? await ensureUserHandle(env, u.email, rec) : (u.handle || handleFromEmail(u.email));
-          return json(request, { login: handle, handle, email: u.email, displayName: u.displayName, bio: u.bio, location: u.location, website: u.website, avatar: u.avatar || "" });
+          return json(request, {
+            login: handle,
+            handle,
+            email: u.email,
+            displayName: u.displayName,
+            bio: u.bio,
+            location: u.location,
+            website: u.website,
+            contact: (rec && rec.contact) || "",
+            emailPublic: !!(rec && rec.emailPublic),
+            avatar: u.avatar || "",
+          });
         }
         let profile = {};
         if (env.PROFILES) {
@@ -989,6 +1144,8 @@ export default {
           bio: String(body.bio || "").slice(0, 200),
           location: String(body.location || "").slice(0, 40),
           website: String(body.website || "").slice(0, 200),
+          /* 联系方式：用户自愿公开的联络方式（微信 / Telegram / 备用邮箱等），可留空 */
+          contact: String(body.contact || "").slice(0, 200),
         };
         /* 头像：客户端压缩后的 data URL（≤200KB），邮箱用户存 KV */
         if (typeof body.avatar === "string") {
@@ -1019,6 +1176,8 @@ export default {
           if (!raw) return json(request, { error: "user not found" }, 404);
           const user = JSON.parse(raw);
           Object.assign(user, allowed);
+          /* 邮箱是否公开：默认关闭，只有用户主动开启才会出现在公开资料里 */
+          user.emailPublic = body.emailPublic === true;
           if (nextHandle) {
             const prevHandle = normalizeHandle(user.handle || "");
             if (prevHandle) await env.PROFILES.delete(`handle:${prevHandle}`);
@@ -1028,8 +1187,9 @@ export default {
           }
           if (!user.handle) user.handle = await allocateHandle(env, user.email, "");
           await env.PROFILES.put(key, JSON.stringify(user));
-          return json(request, { ok: true, ...allowed, handle: user.handle });
+          return json(request, { ok: true, ...allowed, handle: user.handle, emailPublic: user.emailPublic });
         }
+        /* GitHub 账号没有站内邮箱，不提供「公开邮箱」开关 */
         if (env.PROFILES) {
           await env.PROFILES.put(`profile:${identity.login}`, JSON.stringify(allowed));
         }
@@ -1096,13 +1256,26 @@ export default {
 
     /* ---------- URL 可达性检测 ---------- */
     if (url.pathname === "/check-url" && request.method === "POST") {
+      /* 必须登录：这个接口会让 Worker 代访任意地址，未鉴权等于开放代理 */
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
       const body = await request.json();
       const targetUrl = String(body.url || "");
       if (!targetUrl) return json(request, { ok: false, error: "缺少 URL" }, 400);
+      /* 限流：同一账号每分钟最多 20 次，避免被当作探测/代理工具 */
+      const rlKey = `checkurl:${identity.login}`;
+      const rl = await rateLimitPeek(rlKey);
+      if (rl.count >= 20) {
+        return json(request, { ok: false, error: `请求过于频繁，请 ${retryAfterSec(rl.startedAt, 60)} 秒后再试` }, 429);
+      }
+      await rateLimitHit(rlKey, 60);
+      /* 只允许公网 http(s)，禁止内网/本机/元数据地址（SSRF） */
+      const guard = assertPublicUrl(targetUrl);
+      if (!guard.ok) return json(request, { ok: false, error: guard.error }, 400);
       try {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 8000);
-        const res = await fetch(targetUrl, {
+        const res = await fetch(guard.url.toString(), {
           method: "HEAD", redirect: "follow", signal: ctrl.signal,
           headers: { "User-Agent": "SolHub/1.0" },
         });
@@ -1128,11 +1301,14 @@ export default {
       const websiteUrl = String(data.websiteUrl || "");
       if (!name) return json(request, { error: "产品名称不能为空" }, 400);
       if (!websiteUrl || !/^https?:\/\//.test(websiteUrl)) return json(request, { error: "官网 URL 不能为空且需以 http(s):// 开头" }, 400);
+      /* 只允许公网地址，防止拿本站当内网跳板（SSRF） */
+      const pubGuard = assertPublicUrl(websiteUrl);
+      if (!pubGuard.ok) return json(request, { error: pubGuard.error }, 400);
 
       try {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 5000);
-        const checkRes = await fetch(websiteUrl, {
+        const checkRes = await fetch(pubGuard.url.toString(), {
           method: "HEAD", redirect: "follow", signal: ctrl.signal,
           headers: { "User-Agent": "SolHub/1.0" },
         });
@@ -1220,10 +1396,12 @@ export default {
           const nextUrl = String(body.websiteUrl);
           if (nextUrl !== p.websiteUrl) {
             if (!/^https?:\/\//.test(nextUrl)) return json(request, { error: "官网 URL 需以 http(s):// 开头" }, 400);
+            const nextGuard = assertPublicUrl(nextUrl);
+            if (!nextGuard.ok) return json(request, { error: nextGuard.error }, 400);
             try {
               const ctrl = new AbortController();
               const t = setTimeout(() => ctrl.abort(), 5000);
-              const checkRes = await fetch(nextUrl, {
+              const checkRes = await fetch(nextGuard.url.toString(), {
                 method: "HEAD", redirect: "follow", signal: ctrl.signal,
                 headers: { "User-Agent": "SolHub/1.0" },
               });
@@ -1594,12 +1772,17 @@ export default {
       const blocked = await blockedIfBanned(request, env, identity.login);
       if (blocked) return blocked;
 
-      /* 频率限制：同一账号 30 秒一条 */
-      const rlKey = `rl:post:${identity.login}`;
-      const last = await env.PROFILES.get(rlKey);
-      if (last && Date.now() - Number(last) < 30000) {
-        const wait = Math.ceil((30000 - (Date.now() - Number(last))) / 1000);
-        return json(request, { error: `发布太频繁，请 ${wait} 秒后再试` }, 429);
+      /* 频率限制：同一账号 30 秒一条、每天最多 30 条。
+         用 Cache API 计数，不消耗 KV 每天 1000 次的写入额度。 */
+      const gapKey = `post:gap:${identity.login}`;
+      const dayKey = `post:day:${identity.login}`;
+      const gap = await rateLimitPeek(gapKey);
+      if (gap.count >= 1) {
+        return json(request, { error: `发布太频繁，请 ${retryAfterSec(gap.startedAt, 30)} 秒后再试` }, 429);
+      }
+      const day = await rateLimitPeek(dayKey);
+      if (day.count >= 30) {
+        return json(request, { error: "今日发帖已达上限（30 条），明天再来吧" }, 429);
       }
 
       let body;
@@ -1625,8 +1808,8 @@ export default {
         kvPutJSON(env, `post:${id}`, post),
         kvPutJSON(env, `post:${id}:likes`, []),
         kvPutJSON(env, `post:${id}:comments`, []),
-        env.PROFILES.put(rlKey, String(Date.now()), { expirationTtl: 120 }),
       ]);
+      await Promise.all([rateLimitHit(gapKey, 30), rateLimitHit(dayKey, 86400)]);
       await Promise.all([
         pushFeed(env, "feed:global", id),
         pushFeed(env, `feed:user:${identity.login}`, id),
@@ -1678,10 +1861,11 @@ export default {
           if (!identity) return json(request, { error: "登录后才能评论" }, 401);
           const blocked = await blockedIfBanned(request, env, identity.login);
           if (blocked) return blocked;
-          const rlKey = `rl:comment:${identity.login}`;
-          const last = await env.PROFILES.get(rlKey);
-          if (last && Date.now() - Number(last) < 10000) {
-            return json(request, { error: "评论太频繁，请稍后再试" }, 429);
+          /* 评论限流：同一账号 10 秒一条（Cache 计数，不占 KV 写入额度） */
+          const rlKey = `comment:gap:${identity.login}`;
+          const rlState = await rateLimitPeek(rlKey);
+          if (rlState.count >= 1) {
+            return json(request, { error: `评论太频繁，请 ${retryAfterSec(rlState.startedAt, 10)} 秒后再试` }, 429);
           }
           let body;
           try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
@@ -1699,7 +1883,7 @@ export default {
           };
           comments.push(comment);
           await kvPutJSON(env, `post:${id}:comments`, comments.slice(-200));
-          await env.PROFILES.put(rlKey, String(Date.now()), { expirationTtl: 60 });
+          await rateLimitHit(rlKey, 10);
           return json(request, { ok: true, comment, commentCount: comments.length });
         }
       }
@@ -1761,6 +1945,9 @@ export default {
             bio: user?.bio || "",
             location: user?.location || "",
             website: user?.website || "",
+            contact: user?.contact || author.contact || "",
+            /* 邮箱默认不公开；只有用户本人开启「公开邮箱」后才展示 */
+            email: user?.emailPublic ? (user.email || "") : "",
             joinedAt: user?.createdAt || "",
             verified: !!user?.verified,
             banned: !!ban,

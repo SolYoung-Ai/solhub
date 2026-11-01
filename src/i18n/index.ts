@@ -94,7 +94,7 @@ export const zh: Dict = {
 
   // 榜单页
   "launches.eyebrow": "产品发布",
-  "launches.title": "产品发布榜单",
+  "launches.title": "产品榜单",
   "launches.desc": "发现独立开发者正在创造的产品。所有排名都有清晰的规则，核验状态以 SolHub 实际核验为准；社区提交自动公开但未经人工核验，会单独标注。",
   "launches.communityTitle": "社区提交的产品",
   "launches.communityNote": "由开发者直接提交，自动公开 · 未经人工核验，请自行判断",
@@ -236,7 +236,7 @@ export const zh: Dict = {
   "footer.tagline": "发现好产品，使用好工具，让独立创作更高效。",
   "footer.products": "产品",
   "footer.discover": "发现",
-  "footer.launches": "产品发布榜单",
+  "footer.launches": "产品榜单",
   "footer.tools": "免费在线工具箱",
   "footer.about": "关于 SolHub",
   "footer.privacy": "隐私说明",
@@ -363,7 +363,7 @@ export const en: Dict = {
 
   // Launches
   "launches.eyebrow": "Launches",
-  "launches.title": "Product Launches",
+  "launches.title": "Product Gallery",
   "launches.desc": "Discover what independent developers are building. Every ranking has clear rules; verification status reflects SolHub's actual review. Community submissions go public instantly but are not human-reviewed.",
   "launches.communityTitle": "Community Products",
   "launches.communityNote": "Submitted by developers, auto-published · not human-reviewed, judge for yourself",
@@ -505,7 +505,7 @@ export const en: Dict = {
   "footer.tagline": "Discover good products, use good tools, make independent creation more efficient.",
   "footer.products": "Products",
   "footer.discover": "Discover",
-  "footer.launches": "Product launches",
+  "footer.launches": "Product gallery",
   "footer.tools": "Free online toolbox",
   "footer.about": "About SolHub",
   "footer.privacy": "Privacy",

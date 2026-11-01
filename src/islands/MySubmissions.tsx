@@ -7,7 +7,9 @@ import {
   Loader2,
   LogIn,
   LogOut,
+  Mail,
   MapPin,
+  MessageCircle,
   PackagePlus,
   Pencil,
   Trash2,
@@ -112,7 +114,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
 
   /* 资料编辑 */
   const [editingProfile, setEditingProfile] = useState(false);
-  const [pf, setPf] = useState({ displayName: "", bio: "", location: "", website: "", avatar: "", handle: "" });
+  const [pf, setPf] = useState({ displayName: "", bio: "", location: "", website: "", avatar: "", handle: "", contact: "", emailPublic: false });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
 
@@ -155,6 +157,8 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
           website: me.website || "",
           avatar: me.avatar || "",
           handle: me.handle || me.login || "",
+          contact: me.contact || "",
+          emailPublic: !!me.emailPublic,
         });
         if (me.authType === "github") {
           try {
@@ -199,11 +203,14 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   const saveProfileEdit = async () => {
     setProfileSaving(true);
     setProfileError(null);
-    const payload: Record<string, string> = {
+    const payload: Record<string, string | boolean> = {
       displayName: pf.displayName,
       bio: pf.bio,
       location: pf.location,
       website: ensureHttps(pf.website),
+      /* 联系方式与「公开邮箱」是显式开关，每次保存都同步当前值 */
+      contact: pf.contact.trim(),
+      emailPublic: pf.emailPublic,
     };
     /* 用户名：仅当改动过才提交，避免空值覆盖 */
     const currentHandle = user?.handle || user?.login || "";
@@ -215,8 +222,8 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     if (result.ok) {
       setUser((u) => {
         if (!u) return u;
-        const next = { ...u, ...(payload as Partial<AuthUser>) };
-        if (payload.handle) next.login = payload.handle;
+        const next = { ...u, ...(payload as unknown as Partial<AuthUser>) };
+        if (typeof payload.handle === "string" && payload.handle) next.login = payload.handle;
         return next;
       });
       setEditingProfile(false);
@@ -396,6 +403,16 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                     <LinkIcon className="h-3 w-3" />{user.website.replace(/^https?:\/\//, "")}
                   </a>
                 )}
+                {user.contact && (
+                  <span className="inline-flex items-center gap-1">
+                    <MessageCircle className="h-3 w-3" />{user.contact}
+                  </span>
+                )}
+                {user.emailPublic && user.email && (
+                  <span className="inline-flex items-center gap-1">
+                    <Mail className="h-3 w-3" />{user.email}
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1">
                   <PackagePlus className="h-3 w-3" />
                   {en ? `${products.length} product${products.length === 1 ? "" : "s"}` : `${products.length} 个产品`}
@@ -465,6 +482,38 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
             </div>
             <textarea value={pf.bio} onChange={(e) => setPf({ ...pf, bio: e.target.value })} rows={2} maxLength={200} className="input w-full resize-y" placeholder={en ? "Short bio" : "个人简介"} />
             <input value={pf.website} onChange={(e) => setPf({ ...pf, website: e.target.value })} className="input w-full" placeholder={en ? "Website (https://…)" : "个人网站（https://…）"} />
+            <div>
+              <input
+                value={pf.contact}
+                onChange={(e) => setPf({ ...pf, contact: e.target.value })}
+                className="input w-full"
+                maxLength={200}
+                placeholder={en ? "Contact (WeChat / Telegram / another email — optional)" : "联系方式（微信 / Telegram / 备用邮箱，可留空）"}
+              />
+              <span className="mt-1 block text-[11px] text-muted-foreground">
+                {en
+                  ? "Shown on your public profile so people can reach you. Leave it empty to stay invisible."
+                  : "会显示在你的公开主页上，方便别人联系你；留空即不展示。"}
+              </span>
+            </div>
+            {!isGithub && (
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-[10px] border border-border bg-secondary/40 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={pf.emailPublic}
+                  onChange={(e) => setPf({ ...pf, emailPublic: e.target.checked })}
+                  className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+                />
+                <span className="text-xs leading-5 text-muted-foreground">
+                  {en ? "Show my registered email on my public profile" : "在公开主页上展示我的注册邮箱"}
+                  <span className="mt-0.5 block text-[11px] opacity-80">
+                    {en
+                      ? "Off by default. When on, the email appears on your profile page only — never in search results, posts or comments."
+                      : "默认关闭。开启后邮箱只出现在你的主页上，不会出现在搜索结果、帖子或评论里。"}
+                  </span>
+                </span>
+              </label>
+            )}
             {profileError && (
               <p className="rounded-[8px] bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{profileError}</p>
             )}

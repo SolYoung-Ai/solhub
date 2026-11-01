@@ -22,6 +22,10 @@ export interface AuthUser {
   bio?: string;
   location?: string;
   website?: string;
+  /** 联系方式（用户自愿公开：微信 / Telegram / 备用邮箱等），留空即不展示 */
+  contact?: string;
+  /** 是否在公开资料里展示注册邮箱（默认不公开） */
+  emailPublic?: boolean;
   authType?: "email" | "github";
   /** 黄V 认证 */
   verified?: boolean;
@@ -95,8 +99,8 @@ export async function logout(): Promise<void> {
   }
 }
 
-/** 保存个人资料（昵称 / 简介 / 城市 / 网站 / 头像）。 */
-export async function saveProfile(fields: Partial<Pick<AuthUser, "displayName" | "bio" | "location" | "website" | "avatar" | "handle">>): Promise<{ ok: boolean; error?: string; user?: Partial<AuthUser> }> {
+/** 保存个人资料（昵称 / 简介 / 城市 / 网站 / 联系方式 / 邮箱公开开关 / 头像）。 */
+export async function saveProfile(fields: Partial<Pick<AuthUser, "displayName" | "bio" | "location" | "website" | "avatar" | "handle" | "contact" | "emailPublic">>): Promise<{ ok: boolean; error?: string; user?: Partial<AuthUser> }> {
   try {
     const res = await fetch(`${base()}/profile`, {
       method: "PUT",

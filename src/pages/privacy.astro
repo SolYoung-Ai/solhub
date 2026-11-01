@@ -56,8 +56,13 @@ const copy = en
           },
           {
             k: "Profile (optional)",
-            v: "Bio, location, website, avatar (a compressed image up to 300KB, stored with your account).",
+            v: "Bio, location, website, avatar (a compressed image up to 300KB, stored with your account), and a contact line (WeChat / Telegram / a second email — only shown if you fill it in).",
             pub: true,
+          },
+          {
+            k: "Email visibility (your choice)",
+            v: "Your sign-up email is private by default. If you switch on “show my email on my profile”, it appears on your own profile page only — never in search results, posts or comments. You can switch it off again at any time.",
+            pub: false,
           },
           {
             k: "World activity",
@@ -128,9 +133,11 @@ const copy = en
         intro: "SolHub is a public directory and a public feed, so treat these as published:",
         items: [
           "Your profile: display name, avatar, bio, location, website, follower count.",
+          "The contact line you fill in yourself (nothing shows up if you leave it empty).",
           "Your posts, comments, likes and follow relationships.",
           "Products you submitted or claimed, with their public fields and the Verified mark.",
           "Account identifier: your public ID is a username (handle) like @solyoung, shown in your profile URL and submission records. Your email is never used as a public identifier.",
+          "Your sign-up email is private by default. It only shows up on your own profile page if you switch on “show my email on my profile”.",
           "Product submissions are committed to a public repository, which includes the submitter's public username.",
         ],
         footnote: `Want a different username? You can change it from your account page; old profile links keep working.`,
@@ -205,7 +212,7 @@ const copy = en
           },
           {
             k: "个人资料（可选）",
-            v: "简介、所在地、个人网站、头像（压缩后不超过 300KB 的图片，随账号一起保存）。",
+            v: "简介、所在地、个人网站、头像（压缩后不超过 300KB 的图片，随账号一起保存），以及一行联系方式（微信 / Telegram / 备用邮箱——只有你填了才会展示）。",
             pub: true,
           },
           {
@@ -217,6 +224,11 @@ const copy = en
             k: "产品提交",
             v: "产品名称、官网地址、一句话介绍、详细描述、标签、分类、开发者名、图标地址。",
             pub: true,
+          },
+          {
+            k: "邮箱是否公开（由你决定）",
+            v: "注册邮箱默认不公开。只有你主动开启「在公开主页上展示我的注册邮箱」，它才会出现在你自己的主页上——不会出现在搜索结果、帖子或评论里，随时可以再关掉。",
+            pub: false,
           },
           {
             k: "账号状态",
@@ -276,9 +288,11 @@ const copy = en
         intro: "SolHub 是公开榜单 + 公开信息流，下面这些请当作「已经发布」：",
         items: [
           "个人资料：显示名、头像、简介、所在地、个人网站、粉丝数。",
+          "你自己填写的联系方式（不填就没有）。",
           "你的帖子、评论、点赞和关注关系。",
           "你提交或认领的产品，以及它们的公开字段与 Verified 标记。",
           "账号标识：你的公开标识是一个用户名（handle），例如 @solyoung，会出现在个人主页地址与产品提交记录里。邮箱绝不会作为公开标识。",
+          "注册邮箱默认不公开；只有你在「我」页面开启「公开邮箱」后，它才会出现在你自己的主页上。",
           "产品提交会提交进公开仓库，其中包含提交者的公开用户名。",
         ],
         footnote: `想换用户名？在「我」页面就能改；旧的个人主页链接依然有效。`,
@@ -294,7 +308,7 @@ const copy = en
       rights: {
         title: "你的权利与删除",
         items: [
-          "修改：显示名、简介、所在地、个人网站、头像可在「我」页面随时改。",
+          "修改：显示名、简介、所在地、个人网站、头像、联系方式，以及「是否公开邮箱」的开关，都可在「我」页面随时改。",
           "删除内容：自己的帖子可以自行删除；评论目前没有自助删除入口，告诉我们即可帮你删。",
           `注销账号：发邮件到 ${contactLink}，标题写「注销账号」，我们会在 7 天内删除账号、资料及其发布的内容（法律要求保留的除外）。`,
           "导出：可以发邮件索取你的账号数据副本。",

@@ -11,6 +11,7 @@ import {
   Link2,
   Loader2,
   LogIn,
+  Mail,
   MapPin,
   MessageCircle,
   Package,
@@ -490,6 +491,12 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                       <a href={ensureHttps(userProfile.user.website)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">
                         <Link2 className="h-3.5 w-3.5" />{hostOf(userProfile.user.website)}
                       </a>
+                    )}
+                    {userProfile.user.contact && (
+                      <span className="inline-flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{userProfile.user.contact}</span>
+                    )}
+                    {userProfile.user.email && (
+                      <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{userProfile.user.email}</span>
                     )}
                     {userProfile.user.joinedAt && (
                       <span className="inline-flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />
