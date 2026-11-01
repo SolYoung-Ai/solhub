@@ -487,14 +487,27 @@ const VCODE_PURPOSES = ["register", "verify", "change", "reset"];
 const VCODE_TTL = 600;            // 验证码有效期 10 分钟
 const VCODE_COOLDOWN = 60;        // 同一邮箱重发冷却（秒）
 const VCODE_WINDOW_MAX = 3;       // 同一邮箱 10 分钟内最多发码次数
-/* 全站每日发码预算（软防线，走 Cache API，0 次 KV 写）。
-   真正的硬防线在阿里云控制台：把「日发送量上限」设成 200 封后，
-   超额邮件会被阿里云直接拒绝、不会产生任何费用（¥2/千 的计费根本轮不到触发）。
-   Worker 侧这个数字只是提前给人一句友好提示，跨机房可能略有偏差。
-   KV 写额度方面，每发一封验证码固定消耗 2 次写（码键 + meta 键），
-   200 封/天 = 400 次写，加上业务写会接近 1000 次/天的免费上限，
-   流量上来后应把验证码迁到 Durable Objects（强一致 + 原子计数）。 */
-const VCODE_DAILY_BUDGET = 200;
+/* 全站每日 / 累计发码预算 —— 费用的第一道防线。
+ *
+ * 为什么必须放 KV，不能放 Cache API：
+ *   Workers Cache API 是 data center local（官方文档明说数据不跨机房同步），
+ *   本项目实测 request.cf.colo 在 LHR / AMS 之间跳变 —— 跨机房计数各算各的。
+ *   拿它当限额用等于形同虚设：攻击者把请求分散到多个机房，日额度能被放大几十倍，
+ *   直接把阿里云的免费额度烧穿并产生真金白银的账单。
+ *   KV 全球收敛，才是权威计数。
+ *
+ * 阿里云侧的闸门（重要，别再找错地方）：
+ *   官方明确「邮件推送无法设置每日发送上限额度」—— 控制台里没有这个选项。
+ *   账号级唯一的闸门是「概览页 → 最高信誉等级限制」，1 级 = 500 封/天，这是地板。
+ *   免费额度规则：每个主账户共 2000 封，每天最多免费发 200 封；超出按 ¥2/千 计费
+ *   （一封验证码 ¥0.002）。所以真正让账单恒为 0 的是 Worker 侧的这两个数。
+ */
+const VCODE_DAILY_BUDGET = 150;     // 单日发码上限（留 25% 余量给 200 封/天免费额度）
+const VCODE_TOTAL_BUDGET = 1800;    // 累计发码上限（留 10% 余量给 2000 封总免费额度）
+
+/** 额度可被环境变量覆盖（联调时调小便于验证阈值；不设则用上面的默认值） */
+function dailyBudget(env) { return Number(env.DM_DAILY_BUDGET) || VCODE_DAILY_BUDGET; }
+function totalBudget(env) { return Number(env.DM_TOTAL_BUDGET) || VCODE_TOTAL_BUDGET; }
 
 /**
  * RFC3986 百分号编码。
@@ -596,16 +609,17 @@ async function sendMail(env, opts) {
     if (!res.ok || data.Code) {
       const code = data.Code || `HTTP${res.status}`;
       const msg = data.Message || data.RequestId || text.slice(0, 200);
-      /* 配额类错误（免费额度用尽 / 日额度触顶）：置位熔断，当天不再反复去撞阿里云。
-         硬防线其实在阿里云控制台的「日发送量上限」——设成 200 封后超额邮件根本发不出去，
-         不会产生任何费用；这里只是让用户拿到一句人话而不是错误码。 */
+      /* 配额类错误（免费额度用尽 / 日额度触顶）：置位熔断，避免反复去撞阿里云。
+         注意：阿里云控制台没有「每日发送量上限」这个设置，账号级唯一的闸门是
+         「概览页 → 最高信誉等级限制」（1 级 = 500 封/天）。Worker 侧的每日/累计配额
+         才是费用的主防线，这里只是别把错误码甩给用户看。 */
       if (isQuotaError(code, msg)) {
         try {
           await env.PROFILES.put("vcode:fuse", JSON.stringify({ until: Date.now() + 3600 * 1000, code }), {
             expirationTtl: 7200,
           });
         } catch { /* 忽略 */ }
-        return { ok: false, quota: true, error: "今日验证码发送额度已用尽，请明天再试", detail: msg };
+        return { ok: false, quota: true, error: "验证码服务暂时受限，请稍后再试", detail: msg };
       }
       return { ok: false, error: `邮件发送失败（${code}）`, detail: msg };
     }
@@ -735,6 +749,45 @@ function isDevRequest(request, env) {
 }
 
 /**
+ * 占用一次发码配额（KV，全局权威计数）。
+ *
+ * 先占后发：并发下不会超发。发信失败时用 releaseVCodeQuota 退回。
+ * 计数是「读-改-写」，KV 最终一致下偶尔会丢一两次增量 —— 对限额而言，
+ * 丢增量意味着最多多放行几封，量级远小于预算本身，可以接受。
+ */
+async function claimVCodeQuota(env) {
+  const today = new Date().toISOString().slice(0, 10);
+  const q = (await kvGetJSON(env, "vcode:quota", null)) || {};
+  const day = q.d === today ? (q.day || 0) : 0;   // 跨天自动归零
+  const total = q.total || 0;
+  if (day >= dailyBudget(env)) {
+    return { ok: false, error: "今日验证码发送额度已用尽，请明天再试" };
+  }
+  if (total >= totalBudget(env)) {
+    return { ok: false, error: "免费发信额度即将用尽，验证码发送已暂停，请联系管理员" };
+  }
+  await env.PROFILES.put(
+    "vcode:quota",
+    JSON.stringify({ d: today, day: day + 1, total: total + 1 }),
+    { expirationTtl: 31536000 }, // 1 年不清理
+  );
+  return { ok: true };
+}
+
+/** 退回一次配额（发信失败时调用，避免临时故障白白吃掉当天额度） */
+async function releaseVCodeQuota(env) {
+  const today = new Date().toISOString().slice(0, 10);
+  const q = (await kvGetJSON(env, "vcode:quota", null)) || {};
+  const day = q.d === today ? Math.max(0, (q.day || 0) - 1) : 0;
+  const total = Math.max(0, (q.total || 0) - 1);
+  await env.PROFILES.put(
+    "vcode:quota",
+    JSON.stringify({ d: today, day, total }),
+    { expirationTtl: 31536000 },
+  );
+}
+
+/**
  * 下发一枚验证码：多重限流 → 写 KV → 发信 → 记账。
  *
  * 关键设计（都是踩过坑之后定下来的）：
@@ -742,9 +795,11 @@ function isDevRequest(request, env) {
  *     用户手上任何一封邮件里的码都还能用 —— 见 vcodeKey 的注释。
  *  2. 冷却 / 窗口次数记在 meta 键里。KV 最终一致会让这几个计数偶尔失效，
  *     但失效的后果只是「多发一封邮件」，而不是「用户的码被作废」，这是可接受的降级。
- *  3. 每日预算放 Cache API（0 次 KV 写）做软防线；真正的硬防线是
- *     阿里云控制台里的「日发送量上限」——设成 200 封后超额邮件直接发不出去，
- *     不会产生任何费用；Worker 侧再对配额类错误做熔断，避免反复去撞阿里云。
+ *  3. 每日 / 累计配额放 KV（见 VCODE_DAILY_BUDGET 的注释），
+ *     这才是费用的第一道防线；阿里云侧只有「最高信誉等级限制」这道 500 封/天的地板。
+ *  4. 每发一封验证码消耗 3 次 KV 写（码键 + meta 键 + 配额键）。
+ *     按每日 150 封的上限算 = 450 次写，加上发帖等业务写会逼近免费版 1000 次/天的上限，
+ *     所以流量上来后应把验证码与配额迁到 Durable Objects（强一致 + 原子计数）。
  * 返回 { status, body }，由调用方直接 json() 输出。
  */
 async function issueCode(request, env, purpose, target) {
@@ -758,12 +813,15 @@ async function issueCode(request, env, purpose, target) {
     return { status: 429, body: { error: "今日验证码发送额度已用尽，请明天再试" } };
   }
 
-  /* 2) 全站每日预算（软防线；硬防线是阿里云控制台的日发送量上限） */
-  const dayKey = `vcode:day:${new Date().toISOString().slice(0, 10)}`;
-  const day = await rateLimitPeek(dayKey);
-  if (!devMode && day.count >= VCODE_DAILY_BUDGET) {
-    return { status: 429, body: { error: "今日验证码发送额度已用尽，请明天再试" } };
+  /* 2) 全站每日 / 累计配额（KV 权威计数，全球收敛）
+        阿里云侧没有「每日发送量上限」可设，账号级地板是 500 封/天，
+        所以费用能不能压到 0 取决于这两行数。
+        注意：配额在干跑模式下同样生效 —— 联调时可用 DM_DAILY_BUDGET 调小来验证阈值。 */
+  const claim = await claimVCodeQuota(env);
+  if (!claim.ok) {
+    return { status: 429, body: { error: claim.error } };
   }
+  let quotaClaimed = true;
 
   /* 3) 元数据：冷却 / 窗口次数 */
   const meta = (await kvGetJSON(env, metaKey, null)) || {};
@@ -802,15 +860,15 @@ async function issueCode(request, env, purpose, target) {
     text: `你的 SolHub 验证码是 ${code}，10 分钟内有效，仅可使用一次。${vcodePurposeText(purpose)}`,
   });
   if (!sent.ok) {
-    /* 发信失败：撤掉这枚码，让用户可以立即重试 */
+    /* 发信失败：撤掉这枚码 + 退回配额，让用户可以立即重试 */
     await env.PROFILES.delete(vcodeKey(purpose, target, code));
+    if (quotaClaimed) await releaseVCodeQuota(env);
     if (sent.quota) {
-      return { status: 429, body: { error: "今日验证码发送额度已用尽，请明天再试" } };
+      return { status: 429, body: { error: "验证码服务暂时受限，请稍后再试" } };
     }
     return { status: 502, body: { error: sent.error } };
   }
   await rateLimitHit(ipKey, 3600);
-  await rateLimitHit(dayKey, 86400);
   /* 干跑模式：只有在同时提供正确的联调密钥时才回传验证码。
      生产环境不设 DM_DRY_RUN，因此这条路径根本不存在。 */
   return { status: 200, body: { ok: true, sent: true, cooldown: VCODE_COOLDOWN, ...(devMode ? { devCode: code } : {}) } };
