@@ -1,0 +1,30 @@
+{
+  "zone": "solyoung.top",
+  "records": [
+    {
+      "type": "TXT",
+      "name": "aliyun-cn-hangzhou._domainkey.mail",
+      "content": "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCiq6SCyA2/XibvzCmCxHlNqLO3kk2ZgI7PmH7383/ELxwaklf43mlZtymfqJJv+WGnT5D5LGEXe476gmTbUO4S9g1QFbZhhdcFTnt+Lp1duEoVmMgyv6u0rn4oF5Y5mTrF08F1+K+HdeOP+0Ec+Tl0Q6Zhj7JN3+EsjaE8WvATGwIDAQAB",
+      "ttl": 300
+    },
+    {
+      "type": "TXT",
+      "name": "mail",
+      "content": "v=spf1 include:spf1.dm.aliyun.com -all",
+      "ttl": 300
+    },
+    {
+      "type": "TXT",
+      "name": "_dmarc.mail",
+      "content": "v=DMARC1;p=none;ru=mailto:dmarc_report@service.aliyun.com",
+      "ttl": 300
+    },
+    {
+      "type": "MX",
+      "name": "mail",
+      "content": "mx01.dm.aliyun.com",
+      "priority": 10,
+      "ttl": 300
+    }
+  ]
+}
