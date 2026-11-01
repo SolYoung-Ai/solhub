@@ -47,6 +47,8 @@ interface CommunityProduct {
   developerName?: string;
   verificationStatus?: string;
   publishedAt?: string;
+  /** true = 来自官方产品目录的认领项（不可在站内改/删） */
+  claimed?: boolean;
 }
 
 /* ---------- 错误兜底：任何渲染异常都显示可恢复的提示，而不是空白 ---------- */
@@ -551,15 +553,23 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                           {en ? "Visit" : "访问"} <ExternalLink className="h-3 w-3" />
                         </a>
                       )}
-                      <button onClick={() => startEdit(prod)} className="btn btn-outline !h-7 gap-1.5 px-3 text-xs">
-                        <Pencil className="h-3 w-3" /> {en ? "Edit" : "编辑"}
-                      </button>
-                      <button
-                        onClick={() => void deleteProduct(prod.slug)}
-                        className="btn btn-outline !h-7 gap-1.5 px-3 text-xs text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-3 w-3" /> {en ? "Delete" : "删除"}
-                      </button>
+                      {prod.claimed ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[11px] text-muted-foreground">
+                          {en ? "From official catalog" : "来自官方目录"}
+                        </span>
+                      ) : (
+                        <>
+                          <button onClick={() => startEdit(prod)} className="btn btn-outline !h-7 gap-1.5 px-3 text-xs">
+                            <Pencil className="h-3 w-3" /> {en ? "Edit" : "编辑"}
+                          </button>
+                          <button
+                            onClick={() => void deleteProduct(prod.slug)}
+                            className="btn btn-outline !h-7 gap-1.5 px-3 text-xs text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3 w-3" /> {en ? "Delete" : "删除"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -190,21 +190,65 @@ async function readCommunity(env) {
   }
 }
 
+/** 读取仓库里的产品索引（构建时由 products.ts 生成，失败返回空数组）。 */
+async function readProductIndex(env) {
+  if (!env.GITHUB_PAT) return [];
+  try {
+    const res = await fetch(`${API}/repos/${REPO}/contents/src/data/product-index.json?ref=main`, {
+      headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
+    });
+    const data = await res.json();
+    if (!data.content) return [];
+    return JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g, "")))));
+  } catch {
+    return [];
+  }
+}
+
+/** 把产品裁成卡片需要的字段。 */
+function toCard(p) {
+  return {
+    slug: p.slug,
+    name: p.name,
+    shortDescription: p.shortDescription || "",
+    icon: p.icon || "",
+    websiteUrl: p.websiteUrl || "",
+    category: p.category || "other",
+    tags: Array.isArray(p.tags) ? p.tags.slice(0, 6) : [],
+    verificationStatus: p.verificationStatus || "pending",
+    publishedAt: p.publishedAt || "",
+  };
+}
+
 /** 从社区数据里挑出某人提交的产品，裁成卡片需要的字段。 */
 function productsOf(community, login) {
-  return community
-    .filter((p) => p.submittedBy === login)
-    .map((p) => ({
-      slug: p.slug,
-      name: p.name,
-      shortDescription: p.shortDescription || "",
-      icon: p.icon || "",
-      websiteUrl: p.websiteUrl || "",
-      category: p.category || "other",
-      tags: Array.isArray(p.tags) ? p.tags.slice(0, 6) : [],
-      verificationStatus: p.verificationStatus || "pending",
-      publishedAt: p.publishedAt || "",
-    }));
+  return community.filter((p) => p.submittedBy === login).map(toCard);
+}
+
+/**
+ * 用户的产品 = 社区提交的（submittedBy）+ 认领的（user.productSlugs，来自官方目录）。
+ * 按 slug 去重，认领顺序优先。
+ */
+function mergeProducts(communityProducts, claimedSlugs, index) {
+  const out = [];
+  const seen = new Set();
+  const push = (p) => {
+    if (!p || !p.slug || seen.has(p.slug)) return;
+    seen.add(p.slug);
+    out.push(p);
+  };
+  for (const slug of claimedSlugs) {
+    const hit = index.find((p) => p.slug === slug);
+    if (hit) push({ ...toCard(hit), claimed: true });
+  }
+  for (const p of communityProducts) push({ ...p, claimed: false });
+  return out;
+}
+
+/** 认领列表（容错：非数组或脏值一律忽略） */
+function claimedSlugsOf(user) {
+  if (!user || !Array.isArray(user.productSlugs)) return [];
+  return user.productSlugs.filter((s) => typeof s === "string" && s.length < 80).slice(0, 50);
 }
 
 async function hydratePost(env, id, viewer) {
@@ -654,7 +698,16 @@ export default {
       if (fileData.content) {
         try { community = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))))); } catch {}
       }
-      return json(request, { products: community.filter((p) => p.submittedBy === identity.login), sha: fileData.sha });
+      const [index, mine] = await Promise.all([
+        readProductIndex(env),
+        kvGetJSON(env, `user:${identity.login}`, null),
+      ]);
+      const claimed = mergeProducts(
+        productsOf(community, identity.login),
+        claimedSlugsOf(mine),
+        index,
+      );
+      return json(request, { products: claimed, sha: fileData.sha });
     }
 
     if (url.pathname.startsWith("/my-products/")) {
@@ -904,7 +957,7 @@ export default {
       }
 
       if (action === "") {
-        const [author, followers, following, postIds, myFollowing, community, user] = await Promise.all([
+        const [author, followers, following, postIds, myFollowing, community, user, index] = await Promise.all([
           authorOf(env, target),
           kvGetJSON(env, `followers:${target}`, []),
           kvGetJSON(env, `following:${target}`, []),
@@ -912,9 +965,10 @@ export default {
           viewer ? kvGetJSON(env, `following:${viewer}`, []) : Promise.resolve([]),
           readCommunity(env),
           kvGetJSON(env, `user:${target}`, null),
+          readProductIndex(env),
         ]);
         const posts = await feedPosts(env, postIds, viewer, 30);
-        const products = productsOf(community, target);
+        const products = mergeProducts(productsOf(community, target), claimedSlugsOf(user), index);
         return json(request, {
           user: {
             ...author,

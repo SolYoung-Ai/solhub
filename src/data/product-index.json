@@ -1,0 +1,125 @@
+[
+  {
+    "slug": "solyoung",
+    "name": "SolYoung",
+    "icon": "/icons/solyoung.jpg",
+    "shortDescription": "一个把想法变成作品的人 —— 个人数字空间，持续运营。",
+    "websiteUrl": "https://solyoung.top",
+    "category": "creator-space",
+    "tags": [
+      "personal-site",
+      "portfolio",
+      "content"
+    ],
+    "verificationStatus": "verified",
+    "publishedAt": "2026-10-16",
+    "developerName": "Sol Young",
+    "isDemo": false,
+    "rankPosition": 2
+  },
+  {
+    "slug": "solyoung-studio",
+    "name": "SolYoung Studio",
+    "icon": "/icons/solyoung-studio.png",
+    "shortDescription": "AI 个人网站、数字空间与轻量产品制作服务。",
+    "websiteUrl": "https://studio.solyoung.top",
+    "category": "services",
+    "tags": [
+      "website",
+      "brand",
+      "ai-assisted"
+    ],
+    "verificationStatus": "verified",
+    "publishedAt": "2026-10-16",
+    "developerName": "Sol Young",
+    "isDemo": false,
+    "rankPosition": 3
+  },
+  {
+    "slug": "myos",
+    "name": "My.OS",
+    "icon": "/icons/myos.png",
+    "shortDescription": "属于独立创作者的本地工作台：记录 → 思考 → 创作 → 交付 → 归档。",
+    "websiteUrl": "https://myos.solyoung.top",
+    "category": "productivity",
+    "tags": [
+      "personal-os",
+      "notes",
+      "productivity"
+    ],
+    "verificationStatus": "verified",
+    "publishedAt": "2026-10-16",
+    "developerName": "Sol Young",
+    "isDemo": false
+  },
+  {
+    "slug": "verity",
+    "name": "Verity",
+    "icon": "/icons/verity.png",
+    "shortDescription": "把人格、心理与行为测试收拢在一个站点，选一套就能开始测。",
+    "websiteUrl": "https://verity.solyoung.top",
+    "category": "fun-tools",
+    "tags": [
+      "personality",
+      "quiz",
+      "free"
+    ],
+    "verificationStatus": "verified",
+    "publishedAt": "2026-10-16",
+    "developerName": "Sol Young",
+    "isDemo": false
+  },
+  {
+    "slug": "camsim",
+    "name": "CamSim",
+    "icon": "/icons/camsim.png",
+    "shortDescription": "相机参数模拟器：从想拍的效果反推光圈、快门与 ISO。",
+    "websiteUrl": "https://camera.solyoung.top",
+    "category": "creator-tools",
+    "tags": [
+      "photography",
+      "simulator",
+      "free"
+    ],
+    "verificationStatus": "verified",
+    "publishedAt": "2026-10-16",
+    "developerName": "Sol Young",
+    "isDemo": false
+  },
+  {
+    "slug": "solclip",
+    "name": "SolClip",
+    "icon": "/icons/solclip.png",
+    "shortDescription": "多平台短视频解析、下载与文案提取工具。",
+    "websiteUrl": "https://clip.solyoung.top",
+    "category": "creator-tools",
+    "tags": [
+      "video-parser",
+      "subtitle",
+      "content-creator",
+      "douyin"
+    ],
+    "verificationStatus": "verified",
+    "publishedAt": "2026-10-25",
+    "developerName": "Sol Young",
+    "isDemo": false
+  },
+  {
+    "slug": "xinsight",
+    "name": "X Account Insight",
+    "icon": "/icons/xinsight.png",
+    "shortDescription": "X 账号运营数据体检：本地导入、透明计算、可解释分析。",
+    "websiteUrl": "https://x.insight.solyoung.top",
+    "category": "growth-marketing",
+    "tags": [
+      "x-twitter",
+      "analytics",
+      "csv",
+      "privacy"
+    ],
+    "verificationStatus": "verified",
+    "publishedAt": "2026-10-25",
+    "developerName": "Sol Young",
+    "isDemo": false
+  }
+]
