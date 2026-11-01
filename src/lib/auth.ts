@@ -182,6 +182,52 @@ export async function resetPassword(
   }
 }
 
+/**
+ * 修改密码（登录态）：需要提供当前密码。
+ * 服务端会校验当前密码，换新盐重新哈希，并把 pwdVersion +1，
+ * 于是其它设备上的旧会话全部失效；当前设备会自动换发一个新会话，不会被踢下线。
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ ok: boolean; error?: string; message?: string }> {
+  try {
+    const res = await fetch(`${base()}/auth/change-password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.error || `修改失败（${res.status}）` };
+    return { ok: true, message: data.message };
+  } catch {
+    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+  }
+}
+
+/**
+ * 注销账号（自助）：需要提供当前密码以确认身份。
+ * 服务端会清除账号、公开资料、帖子、关注关系与社区提交。
+ */
+export async function deleteAccount(
+  password: string,
+): Promise<{ ok: boolean; error?: string; deletedPosts?: number }> {
+  try {
+    const res = await fetch(`${base()}/auth/delete-account`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.error || `注销失败（${res.status}）` };
+    return { ok: true, deletedPosts: data.deletedPosts || 0 };
+  } catch {
+    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+  }
+}
+
 /** 邮箱 + 密码登录。 */
 export async function loginEmail(email: string, password: string): Promise<AuthResult> {
   try {

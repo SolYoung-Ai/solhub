@@ -270,12 +270,14 @@ async function republishAuthor(env, sid, handle, prevHandle) {
 
 /* ---------------- 邮箱用户与会话（KV） ---------------- */
 
-async function createSession(request, env, email) {
+async function createSession(request, env, email, recOverride) {
   const id = crypto.randomUUID() + "-" + toB64(crypto.getRandomValues(new Uint8Array(12)));
   /* 会话同时记 handle 与 pwdVersion：
      - handle 用于「改邮箱后仍能定位到账号」（handle → email 映射会随改邮箱更新）
-     - pwdVersion 用于「改密码后让旧会话全部失效」 */
-  const rec = await kvGetJSON(env, `user:${email}`, null);
+     - pwdVersion 用于「改密码后让旧会话全部失效」
+     recOverride：调用方手里已经拿到最新用户记录时直接传进来，
+     避免这里再读一次 KV 拿到边缘缓存里的旧 pwdVersion（会导致新会话一建立就失效）。 */
+  const rec = recOverride || (await kvGetJSON(env, `user:${email}`, null));
   const session = {
     email,
     handle: (rec && rec.handle) || "",
@@ -1628,6 +1630,124 @@ export default {
       await cacheWrite(env, key, JSON.stringify(user));
       const cookie = await createSession(request, env, current);
       return json(request, { ok: true, message: "密码已重置，请用新密码登录" }, 200, cookie);
+    }
+
+    /* 修改密码（登录态）：校验当前密码 → 换新盐/哈希 → pwdVersion +1 让其它设备会话失效 → 给当前设备发新会话 */
+    if (url.pathname === "/auth/change-password" && request.method === "POST") {
+      const identity = await getIdentity(request, env);
+      if (!identity || identity.type !== "email") return json(request, { error: "请先登录" }, 401);
+      let body;
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const currentPassword = String(body.currentPassword || "");
+      const newPassword = String(body.newPassword || "");
+      if (newPassword.length < 8) return json(request, { error: "密码至少 8 位" }, 400);
+      if (newPassword.length > 200) return json(request, { error: "密码过长" }, 400);
+      const email = identity.user.email;
+      const key = `user:${email}`;
+      const user = await kvGetJSON(env, key, null, true);
+      if (!user) return json(request, { error: "用户不存在" }, 404);
+      /* GitHub 账号没有站内密码，无法在此修改 */
+      if (!user.passHash || !user.passSalt) {
+        return json(request, { error: "该账号不是用密码登录的，无法在此修改密码" }, 400);
+      }
+      const cur = await hashPassword(currentPassword, user.passSalt);
+      if (cur !== user.passHash) return json(request, { error: "当前密码不正确" }, 403);
+      if (currentPassword === newPassword) return json(request, { error: "新密码不能与当前密码相同" }, 400);
+      const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
+      const passHash = await hashPassword(newPassword, salt);
+      user.passSalt = salt;
+      user.passHash = passHash;
+      /* 密码版本号 +1：其它设备的旧会话版本对不上，自动失效 */
+      user.pwdVersion = (user.pwdVersion || 0) + 1;
+      await env.PROFILES.put(key, JSON.stringify(user));
+      await cacheWrite(env, key, JSON.stringify(user));
+      /* 把最新记录直接交给 createSession：避免它再读一次 KV 拿到旧 pwdVersion */
+      const cookie = await createSession(request, env, email, user);
+      return json(request, { ok: true, message: "密码已修改，其它设备的登录状态已失效" }, 200, cookie);
+    }
+
+    /* 注销账号（自助）：校验密码 → 清掉账号、资料、帖子、关注关系与社区提交 */
+    if (url.pathname === "/auth/delete-account" && request.method === "POST") {
+      const identity = await getIdentity(request, env);
+      if (!identity || identity.type !== "email") return json(request, { error: "请先登录" }, 401);
+      let body;
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const password = String(body.password || "");
+      const email = identity.user.email;
+      const key = `user:${email}`;
+      const user = await kvGetJSON(env, key, null, true);
+      if (!user) return json(request, { error: "用户不存在" }, 404);
+      if (!user.passHash || !user.passSalt) {
+        return json(request, { error: "该账号不是用密码登录的，无法自助注销" }, 400);
+      }
+      /* 管理员账号不允许自助注销，避免把唯一的管理员入口删掉 */
+      if (isAdminLogin(env, email) || (user.handle && isAdminLogin(env, user.handle))) {
+        return json(request, { error: "管理员账号不能自助注销，请先移交管理员身份" }, 400);
+      }
+      const h = await hashPassword(password, user.passSalt);
+      if (h !== user.passHash) return json(request, { error: "密码不正确" }, 403);
+
+      const handle = user.handle || "";
+
+      /* 1) 帖子：连同点赞/评论一起删，并从全局信息流里摘掉 */
+      const ids = await kvGetJSON(env, `feed:user:${email}`, []);
+      for (const id of ids.slice(0, 500)) {
+        await env.PROFILES.delete(`post:${id}`);
+        await env.PROFILES.delete(`post:${id}:likes`);
+        await env.PROFILES.delete(`post:${id}:comments`);
+        await removeFromFeed(env, "feed:global", id);
+      }
+
+      /* 2) 社区提交：把该用户收录的产品移出目录并回写仓库 */
+      const community = await readCommunity(env);
+      if (Array.isArray(community) && community.length) {
+        const kept = community.filter((p) => p && p.submittedBy !== handle && p.submittedBy !== email);
+        if (kept.length !== community.length) {
+          await kvPutJSON(env, KV_COMMUNITY, kept);
+          if (ctx && ctx.waitUntil) {
+            ctx.waitUntil(syncCommunityToRepo(env, kept, `chore: 移除已注销用户 ${handle || email} 的提交`).catch(() => {}));
+          }
+        }
+      }
+
+      /* 3) 别名链：旧邮箱指向本账号的指针要一起清掉，否则会留下悬空映射 */
+      const aliasKeys = await listKeys(env, "alias:", 300);
+      for (const ak of aliasKeys) {
+        const target = await env.PROFILES.get(ak, { cacheTtl: 30 });
+        if (target === email) {
+          await env.PROFILES.delete(ak);
+          await cacheDrop(env, ak);
+        }
+      }
+
+      /* 4) 关注关系：从别人的关注/粉丝列表里摘掉自己 */
+      const socialKeys = await listKeys(env, "following:", 300);
+      const socialKeys2 = await listKeys(env, "followers:", 300);
+      for (const sk of [...socialKeys, ...socialKeys2]) {
+        const list = await kvGetJSON(env, sk, []);
+        if (!Array.isArray(list) || !list.length) continue;
+        const kept = list.filter((x) => x !== handle && x !== email);
+        if (kept.length !== list.length) await kvPutJSON(env, sk, kept);
+      }
+
+      /* 5) 账号本体与附属键 */
+      await Promise.all([
+        env.PROFILES.delete(key),
+        env.PROFILES.delete(`feed:user:${email}`),
+        env.PROFILES.delete(`following:${email}`),
+        env.PROFILES.delete(`followers:${email}`),
+        env.PROFILES.delete(`ban:${email}`),
+        env.PROFILES.delete(`post:gap:${email}`),
+        env.PROFILES.delete(`post:day:${email}`),
+        handle ? env.PROFILES.delete(`handle:${handle}`) : null,
+        handle ? env.PROFILES.delete(`ban:${handle}`) : null,
+        handle ? env.PROFILES.delete(`profile:${handle}`) : null,
+      ].filter(Boolean));
+      /* 读穿缓存也要清：否则「删了却还能读到旧记录」 */
+      await cacheDrop(env, key);
+      if (handle) await cacheDrop(env, `handle:${handle}`);
+
+      return json(request, { ok: true, deletedPosts: ids.length });
     }
 
     /* ---------- 邮箱注册 ---------- */

@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Smartphone,
   Sun,
+  UserCog,
   UserRound,
   X,
 } from "lucide-react";
@@ -117,20 +118,24 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
         </nav>
 
         {/* 右侧功能按钮 */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           {/* 搜索 - 所有屏幕都显示 */}
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
             aria-label="搜索"
           >
             <Search className="h-3.5 w-3.5" />
           </button>
 
-          {/* 登录 / 用户菜单 */}
+          {/* 登录 / 用户菜单
+              注意：外层必须是 flex 容器。原来这里是普通块级 div，里面放的是
+              inline-flex 的按钮 —— 行内级元素会坐在父容器的基线上，父容器因此
+              多出一段字体降部空间，把头像整体顶上去了约 2px，与其它按钮错位。
+              改成 flex + items-center 后，头像与搜索/语言/主题按钮完全对齐。 */}
           {user ? (
-            <div className="relative">
+            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setUserMenuOpen((v) => !v); }}
@@ -162,6 +167,13 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
                   >
                     <UserRound className="h-3.5 w-3.5" /> {en ? "My account" : "个人中心"}
                   </a>
+                  <a
+                    href={p("/my-submissions/#account", locale)}
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
+                  >
+                    <UserCog className="h-3.5 w-3.5" /> {en ? "Account info" : "账号信息"}
+                  </a>
                   {user.isAdmin && (
                     <a
                       href={p("/guanli/")}
@@ -190,9 +202,10 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
             </a>
           )}
 
-          <span className="mx-0.5 hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
+          {/* 分隔线：左右间距交给父级统一的 gap，这里不再额外加外边距 */}
+          <span className="hidden h-4 w-px shrink-0 bg-border sm:block" aria-hidden="true" />
           {/* 语言/主题 - 桌面显示 */}
-          <div className="hidden sm:flex items-center gap-1">
+          <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
             <LangButton locale={locale} currentRoute={currentRoute} />
             <ThemeButton />
           </div>
@@ -244,6 +257,13 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
                     className="flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium text-accent"
                   >
                     {user.displayName || user.login}
+                  </a>
+                  <a
+                    href={p("/my-submissions/#account", locale)}
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium text-foreground/80 hover:bg-secondary/60"
+                  >
+                    <UserCog className="h-4 w-4" /> {en ? "Account info" : "账号信息"}
                   </a>
                   <button
                     type="button"

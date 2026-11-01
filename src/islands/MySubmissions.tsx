@@ -16,7 +16,7 @@ import {
   Trash2,
   User,
 } from "lucide-react";
-import EmailSecurity from "@/components/EmailSecurity";
+import AccountPanel from "@/components/AccountPanel";
 import { p } from "@/lib/paths";
 import { avatarOf, fetchMe, logout, resizeImageToDataUrl, saveProfile, type AuthUser } from "@/lib/auth";
 import { ensureHttps } from "@/lib/utils";
@@ -182,6 +182,20 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
       }
     })();
   }, [loadProducts]);
+
+  /* 从顶部菜单跳到「账号信息」时，等区块渲染出来再滚过去（客户端渲染，锚点不会自动定位）。
+     同时监听 hashchange：已经在个人主页上时再点一次「账号信息」也能定位。 */
+  useEffect(() => {
+    if (loading || !user) return;
+    const scrollToAccount = () => {
+      if (typeof window === "undefined" || window.location.hash !== "#account") return;
+      const el = document.getElementById("account");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    scrollToAccount();
+    window.addEventListener("hashchange", scrollToAccount);
+    return () => window.removeEventListener("hashchange", scrollToAccount);
+  }, [loading, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -601,20 +615,23 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
           </div>
         )}
 
-        {/* 邮箱安全：放在资料区之外 —— 分隔线是卡片级分割线，
-            资料区自己的 pb-5 / pb-6 负责把文字和这条线隔开（之前嵌在
-            带 padding 的容器里，导致文字直接压在分隔线上）。 */}
-        {!isGithub && user.email && (
-          <EmailSecurity
+        {/* 账号相关操作（邮箱安全 / 改密码 / 注销账号）统一放在下面的「账号信息」区块，
+            这里只保留公开资料本身，资料区与账号区互不干扰。 */}
+      </div>
+
+      {/* ---------- 账号信息：验证/更换邮箱 · 修改密码 · 注销账号 ---------- */}
+      {!isGithub && user.email && (
+        <div className="mt-6">
+          <AccountPanel
             email={user.email}
             verified={!!user.emailVerified}
             locale={locale}
-            onChanged={(next) =>
+            onEmailChanged={(next) =>
               setUser((u) => (u ? { ...u, email: next, emailVerified: true } : u))
             }
           />
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ---------- 内容 Tab：产品 / 帖子 / 关注 / 粉丝 ---------- */}
       <div className="mt-8 flex items-center gap-1 overflow-x-auto border-b border-border">
