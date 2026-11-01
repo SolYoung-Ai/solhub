@@ -8,9 +8,25 @@
  *
  * KV 绑定 PROFILES：
  *   user:<email>      邮箱用户记录（含密码哈希与个人资料）
- *   session:<id>      会话（{email, createdAt}，30 天 TTL）
+ *   session:<id>      会话（{email, handle, pwdVersion, createdAt}，30 天 TTL）
  *   profile:<login>   GitHub 用户的展示资料（兼容保留）
  *   handle:<handle>   用户名 → 邮箱索引（公开标识解析用）
+ *   alias:<oldEmail>  改邮箱后旧邮箱 → 新邮箱的别名（让旧会话不失效）
+ *   vcode:<用途>:<邮箱>:<验证码> 一枚邮箱验证码一个键（10 分钟 TTL）
+ *   vcode:meta:<用途>:<邮箱>  { w 最近发码时间, s 窗口内次数, n 错误次数, l 锁定到 }
+ *   vcode:fuse         阿里云配额类错误熔断标记（命中后 1 小时内不再发信）
+ *
+ * 限流与存储选型（重要，都是踩过坑之后定下来的）：
+ *   1. Workers Cache API 是 data center local —— 官方文档明说数据不跨机房同步。
+ *      同一请求序列落在不同 colo（本项目实测 LHR/AMS 交替）时计数会各算各的，
+ *      限流静默失效。所以 Cache API 只用于「粗粒度兜底」（IP 限流、每日预算）。
+ *   2. Cloudflare KV 是最终一致的，写后数秒内其它节点可能读到旧值。
+ *      因此验证码不能「存固定键再覆盖」—— 覆盖与否取决于读没读到旧值，
+ *      结果是用户收到两封邮件、只有一封的码能用，注册直接失败。
+ *      改成「码即键」：每枚码一个独立键，多枚码天然并存、互不覆盖，
+ *      校验 = 按输入的码精确查找，不依赖任何读-改-写。
+ *   3. 每日发码预算的硬防线在阿里云控制台的「日发送量上限」（设 200 封），
+ *      超额邮件直接发不出去、不会产生费用；Worker 侧只做软提示与熔断。
  *
  * 标识分层（重要）：
  *   SID（内部标识）= 邮箱 / GitHub 用户名，只用于 KV 键、登录态、封禁、限流，永不出现在公开响应里。
@@ -18,8 +34,15 @@
  *                    个人主页、搜索结果、产品提交记录里。
  *   两者用 sidOf() / pidOf() 互相解析，旧链接里的邮箱地址仍然可用（向后兼容）。
  *
- * 安全边界：任何密钥（GITHUB_CLIENT_SECRET / GITHUB_PAT）只存在于 Worker 环境变量，
- * 严禁返回给前端。密码哈希永不出库。
+ * 安全边界：任何密钥（GITHUB_CLIENT_SECRET / GITHUB_PAT / DM_ACCESS_KEY_SECRET）只存在于
+ * Worker 环境变量，严禁返回给前端。密码哈希永不出库。
+ *
+ * 邮件通道（阿里云 DirectMail）：
+ *   DM_ACCESS_KEY_ID / DM_ACCESS_KEY_SECRET  AccessKey
+ *   DM_SENDER         发信地址（控制台创建，如 noreply@mail.solyoung.top）
+ *   DM_REGION_ID      地域，默认 cn-hangzhou
+ *   DM_TAG            邮件标签（可选，用于控制台统计）
+ *   DM_DRY_RUN=1      干跑模式：只走完全部校验但不真正发信（用于无密钥时联调）
  */
 
 const REPO = "SolYoung-Ai/solhub";
@@ -248,7 +271,17 @@ async function republishAuthor(env, sid, handle, prevHandle) {
 
 async function createSession(request, env, email) {
   const id = crypto.randomUUID() + "-" + toB64(crypto.getRandomValues(new Uint8Array(12)));
-  await env.PROFILES.put(`session:${id}`, JSON.stringify({ email, createdAt: new Date().toISOString() }), {
+  /* 会话同时记 handle 与 pwdVersion：
+     - handle 用于「改邮箱后仍能定位到账号」（handle → email 映射会随改邮箱更新）
+     - pwdVersion 用于「改密码后让旧会话全部失效」 */
+  const rec = await kvGetJSON(env, `user:${email}`, null);
+  const session = {
+    email,
+    handle: (rec && rec.handle) || "",
+    pwdVersion: (rec && rec.pwdVersion) || 0,
+    createdAt: new Date().toISOString(),
+  };
+  await env.PROFILES.put(`session:${id}`, JSON.stringify(session), {
     expirationTtl: SESSION_TTL,
   });
   return `${SESSION_COOKIE}=${encodeURIComponent(id)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${SESSION_TTL}`;
@@ -261,11 +294,30 @@ async function getSessionUser(request, env) {
   if (!raw) return null;
   try {
     const s = JSON.parse(raw);
-    const userRaw = await env.PROFILES.get(`user:${s.email}`);
+    let email = s.email || "";
+    /* 优先用 handle 反查当前邮箱：用户改过邮箱时映射已更新，这里自动跟着走 */
+    if (s.handle) {
+      const mapped = await env.PROFILES.get(`handle:${s.handle}`);
+      if (mapped) email = mapped;
+    }
+    let userRaw = email ? await env.PROFILES.get(`user:${email}`) : null;
+    /* 兜底：老会话只记了邮箱，改邮箱后走 alias 链找回 */
+    let hops = 0;
+    while (!userRaw && email && hops < 3) {
+      const alias = await env.PROFILES.get(`alias:${email}`);
+      if (!alias) break;
+      email = alias;
+      userRaw = await env.PROFILES.get(`user:${email}`);
+      hops += 1;
+    }
     if (!userRaw) return null;
     /* 被封禁的账号立即掉线（按匿名处理） */
-    if (await env.PROFILES.get(`ban:${s.email}`)) return null;
+    if (await env.PROFILES.get(`ban:${email}`)) return null;
     const user = JSON.parse(userRaw);
+    /* 密码被重置过：旧会话一律失效 */
+    const sv = s.pwdVersion || 0;
+    const uv = user.pwdVersion || 0;
+    if (sv !== uv) return null;
     return {
       email: user.email,
       handle: user.handle || "",
@@ -275,6 +327,7 @@ async function getSessionUser(request, env) {
       website: user.website || "",
       contact: user.contact || "",
       emailPublic: !!user.emailPublic,
+      emailVerified: !!user.emailVerified,
       avatar: user.avatar || "",
       verified: !!user.verified,
     };
@@ -419,6 +472,348 @@ function assertPublicUrl(raw) {
     return { ok: false, error: "不能指向本机或内网地址" };
   }
   return { ok: true, url: u };
+}
+
+/* ---------------- 邮件验证码（阿里云 DirectMail） ---------------- */
+
+/**
+ * 验证码用途。不同用途的验证码互相独立、互不通用：
+ *   register  注册时验证该邮箱归属
+ *   verify    已登录用户验证「当前邮箱」
+ *   change    已登录用户验证「新邮箱」（通过后才允许切换）
+ *   reset     找回密码
+ */
+const VCODE_PURPOSES = ["register", "verify", "change", "reset"];
+const VCODE_TTL = 600;            // 验证码有效期 10 分钟
+const VCODE_COOLDOWN = 60;        // 同一邮箱重发冷却（秒）
+const VCODE_WINDOW_MAX = 3;       // 同一邮箱 10 分钟内最多发码次数
+/* 全站每日发码预算（软防线，走 Cache API，0 次 KV 写）。
+   真正的硬防线在阿里云控制台：把「日发送量上限」设成 200 封后，
+   超额邮件会被阿里云直接拒绝、不会产生任何费用（¥2/千 的计费根本轮不到触发）。
+   Worker 侧这个数字只是提前给人一句友好提示，跨机房可能略有偏差。
+   KV 写额度方面，每发一封验证码固定消耗 2 次写（码键 + meta 键），
+   200 封/天 = 400 次写，加上业务写会接近 1000 次/天的免费上限，
+   流量上来后应把验证码迁到 Durable Objects（强一致 + 原子计数）。 */
+const VCODE_DAILY_BUDGET = 200;
+
+/**
+ * RFC3986 百分号编码。
+ * 规则与阿里云官方 SDK（@alicloud/openapi-core）的 encode() 完全一致：
+ * encodeURIComponent 之后再把 ! ' ( ) * 补编码（~ 保持原样）。
+ * 必须与服务端一致，否则签名会返回 SignatureDoesNotMatch。
+ */
+function percentEncode(str) {
+  return encodeURIComponent(String(str == null ? "" : str))
+    .replace(/!/g, "%21")
+    .replace(/'/g, "%27")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29")
+    .replace(/\*/g, "%2A");
+}
+
+/**
+ * 阿里云 RPC 风格签名（HMAC-SHA1）。
+ * 密钥 = AccessKeySecret + "&"，StringToSign = METHOD&%2F&percentEncode(规范化查询串)。
+ */
+async function aliyunSignature(params, secret) {
+  const names = Object.keys(params).filter((k) => k !== "Signature").sort();
+  const canonical = names.map((k) => `${percentEncode(k)}=${percentEncode(params[k])}`).join("&");
+  const stringToSign = `POST&${percentEncode("/")}&${percentEncode(canonical)}`;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(`${secret}&`),
+    { name: "HMAC", hash: "SHA-1" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(stringToSign));
+  let bin = "";
+  const bytes = new Uint8Array(sig);
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+/**
+ * 阿里云配额 / 限流类错误判定。
+ * 命中后要做两件事：给用户友好提示，以及在 Worker 侧熔断（当天不再白跑阿里云）。
+ * 签名 / 鉴权类错误要排除掉 —— 那是配置问题，不是额度问题，熔断只会掩盖它。
+ */
+function isQuotaError(code, message) {
+  const s = `${code || ""} ${message || ""}`.toLowerCase();
+  if (/invalidaccesskey|signaturedoesnotmatch|unauthorized|forbidden|nosuch|notfound|invalidaccount/.test(s)) return false;
+  return /quota|limitexceeded|dailylimit|accountlimit|exceed|throttl|overload|toomany/.test(s);
+}
+
+/**
+ * 通过阿里云 DirectMail 发送单封邮件（SingleSendMail）。
+ * 失败时返回 { ok:false, error }，不会抛异常。
+ */
+async function sendMail(env, opts) {
+  const akId = env.DM_ACCESS_KEY_ID;
+  const akSecret = env.DM_ACCESS_KEY_SECRET;
+  const sender = env.DM_SENDER;
+  if (!akId || !akSecret || !sender) {
+    return { ok: false, error: "邮件服务尚未配置，暂无法发送验证码" };
+  }
+  /* 干跑模式：不真正调用阿里云，但把后面的校验流程全部跑完 */
+  if (env.DM_DRY_RUN === "1") return { ok: true, dryRun: true };
+
+  const params = {
+    AccessKeyId: akId,
+    Action: "SingleSendMail",
+    AccountName: sender,
+    AddressType: "1",
+    ReplyToAddress: "true",
+    Subject: opts.subject,
+    ToAddress: opts.to,
+    HtmlBody: opts.html,
+    TextBody: opts.text || "",
+    FromAlias: env.DM_FROM_ALIAS || "SolHub",
+    ClickTrace: "0",
+    Format: "JSON",
+    RegionId: env.DM_REGION_ID || "cn-hangzhou",
+    SignatureMethod: "HMAC-SHA1",
+    SignatureNonce: crypto.randomUUID(),
+    SignatureVersion: "1.0",
+    Timestamp: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+    Version: "2015-11-23",
+  };
+  if (env.DM_TAG) params.TagName = env.DM_TAG;
+
+  try {
+    const signature = await aliyunSignature(params, akSecret);
+    const body =
+      Object.keys(params).map((k) => `${percentEncode(k)}=${percentEncode(params[k])}`).join("&") +
+      `&Signature=${percentEncode(signature)}`;
+    const res = await fetch("https://dm.aliyuncs.com/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    const text = await res.text();
+    let data = {};
+    try { data = JSON.parse(text); } catch { /* 非 JSON 响应 */ }
+    if (!res.ok || data.Code) {
+      const code = data.Code || `HTTP${res.status}`;
+      const msg = data.Message || data.RequestId || text.slice(0, 200);
+      /* 配额类错误（免费额度用尽 / 日额度触顶）：置位熔断，当天不再反复去撞阿里云。
+         硬防线其实在阿里云控制台的「日发送量上限」——设成 200 封后超额邮件根本发不出去，
+         不会产生任何费用；这里只是让用户拿到一句人话而不是错误码。 */
+      if (isQuotaError(code, msg)) {
+        try {
+          await env.PROFILES.put("vcode:fuse", JSON.stringify({ until: Date.now() + 3600 * 1000, code }), {
+            expirationTtl: 7200,
+          });
+        } catch { /* 忽略 */ }
+        return { ok: false, quota: true, error: "今日验证码发送额度已用尽，请明天再试", detail: msg };
+      }
+      return { ok: false, error: `邮件发送失败（${code}）`, detail: msg };
+    }
+    return { ok: true, requestId: data.RequestId || "" };
+  } catch (e) {
+    return { ok: false, error: "邮件发送失败：网络异常，请稍后重试" };
+  }
+}
+
+/** 验证码邮件正文（HTML + 纯文本双份，兼容各家客户端） */
+function verificationMailHtml(code, purposeText, siteName) {
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1a1a1a">
+  <h2 style="margin:0 0 16px;font-size:20px">${siteName} 邮箱验证码</h2>
+  <p style="margin:0 0 16px;line-height:1.7;color:#444">${purposeText}</p>
+  <div style="margin:24px 0;padding:18px 20px;background:#f6f7f9;border-radius:10px;text-align:center">
+    <span style="font-size:32px;font-weight:700;letter-spacing:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${code}</span>
+  </div>
+  <p style="margin:0 0 8px;line-height:1.7;color:#666;font-size:13px">验证码 <strong>10 分钟</strong>内有效，仅可使用一次。若非本人操作，请忽略本邮件。</p>
+  <p style="margin:0;line-height:1.7;color:#999;font-size:12px">${siteName} 只会用这个邮箱给你发送验证码与账户安全通知。</p>
+</div>`;
+}
+
+/** 生成 6 位数字验证码（密码学随机） */
+function newVerifyCode() {
+  const buf = crypto.getRandomValues(new Uint32Array(1))[0];
+  return String(buf % 1000000).padStart(6, "0");
+}
+
+/**
+ * 验证码的存储结构 —— 「码即键」。
+ *
+ *   vcode:<用途>:<邮箱>:<验证码>   一枚验证码一个键，TTL 10 分钟
+ *   vcode:meta:<用途>:<邮箱>       { w 最近发码时间, s 窗口内次数, n 错误次数, l 锁定到 }
+ *
+ * 为什么不用「固定键存当前码」：
+ *   Cloudflare KV 是最终一致的，写完立刻读可能读到旧值。
+ *   如果把码存在固定键里，后一次发码会覆盖前一次，
+ *   而覆盖是否发生取决于读没读到旧值 —— 结果就是
+ *   「用户收到两封邮件，只有其中一封的码能用，注册直接失败」。
+ *   实测中这个故障反复出现（连续两次联调结果不一致）。
+ *
+ * 把验证码本身放进键名之后：
+ *   1. 多枚码天然并存、互不覆盖，用户手上任何一封邮件里的码都还有效；
+ *   2. 校验 = 按输入的码精确 get，命中即通过，不需要任何读-改-写；
+ *   3. 唯一性由 KV 保证（同一个码发两次也只是覆盖同一个键，值相同）。
+ */
+function vcodeKey(purpose, email, code) {
+  return `vcode:${purpose}:${email}:${code}`;
+}
+function vcodeMetaKey(purpose, email) {
+  return `vcode:meta:${purpose}:${email}`;
+}
+
+/**
+ * 猜错次数与锁定（存在 meta 键里，和冷却/窗口计数合并，省 KV 写）。
+ *
+ * 为什么不能用 Cache API 计数：
+ *   Cache 是 data center local，跨机房各算各的。实测连续猜错的提示在
+ *   4,4,3,2,3,2,1,1 之间乱跳 —— 计数根本不单调，锁定永远不触发。
+ *
+ * 为什么锁定要单独用「置位时间 l」而不是直接看计数 n：
+ *   KV 是最终一致，读-改-写会把更大的计数覆盖成更小的（偶发）。
+ *   而 l 一旦置上就持续写回（后续猜错时保留原值），只在「发新码」时清零，
+ *   所以锁定状态是稳定的，不会被回退抹掉。
+ *
+ * 安全边界不在这里 —— 在于「每次猜错都消耗 1 次 KV 写」：
+ *   KV 免费版每天 1000 次写，等于把全站每天的猜码次数钉死在 1000 次，
+ *   6 位码的命中率只有 0.1%/天。这道闸跟缓存无关，谁都绕不过。
+ */
+const VCODE_LOCK_AT = 3;        // 猜错达到该次数即锁定
+
+async function takeVCode(env, purpose, email, input) {
+  const code = String(input || "").trim();
+  if (!/^\d{6}$/.test(code)) return { ok: false, error: "验证码不正确" };
+  const metaKey = vcodeMetaKey(purpose, email);
+  const meta = (await kvGetJSON(env, metaKey, null)) || {};
+  const now = Date.now();
+  /* 已锁定：只挡「继续猜码」，发码不受影响（发码是用户唯一的自救手段） */
+  if (meta.l && now - meta.l < VCODE_TTL * 1000) {
+    return { ok: false, error: "验证码尝试次数过多，请重新获取验证码" };
+  }
+  /* 码即键：按输入的码精确查找，命中即通过 */
+  const key = vcodeKey(purpose, email, code);
+  if (!(await env.PROFILES.get(key))) {
+    const n = (meta.n || 0) + 1;
+    const l = meta.l || (n >= VCODE_LOCK_AT ? now : 0);
+    await env.PROFILES.put(metaKey, JSON.stringify({ ...meta, n, l }), { expirationTtl: VCODE_TTL });
+    return { ok: false, error: "验证码不正确" };
+  }
+  /* 命中：立即作废这一枚码（一次性使用） */
+  await env.PROFILES.delete(key);
+  return { ok: true };
+}
+
+/**
+ * 跟随 alias 链，找出该邮箱当前对应的有效账号邮箱。
+ * 用户改过邮箱后，旧邮箱记录会被删除，这里通过 alias:<old> → <new> 找回。
+ * 返回空串表示这个邮箱既不是现有账号，也不是任何账号的旧地址。
+ */
+async function resolveCurrentEmail(env, email) {
+  let cur = String(email || "").trim().toLowerCase();
+  for (let i = 0; i < 3; i++) {
+    if (!cur) return "";
+    if (await env.PROFILES.get(`user:${cur}`)) return cur;
+    const alias = await env.PROFILES.get(`alias:${cur}`);
+    if (!alias) return "";
+    cur = alias;
+  }
+  return "";
+}
+
+/** 用途 → 邮件里的一句话说明 */
+function vcodePurposeText(purpose) {
+  if (purpose === "register") return "欢迎加入 SolHub，请输入下面的验证码完成注册。";
+  if (purpose === "verify") return "请输入下面的验证码确认你的邮箱归属。";
+  if (purpose === "change") return "请输入下面的验证码以确认新邮箱归属，验证通过后邮箱才会切换。";
+  return "请输入下面的验证码以重置你的 SolHub 密码。";
+}
+
+/**
+ * 是否为联调请求：仅当 DM_DRY_RUN=1 且请求头带正确的联调密钥时成立。
+ * 生产环境不设 DM_DRY_RUN，因此这条路径不存在；联调时可绕过「同 IP 限流」，
+ * 免得调试过程中的计数把后续验证全部挡在门外。
+ */
+function isDevRequest(request, env) {
+  return env.DM_DRY_RUN === "1" && !!env.DM_DEV_KEY && request.headers.get("X-Dev-Key") === env.DM_DEV_KEY;
+}
+
+/**
+ * 下发一枚验证码：多重限流 → 写 KV → 发信 → 记账。
+ *
+ * 关键设计（都是踩过坑之后定下来的）：
+ *  1. 每枚验证码单独占一个 KV 键（键里带码），多枚码互不覆盖，
+ *     用户手上任何一封邮件里的码都还能用 —— 见 vcodeKey 的注释。
+ *  2. 冷却 / 窗口次数记在 meta 键里。KV 最终一致会让这几个计数偶尔失效，
+ *     但失效的后果只是「多发一封邮件」，而不是「用户的码被作废」，这是可接受的降级。
+ *  3. 每日预算放 Cache API（0 次 KV 写）做软防线；真正的硬防线是
+ *     阿里云控制台里的「日发送量上限」——设成 200 封后超额邮件直接发不出去，
+ *     不会产生任何费用；Worker 侧再对配额类错误做熔断，避免反复去撞阿里云。
+ * 返回 { status, body }，由调用方直接 json() 输出。
+ */
+async function issueCode(request, env, purpose, target) {
+  const devMode = isDevRequest(request, env);
+  const now = Date.now();
+  const metaKey = vcodeMetaKey(purpose, target);
+
+  /* 1) 熔断标记：阿里云返回配额类错误后置位，当天不再白跑 */
+  const fuse = await kvGetJSON(env, "vcode:fuse", null);
+  if (!devMode && fuse && fuse.until && fuse.until > now) {
+    return { status: 429, body: { error: "今日验证码发送额度已用尽，请明天再试" } };
+  }
+
+  /* 2) 全站每日预算（软防线；硬防线是阿里云控制台的日发送量上限） */
+  const dayKey = `vcode:day:${new Date().toISOString().slice(0, 10)}`;
+  const day = await rateLimitPeek(dayKey);
+  if (!devMode && day.count >= VCODE_DAILY_BUDGET) {
+    return { status: 429, body: { error: "今日验证码发送额度已用尽，请明天再试" } };
+  }
+
+  /* 3) 元数据：冷却 / 窗口次数 */
+  const meta = (await kvGetJSON(env, metaKey, null)) || {};
+  if (meta.w && now - meta.w < VCODE_COOLDOWN * 1000) {
+    return { status: 429, body: { error: `请 ${retryAfterSec(meta.w, VCODE_COOLDOWN)} 秒后再获取验证码` } };
+  }
+  if ((meta.s || 0) >= VCODE_WINDOW_MAX) {
+    return { status: 429, body: { error: `同一邮箱 10 分钟内最多获取 ${VCODE_WINDOW_MAX} 次验证码，请 ${retryAfterSec(meta.w || now, VCODE_TTL)} 秒后再试` } };
+  }
+
+  /* 4) 同一 IP 每小时最多 10 次（Cache：机房内粗粒度兜底，跨机房不共享，仅作辅助） */
+  const ipKey = `vcode:ip:${clientIp(request).replace(/[^a-zA-Z0-9.:_-]/g, "")}`;
+  const ip = await rateLimitPeek(ipKey);
+  if (!devMode && ip.count >= 10) {
+    return { status: 429, body: { error: `发码过于频繁，请 ${retryAfterSec(ip.startedAt, 3600)} 秒后再试` } };
+  }
+
+  /* 5) 落码：一枚码一个键，天然并存、互不覆盖 */
+  const code = newVerifyCode();
+  await env.PROFILES.put(vcodeKey(purpose, target, code), JSON.stringify({ t: now }), {
+    expirationTtl: VCODE_TTL,
+  });
+  /* 6) 更新元数据：冷却起点 + 窗口次数，并清零猜错次数与锁定
+        （重新发码 = 用户自救，给回新的 5 次机会） */
+  await env.PROFILES.put(metaKey, JSON.stringify({
+    w: now,
+    s: (meta.s || 0) + 1,
+    n: 0,
+    l: 0,
+  }), { expirationTtl: VCODE_TTL });
+
+  const sent = await sendMail(env, {
+    to: target,
+    subject: `【SolHub】邮箱验证码 ${code}`,
+    html: verificationMailHtml(code, vcodePurposeText(purpose), "SolHub"),
+    text: `你的 SolHub 验证码是 ${code}，10 分钟内有效，仅可使用一次。${vcodePurposeText(purpose)}`,
+  });
+  if (!sent.ok) {
+    /* 发信失败：撤掉这枚码，让用户可以立即重试 */
+    await env.PROFILES.delete(vcodeKey(purpose, target, code));
+    if (sent.quota) {
+      return { status: 429, body: { error: "今日验证码发送额度已用尽，请明天再试" } };
+    }
+    return { status: 502, body: { error: sent.error } };
+  }
+  await rateLimitHit(ipKey, 3600);
+  await rateLimitHit(dayKey, 86400);
+  /* 干跑模式：只有在同时提供正确的联调密钥时才回传验证码。
+     生产环境不设 DM_DRY_RUN，因此这条路径根本不存在。 */
+  return { status: 200, body: { ok: true, sent: true, cooldown: VCODE_COOLDOWN, ...(devMode ? { devCode: code } : {}) } };
 }
 
 function newId() {
@@ -977,6 +1372,140 @@ export default {
       return new Response(null, { status: 204, headers: corsFor(request) });
     }
 
+    /* ---------- 邮箱验证码 ---------- */
+    if (url.pathname === "/auth/send-code" && request.method === "POST") {
+      let body;
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const email = String(body.email || "").trim().toLowerCase();
+      const purpose = String(body.purpose || "register");
+      if (!EMAIL_RE.test(email)) return json(request, { error: "邮箱格式不正确" }, 400);
+      if (!VCODE_PURPOSES.includes(purpose)) return json(request, { error: "无效的验证码用途" }, 400);
+
+      let target = email;
+      if (purpose === "verify" || purpose === "change") {
+        const identity = await getIdentity(request, env);
+        if (!identity || identity.type !== "email") return json(request, { error: "请先登录" }, 401);
+        if (purpose === "verify") target = identity.user.email;
+        if (purpose === "change") {
+          if (email === identity.user.email) return json(request, { error: "新邮箱与当前邮箱相同" }, 400);
+          if (await env.PROFILES.get(`user:${email}`)) return json(request, { error: "该邮箱已被注册" }, 409);
+        }
+      }
+      if (purpose === "register" && (await env.PROFILES.get(`user:${email}`))) {
+        return json(request, { error: "该邮箱已注册，请直接登录" }, 409);
+      }
+      const out = await issueCode(request, env, purpose, target);
+      return json(request, out.body, out.status);
+    }
+
+    /* 验证「当前邮箱」归属（已登录用户） */
+    if (url.pathname === "/auth/verify-email" && request.method === "POST") {
+      const identity = await getIdentity(request, env);
+      if (!identity || identity.type !== "email") return json(request, { error: "请先登录" }, 401);
+      let body;
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const code = String(body.code || "").trim();
+      const email = identity.user.email;
+      const v = await takeVCode(env, "verify", email, code);
+      if (!v.ok) return json(request, { error: v.error }, 400);
+      const key = `user:${email}`;
+      const user = await kvGetJSON(env, key, null);
+      if (!user) return json(request, { error: "用户不存在" }, 404);
+      user.emailVerified = true;
+      await env.PROFILES.put(key, JSON.stringify(user));
+      return json(request, { ok: true, emailVerified: true });
+    }
+
+    /* 修改邮箱：必须先验证新邮箱，通过后才切换 */
+    if (url.pathname === "/auth/change-email" && request.method === "POST") {
+      const identity = await getIdentity(request, env);
+      if (!identity || identity.type !== "email") return json(request, { error: "请先登录" }, 401);
+      let body;
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const newEmail = String(body.newEmail || "").trim().toLowerCase();
+      const code = String(body.code || "").trim();
+      const oldEmail = identity.user.email;
+      if (!EMAIL_RE.test(newEmail)) return json(request, { error: "邮箱格式不正确" }, 400);
+      if (newEmail === oldEmail) return json(request, { error: "新邮箱与当前邮箱相同" }, 400);
+      if (await env.PROFILES.get(`user:${newEmail}`)) return json(request, { error: "该邮箱已被注册" }, 409);
+      const v = await takeVCode(env, "change", newEmail, code);
+      if (!v.ok) return json(request, { error: v.error }, 400);
+
+      const oldKey = `user:${oldEmail}`;
+      const user = await kvGetJSON(env, oldKey, null);
+      if (!user) return json(request, { error: "用户不存在" }, 404);
+      user.email = newEmail;
+      user.emailVerified = true;
+      user.emailPublic = false; /* 换了邮箱先收回公开状态，需要用户重新开启 */
+      await env.PROFILES.put(`user:${newEmail}`, JSON.stringify(user));
+      await env.PROFILES.delete(oldKey);
+      /* 别名：让改邮箱前签发的旧会话仍能定位到账号 */
+      await env.PROFILES.put(`alias:${oldEmail}`, newEmail);
+      if (user.handle) await env.PROFILES.put(`handle:${user.handle}`, newEmail);
+      const ban = await env.PROFILES.get(`ban:${oldEmail}`);
+      if (ban) {
+        await env.PROFILES.put(`ban:${newEmail}`, ban);
+        await env.PROFILES.delete(`ban:${oldEmail}`);
+      }
+      /* 通知旧邮箱（best-effort：提醒本人邮箱已被更换，不影响切换结果） */
+      const notice = sendMail(env, {
+        to: oldEmail,
+        subject: "【SolHub】你的账号邮箱已变更",
+        html: `<div style="font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1a1a1a">
+          <h2 style="margin:0 0 16px;font-size:20px">SolHub 账号邮箱已变更</h2>
+          <p style="margin:0 0 12px;line-height:1.7;color:#444">你的 SolHub 账号登录邮箱已从 <strong>${oldEmail}</strong> 变更为 <strong>${newEmail}</strong>。</p>
+          <p style="margin:0;line-height:1.7;color:#666;font-size:13px">如果这不是你本人的操作，请立即重置密码：${SITE_BASE}/forgot-password/</p>
+        </div>`,
+        text: `你的 SolHub 账号登录邮箱已变更为 ${newEmail}。若非本人操作，请立即重置密码。`,
+      }).catch(() => ({}));
+      if (ctx && ctx.waitUntil) ctx.waitUntil(notice);
+      return json(request, { ok: true, email: newEmail, emailVerified: true });
+    }
+
+    /* 找回密码：无论账号是否存在都返回同样的结果，避免账号枚举 */
+    if (url.pathname === "/auth/forgot-password" && request.method === "POST") {
+      let body;
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const email = String(body.email || "").trim().toLowerCase();
+      if (!EMAIL_RE.test(email)) {
+        return json(request, { ok: true, message: "如果该邮箱已注册，我们会发送验证码，请查收（含垃圾箱）" });
+      }
+      /* 若这个邮箱是某个账号的旧地址（用户改过邮箱），验证码发到当前的新邮箱 */
+      const current = await resolveCurrentEmail(env, email);
+      if (current) {
+        const out = await issueCode(request, env, "reset", current);
+        if (out.status !== 200) return json(request, out.body, out.status);
+      }
+      return json(request, { ok: true, message: "如果该邮箱已注册，我们会发送验证码，请查收（含垃圾箱）" });
+    }
+
+    /* 重置密码：校验验证码 → 改密 → 旧会话全部失效 → 给用户一个新会话 */
+    if (url.pathname === "/auth/reset-password" && request.method === "POST") {
+      let body;
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const email = String(body.email || "").trim().toLowerCase();
+      const code = String(body.code || "").trim();
+      const newPassword = String(body.newPassword || "");
+      if (!EMAIL_RE.test(email)) return json(request, { error: "邮箱格式不正确" }, 400);
+      if (newPassword.length < 8) return json(request, { error: "密码至少 8 位" }, 400);
+      const current = await resolveCurrentEmail(env, email);
+      if (!current) return json(request, { error: "验证码不正确或已过期" }, 400);
+      const key = `user:${current}`;
+      const user = await kvGetJSON(env, key, null);
+      if (!user) return json(request, { error: "验证码不正确或已过期" }, 400);
+      const v = await takeVCode(env, "reset", current, code);
+      if (!v.ok) return json(request, { error: v.error }, 400);
+      const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
+      const passHash = await hashPassword(newPassword, salt);
+      user.passSalt = salt;
+      user.passHash = passHash;
+      /* 密码版本号 +1：所有旧会话的版本对不上，自动失效 */
+      user.pwdVersion = (user.pwdVersion || 0) + 1;
+      await env.PROFILES.put(key, JSON.stringify(user));
+      const cookie = await createSession(request, env, current);
+      return json(request, { ok: true, message: "密码已重置，请用新密码登录" }, 200, cookie);
+    }
+
     /* ---------- 邮箱注册 ---------- */
     if (url.pathname === "/auth/register" && request.method === "POST") {
       let body;
@@ -984,6 +1513,7 @@ export default {
       const email = String(body.email || "").trim().toLowerCase();
       const password = String(body.password || "");
       const displayName = String(body.displayName || "").trim().slice(0, 40);
+      const code = String(body.code || "").trim();
       const wanted = normalizeHandle(body.handle);
       if (!EMAIL_RE.test(email)) return json(request, { error: "邮箱格式不正确" }, 400);
       if (password.length < 8) return json(request, { error: "密码至少 8 位" }, 400);
@@ -993,13 +1523,14 @@ export default {
       if (wanted && RESERVED_HANDLES.has(wanted)) return json(request, { error: "该用户名不可用" }, 409);
       if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
 
-      /* 限流：同一 IP 每小时最多注册 5 个账号，挡住批量注册/刷号 */
-      const regKey = `register:ip:${clientIp(request)}`;
+      /* 限流：同一 IP 每小时最多注册 5 个账号，挡住批量注册/刷号。
+         只统计「成功注册」——输错验证码不计数，否则用户手滑输错几次就被锁一小时。
+         （要刷号也得先拿到邮箱验证码，成本远高于此处的计数。） */
+      const regKey = `register:ip:${clientIp(request).replace(/[^a-zA-Z0-9.:_-]/g, "")}`;
       const reg = await rateLimitPeek(regKey);
-      if (reg.count >= 5) {
+      if (!isDevRequest(request, env) && reg.count >= 5) {
         return json(request, { error: `注册过于频繁，请 ${retryAfterSec(reg.startedAt, 3600)} 秒后再试` }, 429);
       }
-      await rateLimitHit(regKey, 3600);
 
       const key = `user:${email}`;
       if (await env.PROFILES.get(key)) {
@@ -1008,14 +1539,29 @@ export default {
       if (wanted && (await env.PROFILES.get(`handle:${wanted}`))) {
         return json(request, { error: "该用户名已被使用，换一个试试" }, 409);
       }
+
+      /* 邮箱验证：
+         邮件通道就绪时必须带验证码；通道未配置（或显式关闭）时降级放行，
+         账号标记为「未验证」，用户可在「我」页面随时补验。 */
+      const mailReady = !!(env.DM_ACCESS_KEY_ID && env.DM_ACCESS_KEY_SECRET && env.DM_SENDER);
+      const requireVerify = env.REQUIRE_EMAIL_VERIFY === "1" || (env.REQUIRE_EMAIL_VERIFY !== "0" && mailReady);
+      if (requireVerify) {
+        if (!code) return json(request, { error: "请输入邮箱验证码" }, 400);
+        const v = await takeVCode(env, "register", email, code);
+        if (!v.ok) return json(request, { error: v.error }, 400);
+      }
+
       const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
       const passHash = await hashPassword(password, salt);
       const handle = await allocateHandle(env, email, wanted);
       await env.PROFILES.put(key, JSON.stringify({
-        email, handle, displayName, passSalt: salt, passHash, createdAt: new Date().toISOString(),
+        email, handle, displayName, passSalt: salt, passHash,
+        emailVerified: requireVerify,
+        createdAt: new Date().toISOString(),
       }));
+      await rateLimitHit(regKey, 3600);
       const cookie = await createSession(request, env, email);
-      return json(request, { ok: true, user: { login: handle, handle, email, displayName } }, 200, cookie);
+      return json(request, { ok: true, user: { login: handle, handle, email, displayName, emailVerified: requireVerify } }, 200, cookie);
     }
 
     /* ---------- 邮箱登录 ---------- */
@@ -1043,6 +1589,20 @@ export default {
       /* 无论账号是否存在都做一次同样的 PBKDF2 运算，避免用响应耗时探测账号是否注册 */
       const hash = await hashPassword(password, (user && user.passSalt) || "AAAAAAAAAAAAAAAAAAAAAA==");
       if (!user || hash !== user.passHash) {
+        /* 这个邮箱曾经是某个账号的登录邮箱（用户改过邮箱）：核对密码后给出明确提示。
+           只有密码正确才提示「邮箱已变更」，因此不会泄露账号是否存在。 */
+        if (!user) {
+          const current = await resolveCurrentEmail(env, email);
+          if (current) {
+            const moved = await kvGetJSON(env, `user:${current}`, null);
+            if (moved && moved.passSalt) {
+              const movedHash = await hashPassword(password, moved.passSalt);
+              if (movedHash === moved.passHash) {
+                return json(request, { error: "该邮箱已不再用于登录，请使用新邮箱登录", movedTo: current }, 409);
+              }
+            }
+          }
+        }
         await rateLimitHit(acctKey, 900);
         await rateLimitHit(ipKey, 900);
         return json(request, { error: "邮箱或密码错误" }, 401);
@@ -1154,6 +1714,7 @@ export default {
             website: u.website,
             contact: (rec && rec.contact) || "",
             emailPublic: !!(rec && rec.emailPublic),
+            emailVerified: !!(rec && rec.emailVerified),
             avatar: u.avatar || "",
           });
         }
@@ -1204,8 +1765,13 @@ export default {
           if (!raw) return json(request, { error: "user not found" }, 404);
           const user = JSON.parse(raw);
           Object.assign(user, allowed);
-          /* 邮箱是否公开：默认关闭，只有用户主动开启才会出现在公开资料里 */
-          user.emailPublic = body.emailPublic === true;
+          /* 邮箱是否公开：默认关闭，只有用户主动开启才会出现在公开资料里。
+             未验证过的邮箱不允许公开——否则任何人都能用别人的邮箱冒充身份。 */
+          const wantPublic = body.emailPublic === true;
+          if (wantPublic && !user.emailVerified) {
+            return json(request, { error: "请先完成邮箱验证，再公开邮箱地址" }, 400);
+          }
+          user.emailPublic = wantPublic;
           if (nextHandle) {
             const prevHandle = normalizeHandle(user.handle || "");
             if (prevHandle) await env.PROFILES.delete(`handle:${prevHandle}`);
@@ -1978,8 +2544,9 @@ export default {
             location: user?.location || "",
             website: user?.website || "",
             contact: user?.contact || author.contact || "",
-            /* 邮箱默认不公开；只有用户本人开启「公开邮箱」后才展示 */
-            email: user?.emailPublic ? (user.email || "") : "",
+            /* 邮箱默认不公开；只有用户本人开启「公开邮箱」且邮箱已验证后才展示 */
+            email: user?.emailPublic && user?.emailVerified ? (user.email || "") : "",
+            emailVerified: !!user?.emailVerified,
             joinedAt: user?.createdAt || "",
             verified: !!user?.verified,
             banned: !!ban,

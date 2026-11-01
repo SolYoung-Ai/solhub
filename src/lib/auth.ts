@@ -26,6 +26,8 @@ export interface AuthUser {
   contact?: string;
   /** 是否在公开资料里展示注册邮箱（默认不公开） */
   emailPublic?: boolean;
+  /** 邮箱是否已完成验证（验证后才允许公开邮箱） */
+  emailVerified?: boolean;
   authType?: "email" | "github";
   /** 黄V 认证 */
   verified?: boolean;
@@ -56,18 +58,125 @@ export interface AuthResult {
   error?: string;
 }
 
-/** 邮箱 + 密码注册（成功即自动登录）。 */
-export async function registerEmail(email: string, password: string, displayName?: string, handle?: string): Promise<AuthResult> {
+/** 邮箱 + 密码注册（成功即自动登录）。code 为邮箱验证码。 */
+export async function registerEmail(
+  email: string,
+  password: string,
+  displayName?: string,
+  handle?: string,
+  code?: string,
+): Promise<AuthResult> {
   try {
     const res = await fetch(`${base()}/auth/register`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, displayName: displayName || "", handle: handle || "" }),
+      body: JSON.stringify({ email, password, displayName: displayName || "", handle: handle || "", code: code || "" }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `注册失败（${res.status}）` };
     return { ok: true, user: data.user };
+  } catch {
+    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+  }
+}
+
+/** 验证码用途 */
+export type VerifyPurpose = "register" | "verify" | "change" | "reset";
+
+/**
+ * 请求下发邮箱验证码。
+ * purpose：register 注册 / verify 验证当前邮箱 / change 验证新邮箱 / reset 找回密码。
+ */
+export async function sendVerifyCode(
+  email: string,
+  purpose: VerifyPurpose,
+): Promise<{ ok: boolean; error?: string; cooldown?: number }> {
+  try {
+    const res = await fetch(`${base()}/auth/send-code`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, purpose }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.error || `验证码发送失败（${res.status}）` };
+    return { ok: true, cooldown: data.cooldown || 60 };
+  } catch {
+    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+  }
+}
+
+/** 验证「当前邮箱」归属（已登录用户）。 */
+export async function verifyEmail(code: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${base()}/auth/verify-email`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.error || `验证失败（${res.status}）` };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+  }
+}
+
+/** 更换登录邮箱：必须先通过新邮箱的验证码验证，服务端才会切换。 */
+export async function changeEmail(
+  newEmail: string,
+  code: string,
+): Promise<{ ok: boolean; error?: string; email?: string }> {
+  try {
+    const res = await fetch(`${base()}/auth/change-email`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newEmail, code }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.error || `更换失败（${res.status}）` };
+    return { ok: true, email: data.email };
+  } catch {
+    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+  }
+}
+
+/** 找回密码：请求发送重置验证码（无论账号是否存在都返回同样结果）。 */
+export async function requestPasswordReset(email: string): Promise<{ ok: boolean; error?: string; message?: string }> {
+  try {
+    const res = await fetch(`${base()}/auth/forgot-password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.error || `发送失败（${res.status}）` };
+    return { ok: true, message: data.message };
+  } catch {
+    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+  }
+}
+
+/** 重置密码：校验验证码后设置新密码，旧会话全部失效。 */
+export async function resetPassword(
+  email: string,
+  code: string,
+  newPassword: string,
+): Promise<{ ok: boolean; error?: string; message?: string }> {
+  try {
+    const res = await fetch(`${base()}/auth/reset-password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code, newPassword }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.error || `重置失败（${res.status}）` };
+    return { ok: true, message: data.message };
   } catch {
     return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
   }

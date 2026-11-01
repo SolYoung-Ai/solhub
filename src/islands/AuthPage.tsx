@@ -15,6 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import { loginEmail, registerEmail } from "@/lib/auth";
+import VerifyCodeField from "@/components/VerifyCodeField";
 import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 
@@ -30,6 +31,7 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [handle, setHandle] = useState("");
+  const [code, setCode] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +68,9 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
         ? "Username must be 3–20 characters: start with a letter, then letters, digits or underscore."
         : "用户名需 3–20 位，字母开头，只能是小写字母、数字或下划线。";
     }
+    if (mode === "register" && code.length !== 6) {
+      return en ? "Please enter the 6-digit verification code from your email." : "请输入邮箱里的 6 位验证码。";
+    }
     return null;
   };
 
@@ -76,7 +81,7 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
     setError(null);
     const result = mode === "login"
       ? await loginEmail(email.trim(), password)
-      : await registerEmail(email.trim(), password, displayName.trim(), handle.trim());
+      : await registerEmail(email.trim(), password, displayName.trim(), handle.trim(), code.trim());
     setBusy(false);
     if (!result.ok) {
       setError(result.error || (en ? "Something went wrong." : "操作失败，请重试。"));
@@ -228,7 +233,7 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                    onChange={(e) => { setEmail(e.target.value); setError(null); setCode(""); }}
                     placeholder="you@example.com"
                     autoComplete="email"
                     autoFocus
@@ -237,6 +242,17 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
                   />
                 </div>
               </label>
+
+              {mode === "register" && (
+                <VerifyCodeField
+                  email={email}
+                  purpose="register"
+                  code={code}
+                  onCodeChange={setCode}
+                  onError={setError}
+                  locale={locale}
+                />
+              )}
 
               <label className="block">
                 <span className="label">{en ? "Password" : "密码"}</span>

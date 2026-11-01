@@ -42,7 +42,8 @@ const copy = en
         points: [
           "After login we set one cookie, <code>solhub_session</code>: HttpOnly, Secure, valid for 30 days. The server only stores the mapping between session ID and account.",
           "Logging out deletes the session record and clears the cookie immediately.",
-          "There is no self-service password reset yet — write to the contact address below and we will reset it for you.",
+          "Email verification codes are sent through Alibaba Cloud DirectMail and expire after 10 minutes. Change your email and the old address gets a notice too.",
+          "You can reset your password yourself on the “forgot password” page: the code goes to your registered email, and every other session is signed out afterwards.",
         ],
       },
       collect: {
@@ -52,6 +53,11 @@ const copy = en
           {
             k: "Sign-up",
             v: "Email address (kept private), display name, password hash. Required to use an account.",
+            pub: false,
+          },
+          {
+            k: "Email verification",
+            v: "A 6-digit code sent to your address, plus whether the address has been verified. The code is stored for at most 10 minutes and can be used only once.",
             pub: false,
           },
           {
@@ -87,7 +93,7 @@ const copy = en
       },
       where: {
         title: "Where data lives",
-        intro: "Two providers, both outside mainland China, so your data may be stored outside your country.",
+        intro: "Three providers. Cloudflare and GitHub are outside mainland China, so some of your data may be stored outside your country; the email provider only ever sees the address and message needed to deliver a code.",
         items: [
           {
             k: "Accounts, profiles, posts, comments, likes, follows",
@@ -100,6 +106,10 @@ const copy = en
           {
             k: "The pages themselves",
             v: "Static hosting on GitHub Pages. As infrastructure providers, Cloudflare and GitHub may keep standard access logs (IP, user agent, timestamp).",
+          },
+          {
+            k: "Verification & notification emails",
+            v: "Alibaba Cloud DirectMail (dm.aliyuncs.com). Your address and the message body pass through their sending infrastructure so the code can be delivered.",
           },
           {
             k: "Web fonts",
@@ -198,7 +208,8 @@ const copy = en
         points: [
           "登录后写入一枚 Cookie（<code>solhub_session</code>）：HttpOnly、Secure，有效期 30 天。服务端只保存「会话 ID → 账号」的对应关系。",
           "退出登录会立刻删除服务端会话记录并清除这枚 Cookie。",
-          "目前还没有自助找回密码，忘记密码请发邮件到下面的联系邮箱，我们帮你重置。",
+          "邮箱验证码通过阿里云邮件推送发送，10 分钟内有效；更换邮箱时旧邮箱也会收到一条变更通知。",
+          "可以在「忘记密码」页面自助重置：验证码发到注册邮箱，重置成功后其他设备上的登录状态会自动失效。",
         ],
       },
       collect: {
@@ -208,6 +219,11 @@ const copy = en
           {
             k: "注册信息",
             v: "邮箱（不公开）、显示名、密码哈希。使用账号所必需。",
+            pub: false,
+          },
+          {
+            k: "邮箱验证",
+            v: "发到该邮箱的 6 位验证码，以及「是否已验证」这个状态。验证码最多保存 10 分钟，且只能使用一次。",
             pub: false,
           },
           {
@@ -243,7 +259,7 @@ const copy = en
       },
       where: {
         title: "数据存在哪里",
-        intro: "两家服务商都部署在境外，因此你的数据可能存储在中国大陆以外。",
+        intro: "三家服务商。Cloudflare 与 GitHub 部署在境外，因此部分数据可能存储在中国大陆以外；邮件服务商只接触投递验证码所必需的邮箱地址与邮件内容。",
         items: [
           {
             k: "账号、资料、帖子、评论、点赞、关注",
@@ -256,6 +272,10 @@ const copy = en
           {
             k: "页面本身",
             v: "GitHub Pages 静态托管。Cloudflare 与 GitHub 作为基础设施服务商，可能保留常规访问日志（IP、浏览器标识、时间）。",
+          },
+          {
+            k: "验证与通知邮件",
+            v: "阿里云邮件推送（DirectMail，dm.aliyuncs.com）。为把验证码投递到你的邮箱，邮箱地址与邮件正文会经过它的发信通道。",
           },
           {
             k: "网页字体",

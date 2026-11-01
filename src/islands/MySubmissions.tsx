@@ -15,6 +15,7 @@ import {
   Trash2,
   User,
 } from "lucide-react";
+import EmailSecurity from "@/components/EmailSecurity";
 import { p } from "@/lib/paths";
 import { avatarOf, fetchMe, logout, resizeImageToDataUrl, saveProfile, type AuthUser } from "@/lib/auth";
 import { ensureHttps } from "@/lib/utils";
@@ -419,6 +420,17 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                 </span>
               </div>
             </div>
+
+            {!isGithub && user.email && (
+              <EmailSecurity
+                email={user.email}
+                verified={!!user.emailVerified}
+                locale={locale}
+                onChanged={(next) =>
+                  setUser((u) => (u ? { ...u, email: next, emailVerified: true } : u))
+                }
+              />
+            )}
           </div>
         ) : (
           /* 编辑资料 */
