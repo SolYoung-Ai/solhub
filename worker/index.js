@@ -169,6 +169,17 @@ async function sidOf(env, pidOrSid) {
 }
 
 /** 公开用户快照（入参是 PID，接受旧邮箱） */
+/**
+ * 判断账号是否真实存在。
+ * 邮箱账号看 `user:<email>`，GitHub 账号看 `profile:<login>`（登录时已创建）。
+ * 用于挡住「随便一个名字都能打开一个空白主页」的幽灵主页。
+ */
+async function accountExists(env, sid) {
+  if (!sid) return false;
+  if (isEmailLogin(sid)) return !!(await env.PROFILES.get(`user:${sid}`));
+  return !!(await env.PROFILES.get(`profile:${sid}`));
+}
+
 async function publicUser(env, pidOrSid) {
   const sid = await sidOf(env, pidOrSid);
   if (!sid) return { login: "", name: "", avatar: "" };
@@ -1074,6 +1085,23 @@ export default {
       });
       const tokenData = await tokenRes.json();
       if (!tokenData.access_token) return json(request, { error: "token exchange failed" }, 400);
+      /* 写一份最小资料，保证这个 GitHub 账号的主页地址真实存在（否则任意名字都能生成空白主页） */
+      if (env.PROFILES) {
+        try {
+          const ghRes = await fetch(`${API}/user`, {
+            headers: { Authorization: `Bearer ${tokenData.access_token}`, "User-Agent": "SolHub" },
+          });
+          const ghUser = await ghRes.json();
+          if (ghUser && ghUser.login && !(await env.PROFILES.get(`profile:${ghUser.login}`))) {
+            await env.PROFILES.put(`profile:${ghUser.login}`, JSON.stringify({
+              displayName: ghUser.name || ghUser.login,
+              avatar: ghUser.avatar_url || "",
+              website: ghUser.blog || "",
+              createdAt: new Date().toISOString(),
+            }));
+          }
+        } catch { /* 拿不到资料也不影响登录 */ }
+      }
       const cookie = `solhub_token=${encodeURIComponent(tokenData.access_token)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=2592000`;
       return redirect(request, `${SITE_BASE}/my-submissions/`, { "Set-Cookie": cookie });
     }
@@ -1900,6 +1928,10 @@ export default {
       const viewerPid = viewer ? await pidOf(env, viewer) : null;
       const targetSid = rawTarget ? await sidOf(env, rawTarget) : "";
       if (!targetSid) return json(request, { error: "用户不存在" }, 404);
+      /* 账号必须真实存在，否则任意字符串都会生成一个空白"幽灵主页" */
+      if (!(await accountExists(env, targetSid))) {
+        return json(request, { error: "用户不存在" }, 404);
+      }
       const targetPid = await pidOf(env, targetSid);
 
       if (action === "follow" && request.method === "POST") {
