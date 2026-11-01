@@ -7,7 +7,8 @@
  *   2. GitHub OAuth（原有通道）：solhub_token cookie
  *
  * KV 绑定 PROFILES：
- *   user:<email>      邮箱用户记录（含密码哈希与个人资料）
+ *   user:<email>      邮箱用户记录（个人资料；密码哈希不存这里）
+ *   pw:<email>        密码凭据 { s:盐, h:哈希, v:密码版本号 }（与资料分键，见下）
  *   session:<id>      会话（{email, handle, pwdVersion, createdAt}，30 天 TTL）
  *   profile:<login>   GitHub 用户的展示资料（兼容保留）
  *   handle:<handle>   用户名 → 邮箱索引（公开标识解析用）
@@ -27,6 +28,10 @@
  *      校验 = 按输入的码精确查找，不依赖任何读-改-写。
  *   3. 每日发码预算的硬防线在阿里云控制台的「日发送量上限」（设 200 封），
  *      超额邮件直接发不出去、不会产生费用；Worker 侧只做软提示与熔断。
+ *   4. 密码凭据与个人资料分键存（pw:<email> vs user:<email>）：
+ *      改密码只需要改密码，若把密码留在资料记录里，「读-改-整条写回」就会把
+ *      KV 边缘缓存里的旧快照写回去，把后改的头像/简介等字段覆盖掉。
+ *      分键后改密码与资料彻底解耦，两个方向都不会互相覆盖。
  *
  * 标识分层（重要）：
  *   SID（内部标识）= 邮箱 / GitHub 用户名，只用于 KV 键、登录态、封禁、限流，永不出现在公开响应里。
@@ -111,6 +116,94 @@ async function hashPassword(password, saltB64) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/* ---------------- 密码凭据独立存放 ----------------
+   密码相关字段单独放一个 KV 键：pw:<email> = { s:盐, h:哈希, v:密码版本号 }。
+   改密码时只写这个键，绝不整条重写 user:<email>。
+
+   为什么：Cloudflare KV 是最终一致的，读可能拿到边缘缓存里的旧记录。
+   如果「读-改-整条写回」，那份旧记录会把后写进去的字段（头像、简介…）覆盖掉 ——
+   实测「上传头像后立刻改密码」会把头像抹掉。密码与资料分键后互不牵连。
+
+   凭据的读法与其它数据不同：**不走读穿缓存，只读 KV 边缘（TTL 30s）**。
+   读穿缓存是机房本地的、条目 TTL 长达一年，而改密只会在写入的那个机房刷新它，
+   其它机房可能一直拿着旧凭据 —— 表现为「刚改完密码，用新密码登录有几率被判密码错误」。
+   直接读 KV 边缘，不一致窗口被压到 30 秒且必然自愈。
+
+   老账号的凭据仍在 user:* 里，verifyCredential 会在首次验证时顺手迁移。
+
+   已知限制（Cloudflare KV 的最终一致性，改动前就存在，不是这次新引入的）：
+   改密后「旧密码」在别的机房最多还能通过 30~60 秒，旧会话也会在这段时间内继续有效
+   （随边缘缓存刷新而失效）。要做到全机房瞬时一致需要 Durable Objects，当前架构不划算。 */
+
+/** 读凭据：绕开读穿缓存，只走 KV 边缘（30s TTL），避免拿到长期陈旧的值 */
+async function readCredentialKey(env, key) {
+  const raw = await env.PROFILES.get(key, { cacheTtl: 30 });
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+/** 读候选凭据，顺序即优先级（新的在前） */
+async function readCredentialCandidates(env, email) {
+  const out = [];
+  const latest = await readCredentialKey(env, `pwnew:${email}`);
+  if (latest && latest.h && latest.s) out.push({ salt: latest.s, hash: latest.h, ver: latest.v || 0 });
+  const cur = await readCredentialKey(env, `pw:${email}`);
+  if (cur && cur.h && cur.s) out.push({ salt: cur.s, hash: cur.h, ver: cur.v || 0 });
+  return out;
+}
+
+/** 写密码凭据：只碰 pw:* 与 pwnew:*，绝不改资料记录 */
+async function writeCredential(env, email, salt, hash, ver, extra) {
+  const raw = JSON.stringify({ s: salt, h: hash, v: ver || 0, ...(extra || {}) });
+  await env.PROFILES.put(`pw:${email}`, raw);
+  await env.PROFILES.put(`pwnew:${email}`, raw);
+}
+
+/** 当前生效的凭据（用于取密码版本号）：优先用最近一次设置的那份 */
+async function readCredential(env, email) {
+  const cands = await readCredentialCandidates(env, email);
+  if (cands.length) return cands[0];
+  /* 老账号兜底：凭据还在 user:* 里，迁移到新键（迁移失败也不影响本次验证） */
+  const user = await kvGetJSON(env, `user:${email}`, null, true);
+  if (user && user.passHash && user.passSalt) {
+    const legacy = { salt: user.passSalt, hash: user.passHash, ver: user.pwdVersion || 0 };
+    await writeCredential(env, email, legacy.salt, legacy.hash, legacy.ver);
+    return legacy;
+  }
+  return null;
+}
+
+/**
+ * 用给定密码验证账号，返回命中的凭据；不匹配返回 null。
+ * 候选按「新→旧」依次尝试，保证刚改完密码时新密码一定能登进来。
+ * 无论账号是否存在都至少做一次 PBKDF2，避免用响应耗时探测账号是否注册。
+ */
+async function verifyCredential(env, email, password) {
+  const cands = await readCredentialCandidates(env, email);
+  if (!cands.length) {
+    const user = await kvGetJSON(env, `user:${email}`, null, true);
+    if (user && user.passHash && user.passSalt) {
+      const legacy = { salt: user.passSalt, hash: user.passHash, ver: user.pwdVersion || 0 };
+      await writeCredential(env, email, legacy.salt, legacy.hash, legacy.ver);
+      cands.push(legacy);
+    }
+  }
+  let matched = null;
+  let lastSalt = null;
+  for (const c of cands) {
+    /* 两份候选内容相同时（刚改完密码的常态）只算一次 PBKDF2，省一半耗时 */
+    if (c.salt === lastSalt) continue;
+    lastSalt = c.salt;
+    const hit = await hashPassword(password, c.salt) === c.hash;
+    if (hit && !matched) matched = c;
+  }
+  if (!cands.length) {
+    /* 账号不存在：照样做一次等价的 PBKDF2，抹平耗时差异 */
+    await hashPassword(password, "AAAAAAAAAAAAAAAAAAAAAA==");
+  }
+  return matched;
+}
+
 /* ---------------- 用户名（handle）：对外唯一的公开标识 ---------------- */
 
 const HANDLE_RE = /^[a-z][a-z0-9_]{2,19}$/;
@@ -166,9 +259,12 @@ async function allocateHandle(env, email, preferred) {
 async function ensureUserHandle(env, email, user) {
   if (user && HANDLE_RE.test(String(user.handle || ""))) return user.handle;
   const handle = await allocateHandle(env, email, "");
-  user.handle = handle;
-  await env.PROFILES.put(`user:${email}`, JSON.stringify(user));
-  await cacheWrite(env, `user:${email}`, JSON.stringify(user));
+  /* 写之前重新读一次最新记录：调用方手里那份快照可能已经过期，
+     直接写回会把后改的字段（头像、简介…）覆盖掉。 */
+  const fresh = (await kvGetJSON(env, `user:${email}`, null, true)) || user || {};
+  fresh.handle = handle;
+  await env.PROFILES.put(`user:${email}`, JSON.stringify(fresh));
+  await cacheWrite(env, `user:${email}`, JSON.stringify(fresh));
   return handle;
 }
 
@@ -270,18 +366,19 @@ async function republishAuthor(env, sid, handle, prevHandle) {
 
 /* ---------------- 邮箱用户与会话（KV） ---------------- */
 
-async function createSession(request, env, email, recOverride) {
+async function createSession(request, env, email, credOverride) {
   const id = crypto.randomUUID() + "-" + toB64(crypto.getRandomValues(new Uint8Array(12)));
   /* 会话同时记 handle 与 pwdVersion：
      - handle 用于「改邮箱后仍能定位到账号」（handle → email 映射会随改邮箱更新）
      - pwdVersion 用于「改密码后让旧会话全部失效」
-     recOverride：调用方手里已经拿到最新用户记录时直接传进来，
-     避免这里再读一次 KV 拿到边缘缓存里的旧 pwdVersion（会导致新会话一建立就失效）。 */
-  const rec = recOverride || (await kvGetJSON(env, `user:${email}`, null));
+     credOverride：调用方手里已经拿到最新凭据时直接传进来，
+     避免这里再读一次 KV 拿到边缘缓存里的旧版本号（会导致新会话一建立就失效）。 */
+  const rec = await kvGetJSON(env, `user:${email}`, null, true);
+  const cred = credOverride || (await readCredential(env, email));
   const session = {
     email,
     handle: (rec && rec.handle) || "",
-    pwdVersion: (rec && rec.pwdVersion) || 0,
+    pwdVersion: (cred && cred.ver) || 0,
     createdAt: new Date().toISOString(),
   };
   await env.PROFILES.put(`session:${id}`, JSON.stringify(session), {
@@ -317,10 +414,29 @@ async function getSessionUser(request, env) {
     /* 被封禁的账号立即掉线（按匿名处理） */
     if (await env.PROFILES.get(`ban:${email}`)) return null;
     const user = JSON.parse(userRaw);
-    /* 密码被重置过：旧会话一律失效 */
+    /* 密码被重置过：旧会话一律失效。
+       密码版本号以 pw:* 为准（改密码只写那个键，不会碰资料记录）；
+       老账号还没有 pw:* 时，回落到 user:* 里的版本号。
+
+       判定方向只能是「服务端版本更高 → 本会话已失效」，不能反过来：
+       Workers Cache API 是机房本地的（实测 LHR/AMS 交替），读穿缓存可能拿到
+       改密之前的旧版本号。若要求版本严格相等，改密后当前这台设备反而会在
+       读到旧快照的机房被判失效，把人直接踢下线。
+       只在「版本更高」时失效 = 失败安全：宁可让旧会话多活一会儿，
+       也不误杀当前会话。KV 边缘缓存 60 秒内刷新后，旧会话随即失效。 */
     const sv = s.pwdVersion || 0;
-    const uv = user.pwdVersion || 0;
-    if (sv !== uv) return null;
+    /* 密码版本：读 KV 边缘（30s TTL），不走读穿缓存 —— 后者机房本地且 TTL 一年，
+       改密后其它机房可能长期拿着旧版本号。判定方向只能是「服务端版本更高 → 失效」，
+       读到旧值就保守放过，宁可让旧会话多活一会儿，也不误杀当前设备。 */
+    const latest = await readCredentialKey(env, `pwnew:${email}`);
+    let uv;
+    if (latest && typeof latest.v === "number") {
+      uv = latest.v;
+    } else {
+      const cur = await readCredentialKey(env, `pw:${email}`);
+      uv = cur && typeof cur.v === "number" ? cur.v : (user.pwdVersion || 0);
+    }
+    if (uv > sv) return null;
     return {
       email: user.email,
       handle: user.handle || "",
@@ -1564,6 +1680,22 @@ export default {
       await cacheWrite(env, `user:${newEmail}`, JSON.stringify(user));
       await env.PROFILES.delete(oldKey);
       await cacheDrop(env, oldKey);
+      /* 密码凭据也要跟着搬到新邮箱，否则换完邮箱就登不上了 */
+      for (const ck of ["pw", "pwnew"]) {
+        const movedCred = await kvGetJSON(env, `${ck}:${oldEmail}`, null, true);
+        if (movedCred && movedCred.h) {
+          await env.PROFILES.put(`${ck}:${newEmail}`, JSON.stringify(movedCred));
+          await cacheWrite(env, `${ck}:${newEmail}`, JSON.stringify(movedCred));
+          await env.PROFILES.delete(`${ck}:${oldEmail}`);
+          await cacheDrop(env, `${ck}:${oldEmail}`);
+        }
+      }
+      if (!user.passSalt || !user.passHash) {
+        /* 新式凭据已搬完，无需再迁移老字段 */
+      } else {
+        /* 老账号凭据还在 user:* 里，随记录一起搬 */
+        await writeCredential(env, newEmail, user.passSalt, user.passHash, user.pwdVersion || 0);
+      }
       /* 别名：让改邮箱前签发的旧会话仍能定位到账号 */
       await env.PROFILES.put(`alias:${oldEmail}`, newEmail);
       if (user.handle) await env.PROFILES.put(`handle:${user.handle}`, newEmail);
@@ -1622,13 +1754,12 @@ export default {
       if (!v.ok) return json(request, { error: v.error }, 400);
       const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
       const passHash = await hashPassword(newPassword, salt);
-      user.passSalt = salt;
-      user.passHash = passHash;
-      /* 密码版本号 +1：所有旧会话的版本对不上，自动失效 */
-      user.pwdVersion = (user.pwdVersion || 0) + 1;
-      await env.PROFILES.put(key, JSON.stringify(user));
-      await cacheWrite(env, key, JSON.stringify(user));
-      const cookie = await createSession(request, env, current);
+      /* 只写凭据键，不整条重写资料记录 —— 否则 KV 边缘缓存里的旧记录
+         会把头像、简介等后写进去的字段覆盖掉。 */
+      const prev = await readCredential(env, current);
+      const ver = ((prev && prev.ver) || 0) + 1;
+      await writeCredential(env, current, salt, passHash, ver);
+      const cookie = await createSession(request, env, current, { salt, hash: passHash, ver });
       return json(request, { ok: true, message: "密码已重置，请用新密码登录" }, 200, cookie);
     }
 
@@ -1646,24 +1777,27 @@ export default {
       const key = `user:${email}`;
       const user = await kvGetJSON(env, key, null, true);
       if (!user) return json(request, { error: "用户不存在" }, 404);
-      /* GitHub 账号没有站内密码，无法在此修改 */
-      if (!user.passHash || !user.passSalt) {
-        return json(request, { error: "该账号不是用密码登录的，无法在此修改密码" }, 400);
+      /* 校验当前密码：同样按「新→旧」依次尝试，
+         免得边缘缓存里的旧凭据把「用新密码改密」这条路也堵住。 */
+      const cred = await verifyCredential(env, email, currentPassword);
+      if (!cred) {
+        const hasAny = (await readCredentialCandidates(env, email)).length > 0;
+        return json(
+          request,
+          { error: hasAny ? "当前密码不正确" : "该账号不是用密码登录的，无法在此修改密码" },
+          hasAny ? 403 : 400,
+        );
       }
-      const cur = await hashPassword(currentPassword, user.passSalt);
-      if (cur !== user.passHash) return json(request, { error: "当前密码不正确" }, 403);
       if (currentPassword === newPassword) return json(request, { error: "新密码不能与当前密码相同" }, 400);
       const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
       const passHash = await hashPassword(newPassword, salt);
-      user.passSalt = salt;
-      user.passHash = passHash;
-      /* 密码版本号 +1：其它设备的旧会话版本对不上，自动失效 */
-      user.pwdVersion = (user.pwdVersion || 0) + 1;
-      await env.PROFILES.put(key, JSON.stringify(user));
-      await cacheWrite(env, key, JSON.stringify(user));
-      /* 把最新记录直接交给 createSession：避免它再读一次 KV 拿到旧 pwdVersion */
-      const cookie = await createSession(request, env, email, user);
-      return json(request, { ok: true, message: "密码已修改，其它设备的登录状态已失效" }, 200, cookie);
+      /* 密码版本号 +1：其它设备的旧会话版本对不上，自动失效。
+         只写凭据键 —— 绝不整条重写资料记录，否则 KV 边缘缓存里的旧记录
+         会把头像、简介等后写进去的字段覆盖掉。 */
+      const ver = (cred.ver || 0) + 1;
+      await writeCredential(env, email, salt, passHash, ver);
+      const cookie = await createSession(request, env, email, { salt, hash: passHash, ver });
+      return json(request, { ok: true, message: "密码已修改，其它设备需要重新登录" }, 200, cookie);
     }
 
     /* 注销账号（自助）：校验密码 → 清掉账号、资料、帖子、关注关系与社区提交 */
@@ -1677,15 +1811,19 @@ export default {
       const key = `user:${email}`;
       const user = await kvGetJSON(env, key, null, true);
       if (!user) return json(request, { error: "用户不存在" }, 404);
-      if (!user.passHash || !user.passSalt) {
-        return json(request, { error: "该账号不是用密码登录的，无法自助注销" }, 400);
+      const cred = await verifyCredential(env, email, password);
+      if (!cred) {
+        const hasAny = (await readCredentialCandidates(env, email)).length > 0;
+        return json(
+          request,
+          { error: hasAny ? "密码不正确" : "该账号不是用密码登录的，无法自助注销" },
+          hasAny ? 403 : 400,
+        );
       }
       /* 管理员账号不允许自助注销，避免把唯一的管理员入口删掉 */
       if (isAdminLogin(env, email) || (user.handle && isAdminLogin(env, user.handle))) {
         return json(request, { error: "管理员账号不能自助注销，请先移交管理员身份" }, 400);
       }
-      const h = await hashPassword(password, user.passSalt);
-      if (h !== user.passHash) return json(request, { error: "密码不正确" }, 403);
 
       const handle = user.handle || "";
 
@@ -1733,6 +1871,8 @@ export default {
       /* 5) 账号本体与附属键 */
       await Promise.all([
         env.PROFILES.delete(key),
+        env.PROFILES.delete(`pw:${email}`),
+        env.PROFILES.delete(`pwnew:${email}`),
         env.PROFILES.delete(`feed:user:${email}`),
         env.PROFILES.delete(`following:${email}`),
         env.PROFILES.delete(`followers:${email}`),
@@ -1745,6 +1885,8 @@ export default {
       ].filter(Boolean));
       /* 读穿缓存也要清：否则「删了却还能读到旧记录」 */
       await cacheDrop(env, key);
+      await cacheDrop(env, `pw:${email}`);
+      await cacheDrop(env, `pwnew:${email}`);
       if (handle) await cacheDrop(env, `handle:${handle}`);
 
       return json(request, { ok: true, deletedPosts: ids.length });
@@ -1802,12 +1944,14 @@ export default {
       const passHash = await hashPassword(password, salt);
       const handle = await allocateHandle(env, email, wanted);
       await env.PROFILES.put(key, JSON.stringify({
-        email, handle, displayName, passSalt: salt, passHash,
+        email, handle, displayName,
         emailVerified,
         createdAt: new Date().toISOString(),
       }));
+      /* 密码凭据单独存一个键：改密码时只写它，不会把资料字段覆盖掉 */
+      await writeCredential(env, email, salt, passHash, 0);
       await rateLimitHit(regKey, 3600);
-      const cookie = await createSession(request, env, email);
+      const cookie = await createSession(request, env, email, { salt, hash: passHash, ver: 0 });
       return json(request, { ok: true, user: { login: handle, handle, email, displayName, emailVerified } }, 200, cookie);
     }
 
@@ -1833,20 +1977,18 @@ export default {
 
       const raw = await env.PROFILES.get(`user:${email}`, { cacheTtl: 30 });
       const user = raw ? JSON.parse(raw) : null;
-      /* 无论账号是否存在都做一次同样的 PBKDF2 运算，避免用响应耗时探测账号是否注册 */
-      const hash = await hashPassword(password, (user && user.passSalt) || "AAAAAAAAAAAAAAAAAAAAAA==");
-      if (!user || hash !== user.passHash) {
+      /* 密码凭据独立存放；验证依次尝试「最近一次设置 → 当前 → 老账号兜底」，
+         保证刚改完密码时新密码一定能登进来（KV 边缘缓存可能还留着旧凭据）。 */
+      const cred = await verifyCredential(env, email, password);
+      if (!user || !cred) {
         /* 这个邮箱曾经是某个账号的登录邮箱（用户改过邮箱）：核对密码后给出明确提示。
            只有密码正确才提示「邮箱已变更」，因此不会泄露账号是否存在。 */
         if (!user) {
           const current = await resolveCurrentEmail(env, email);
           if (current) {
-            const moved = await kvGetJSON(env, `user:${current}`, null);
-            if (moved && moved.passSalt) {
-              const movedHash = await hashPassword(password, moved.passSalt);
-              if (movedHash === moved.passHash) {
-                return json(request, { error: "该邮箱已不再用于登录，请使用新邮箱登录", movedTo: current }, 409);
-              }
+            const movedCred = await verifyCredential(env, current, password);
+            if (movedCred) {
+              return json(request, { error: "该邮箱已不再用于登录，请使用新邮箱登录", movedTo: current }, 409);
             }
           }
         }
@@ -2375,6 +2517,8 @@ export default {
           await Promise.all([
             env.PROFILES.delete(`feed:user:${login}`),
             env.PROFILES.delete(key),
+            env.PROFILES.delete(`pw:${login}`),
+            env.PROFILES.delete(`pwnew:${login}`),
             env.PROFILES.delete(`ban:${login}`),
             pid && pid !== login ? env.PROFILES.delete(`ban:${pid}`) : null,
             pid && pid !== login ? env.PROFILES.delete(`handle:${pid}`) : null,
@@ -2438,15 +2582,16 @@ export default {
           if (!isEmailUser) return json(request, { error: "GitHub 账号无法在此改密码" }, 400);
           const raw = await env.PROFILES.get(key);
           if (!raw) return json(request, { error: "用户不存在" }, 404);
-          let rec = {};
-          try { rec = JSON.parse(raw); } catch { return json(request, { error: "用户数据损坏" }, 500); }
+          try { JSON.parse(raw); } catch { return json(request, { error: "用户数据损坏" }, 500); }
           const next = String(body.password || "").trim() || (Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6));
           if (next.length < 8) return json(request, { error: "密码至少 8 位" }, 400);
           const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
-          rec.passSalt = salt;
-          rec.passHash = await hashPassword(next, salt);
-          rec.passwordResetAt = new Date().toISOString();
-          await env.PROFILES.put(key, JSON.stringify(rec));
+          const passHash = await hashPassword(next, salt);
+          /* 凭据独立存放：管理员改密同样不整条重写资料记录 */
+          const prev = await readCredential(env, login);
+          await writeCredential(env, login, salt, passHash, ((prev && prev.ver) || 0) + 1, {
+            passwordResetAt: new Date().toISOString(),
+          });
           return json(request, { ok: true, password: next });
         }
       }
