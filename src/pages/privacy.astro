@@ -9,9 +9,312 @@ interface Props {
 const locale = Astro.props.locale ?? "zh";
 const en = locale === "en";
 
+const updated = "2026-11-01";
+const contact = "solyoungwork@gmail.com";
+const contactLink = `<a href="mailto:${contact}">${contact}</a>`;
+
 const metaDesc = en
-  ? "SolHub privacy: tools run locally in your browser; GitHub OAuth login only reads your public profile; submissions are public GitHub Issues."
-  : "SolHub 隐私说明：工具在浏览器本地运行；GitHub 登录仅读取公开资料；提交内容为公开 GitHub Issue。";
+  ? "SolHub privacy: what we collect (email, display name, posts, submissions), where it lives (Cloudflare KV, public GitHub repo), what is public, and how to delete it. No ads, no tracking, tools run locally."
+  : "SolHub 隐私说明：我们收集什么（邮箱、显示名、帖子、产品提交）、数据存在哪里（Cloudflare KV、公开 GitHub 仓库）、哪些内容公开可见、以及如何删除。没有广告，没有跟踪，工具本地运行。";
+
+const copy = en
+  ? {
+      lede:
+        "SolHub keeps one rule: <strong>collect only what the product needs</strong>. No ads, no profiling, no uploading your tool inputs. Everything below follows the real data flow — if it isn't written here, we don't collect it.",
+      updatedLabel: "Last updated",
+      tocLabel: "On this page",
+      toc: [
+        { id: "account", label: "Account & login" },
+        { id: "collect", label: "What we collect" },
+        { id: "where", label: "Where data lives" },
+        { id: "local", label: "Cookies & local storage" },
+        { id: "public", label: "What others can see" },
+        { id: "never", label: "What we never do" },
+        { id: "rights", label: "Your rights & deletion" },
+        { id: "security", label: "Security" },
+        { id: "minors", label: "Minors" },
+        { id: "changes", label: "Changes & contact" },
+      ],
+      account: {
+        title: "Account & login",
+        body:
+          "You sign up with <strong>email + password</strong> — no GitHub account required. Passwords are stored only as <strong>PBKDF2 hashes with a per-account random salt</strong>: the plaintext never touches the database and cannot be recovered from it.",
+        points: [
+          "After login we set one cookie, <code>solhub_session</code>: HttpOnly, Secure, valid for 30 days. The server only stores the mapping between session ID and account.",
+          "Logging out deletes the session record and clears the cookie immediately.",
+          "There is no self-service password reset yet — write to the contact address below and we will reset it for you.",
+        ],
+      },
+      collect: {
+        title: "What we collect",
+        intro: "Grouped by feature. Nothing is collected in the background.",
+        items: [
+          {
+            k: "Sign-up",
+            v: "Email address, display name, password hash. Required to use an account.",
+            pub: false,
+          },
+          {
+            k: "Profile (optional)",
+            v: "Bio, location, website, avatar (a compressed image up to 300KB, stored with your account).",
+            pub: true,
+          },
+          {
+            k: "World activity",
+            v: "Post text and link, comments, likes, follow relationships.",
+            pub: true,
+          },
+          {
+            k: "Product submission",
+            v: "Product name, website URL, tagline, description, tags, category, developer name, icon URL.",
+            pub: true,
+          },
+          {
+            k: "Account state",
+            v: "Sign-up time, Verified mark, ban record (only if you were banned).",
+            pub: false,
+          },
+        ],
+        never:
+          "<strong>We do not collect:</strong> phone number, real name, ID documents, payment details, precise location, contacts, device fingerprint, or behavioural history.",
+        publicTag: "Public",
+        privateTag: "Private",
+      },
+      where: {
+        title: "Where data lives",
+        intro: "Two providers, both outside mainland China, so your data may be stored outside your country.",
+        items: [
+          {
+            k: "Accounts, profiles, posts, comments, likes, follows",
+            v: "Cloudflare Workers KV, read and written through the API host solhub-auth.solyoung.top.",
+          },
+          {
+            k: "Product submissions",
+            v: "Written into the public repository SolYoung-Ai/solhub (src/data/community.json) and published with the site.",
+          },
+          {
+            k: "The pages themselves",
+            v: "Static hosting on GitHub Pages. As infrastructure providers, Cloudflare and GitHub may keep standard access logs (IP, user agent, timestamp).",
+          },
+          {
+            k: "Web fonts",
+            v: "Google Fonts (Archivo, Noto Sans SC). Those requests reach Google's servers.",
+          },
+        ],
+      },
+      local: {
+        title: "Cookies & local storage",
+        intro: "One first-party cookie, plus a few local keys that never leave your browser.",
+        items: [
+          { k: "solhub_session", v: "Cookie, 30 days. Your login session. HttpOnly, so page scripts cannot read it." },
+          {
+            k: "solhub:theme / solhub:lang / solhub:viewport",
+            v: "localStorage. Dark mode, language and desktop/mobile preview preferences.",
+          },
+          {
+            k: "solhub:submission-drafts",
+            v: "localStorage. Draft text of the submission form. Clear it any time from your browser.",
+          },
+          {
+            k: "solhub.admin.key",
+            v: "sessionStorage, admins only. The console passcode; it dies when you close the tab.",
+          },
+        ],
+        footnote:
+          "No third-party cookies, no advertising identifiers, no cross-site pixels. Our only third-party request is the font stylesheet.",
+      },
+      public: {
+        title: "What others can see",
+        intro: "SolHub is a public directory and a public feed, so treat these as published:",
+        items: [
+          "Your profile: display name, avatar, bio, location, website, follower count.",
+          "Your posts, comments, likes and follow relationships.",
+          "Products you submitted or claimed, with their public fields and the Verified mark.",
+          "Account identifier: today the account ID is your sign-up email, so it shows up in your profile URL and in the submission record (for example name@example.com).",
+          "Product submissions are committed to a public repository, which includes the submitter's account ID.",
+        ],
+        footnote: `Don't want your email visible as your public ID? Write to ${contactLink} and we will switch the public ID on your account.`,
+      },
+      never: {
+        title: "What we never do",
+        items: [
+          "No advertising, no user profiling, no selling or sharing data with marketing third parties.",
+          "No third-party analytics or tracking scripts — no Google Analytics, no pixel, no attribution SDK.",
+          "Online tools (QR, JSON-LD, robots.txt, UTM, Markdown and the rest) compute entirely in your browser; your input is never uploaded.",
+        ],
+      },
+      rights: {
+        title: "Your rights & deletion",
+        items: [
+          "Edit: change display name, bio, location, website and avatar any time from your account page.",
+          "Delete content: you can delete your own posts. Comments can't be deleted from the UI yet — ask us and we'll remove them.",
+          `Delete account: email ${contactLink} with the subject "delete account". We remove the account, its profile and its content within 7 days, except where the law requires retention.`,
+          "Export: ask us for a copy of your account data and we'll send it.",
+        ],
+      },
+      security: {
+        title: "Security",
+        body:
+          "Passwords are PBKDF2-hashed, the session cookie is HttpOnly and Secure, the admin console requires both an account allow-list and a passcode, and write actions are rate-limited. No system is perfectly safe though — please don't post secrets in public posts.",
+      },
+      minors: {
+        title: "Minors",
+        body:
+          "SolHub is aimed at developers and creators, not children under 14. If you are a minor, please use it with a guardian's consent.",
+      },
+      changes: {
+        title: "Changes & contact",
+        body: `When this page changes we update the date at the top; significant changes are announced on the World feed. Questions or requests: ${contactLink}.`,
+      },
+    }
+  : {
+      lede:
+        "SolHub 只有一条原则：<strong>只收产品真正需要的数据</strong>。不做广告，不做用户画像，工具输入不上传。下面按真实的数据流向逐条写清楚——没写进这份说明的数据，我们就没有收集。",
+      updatedLabel: "最后更新",
+      tocLabel: "本页内容",
+      toc: [
+        { id: "account", label: "账号与登录" },
+        { id: "collect", label: "我们收集什么" },
+        { id: "where", label: "数据存在哪里" },
+        { id: "local", label: "Cookie 与本地存储" },
+        { id: "public", label: "哪些内容别人能看到" },
+        { id: "never", label: "我们不做的事" },
+        { id: "rights", label: "你的权利与删除" },
+        { id: "security", label: "安全措施" },
+        { id: "minors", label: "未成年人" },
+        { id: "changes", label: "变更与联系" },
+      ],
+      account: {
+        title: "账号与登录",
+        body:
+          "用<strong>邮箱 + 密码</strong>注册，不需要 GitHub 账号。密码只存<strong>PBKDF2 哈希 + 每个账号独立的随机盐</strong>：明文密码不落库，也无法从库里还原。",
+        points: [
+          "登录后写入一枚 Cookie（<code>solhub_session</code>）：HttpOnly、Secure，有效期 30 天。服务端只保存「会话 ID → 账号」的对应关系。",
+          "退出登录会立刻删除服务端会话记录并清除这枚 Cookie。",
+          "目前还没有自助找回密码，忘记密码请发邮件到下面的联系邮箱，我们帮你重置。",
+        ],
+      },
+      collect: {
+        title: "我们收集什么",
+        intro: "按功能列出，没有一项是在后台偷偷收集的。",
+        items: [
+          {
+            k: "注册信息",
+            v: "邮箱、显示名、密码哈希。使用账号所必需。",
+            pub: false,
+          },
+          {
+            k: "个人资料（可选）",
+            v: "简介、所在地、个人网站、头像（压缩后不超过 300KB 的图片，随账号一起保存）。",
+            pub: true,
+          },
+          {
+            k: "世界互动",
+            v: "帖子正文与链接、评论、点赞、关注关系。",
+            pub: true,
+          },
+          {
+            k: "产品提交",
+            v: "产品名称、官网地址、一句话介绍、详细描述、标签、分类、开发者名、图标地址。",
+            pub: true,
+          },
+          {
+            k: "账号状态",
+            v: "注册时间、Verified 标记、封禁记录（仅在你被封禁时才有）。",
+            pub: false,
+          },
+        ],
+        never:
+          "<strong>我们不收集：</strong>手机号、真实姓名、身份证件、支付信息、精确位置、通讯录、设备指纹、浏览行为轨迹。",
+        publicTag: "公开可见",
+        privateTag: "不公开",
+      },
+      where: {
+        title: "数据存在哪里",
+        intro: "两家服务商都部署在境外，因此你的数据可能存储在中国大陆以外。",
+        items: [
+          {
+            k: "账号、资料、帖子、评论、点赞、关注",
+            v: "Cloudflare Workers KV，通过接口域名 solhub-auth.solyoung.top 读写。",
+          },
+          {
+            k: "产品提交",
+            v: "写入公开仓库 SolYoung-Ai/solhub 的 src/data/community.json，随后随站点一起发布。",
+          },
+          {
+            k: "页面本身",
+            v: "GitHub Pages 静态托管。Cloudflare 与 GitHub 作为基础设施服务商，可能保留常规访问日志（IP、浏览器标识、时间）。",
+          },
+          {
+            k: "网页字体",
+            v: "Google Fonts（Archivo、Noto Sans SC），这部分请求会到达 Google 的服务器。",
+          },
+        ],
+      },
+      local: {
+        title: "Cookie 与本地存储",
+        intro: "一枚本站 Cookie，加上几个只留在你浏览器里的键。",
+        items: [
+          { k: "solhub_session", v: "Cookie，30 天。登录态。HttpOnly，页面脚本读不到。" },
+          {
+            k: "solhub:theme / solhub:lang / solhub:viewport",
+            v: "localStorage。深色模式、语言、桌面/手机预览偏好。",
+          },
+          {
+            k: "solhub:submission-drafts",
+            v: "localStorage。提交表单的草稿，随时可在浏览器里清除。",
+          },
+          {
+            k: "solhub.admin.key",
+            v: "sessionStorage，仅管理员。管理后台口令，关掉标签页即失效。",
+          },
+        ],
+        footnote: "没有第三方 Cookie，没有广告标识符，没有跨站像素。唯一的第三方请求是字体样式表。",
+      },
+      public: {
+        title: "哪些内容别人能看到",
+        intro: "SolHub 是公开榜单 + 公开信息流，下面这些请当作「已经发布」：",
+        items: [
+          "个人资料：显示名、头像、简介、所在地、个人网站、粉丝数。",
+          "你的帖子、评论、点赞和关注关系。",
+          "你提交或认领的产品，以及它们的公开字段与 Verified 标记。",
+          "账号标识：目前账号标识就是注册邮箱，因此它会出现在你的个人主页地址与产品提交记录里（例如 name@example.com）。",
+          "产品提交会提交进公开仓库，其中包含提交者的账号标识。",
+        ],
+        footnote: `不希望邮箱作为公开标识？发邮件到 ${contactLink}，我们帮你更换公开标识。`,
+      },
+      never: {
+        title: "我们不做的事",
+        items: [
+          "不投放广告、不做用户画像、不出售或共享数据给第三方营销。",
+          "不加载第三方统计与跟踪脚本——没有 Google Analytics、没有埋点、没有归因 SDK。",
+          "所有在线工具（二维码、JSON-LD、robots.txt、UTM、Markdown 等）全部在浏览器本地计算，输入不会上传。",
+        ],
+      },
+      rights: {
+        title: "你的权利与删除",
+        items: [
+          "修改：显示名、简介、所在地、个人网站、头像可在「我」页面随时改。",
+          "删除内容：自己的帖子可以自行删除；评论目前没有自助删除入口，告诉我们即可帮你删。",
+          `注销账号：发邮件到 ${contactLink}，标题写「注销账号」，我们会在 7 天内删除账号、资料及其发布的内容（法律要求保留的除外）。`,
+          "导出：可以发邮件索取你的账号数据副本。",
+        ],
+      },
+      security: {
+        title: "安全措施",
+        body:
+          "密码 PBKDF2 哈希，会话 Cookie HttpOnly + Secure，管理后台需要账号白名单 + 口令双重校验，写操作有频率限制。但没有绝对安全的系统——请不要在公开帖子里发布敏感信息。",
+      },
+      minors: {
+        title: "未成年人",
+        body:
+          "SolHub 面向开发者与创作者，不面向 14 岁以下儿童。如果你是未成年人，请在监护人同意下使用。",
+      },
+      changes: {
+        title: "变更与联系",
+        body: `本说明更新时会同步修改页面顶部的日期，重要变更会在世界页公告。有问题或请求：${contactLink}。`,
+      },
+    };
 ---
 
 <BaseLayout
@@ -28,65 +331,141 @@ const metaDesc = en
       <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
         {en ? "Privacy" : "隐私说明"}
       </h1>
-      <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
-        {en ? <>SolHub 的原则：<strong>尽量减少数据收集</strong>。本页说明实际数据流向。</> : <>SolHub 的原则：<strong>尽量减少数据收集</strong>。本页说明实际数据流向。</>}
+      <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground" set:html={copy.lede} />
+      <p class="mt-4 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground/80">
+        {copy.updatedLabel} · {updated}
       </p>
     </div>
   </section>
 
   <section class="py-12">
-    <div class="container-page prose-solhub max-w-3xl">
-      <h2>{en ? "GitHub Login" : "GitHub 登录"}</h2>
-      <p>
-        {en
-          ? <>Login uses GitHub OAuth. We only read your <strong>public profile</strong> (username, avatar). We do not access your private repositories, private email, or account settings. After login, a session token is stored in an HttpOnly cookie on this domain.</>
-          : <>登录使用 GitHub OAuth。我们仅读取你的<strong>公开资料</strong>（用户名、头像）。不访问你的私有仓库、私人邮箱或账户设置。登录后会话令牌存储在本站的 HttpOnly Cookie 中。</>}
-      </p>
-      <ul>
-        <li>{en ? "What we collect: GitHub username, avatar image URL." : "收集内容：GitHub 用户名、头像图片地址。"}</li>
-        <li>{en ? "What we don't collect: private email, private repos, organizations, settings." : "不收集：私人邮箱、私有仓库、组织、设置。"}</li>
-        <li>{en ? "Logout clears the session cookie immediately." : "退出登录立即清除会话 Cookie。"}</li>
-      </ul>
+    <div class="container-page grid max-w-5xl gap-10 lg:grid-cols-[200px_1fr]">
+      <!-- 目录 -->
+      <nav class="lg:sticky lg:top-24 lg:self-start" aria-label={copy.tocLabel}>
+        <p class="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          {copy.tocLabel}
+        </p>
+        <ul class="flex flex-wrap gap-1.5 text-[13px] leading-6 lg:block lg:space-y-1.5">
+          {
+            copy.toc.map((item, i) => (
+              <li class="lg:flex lg:gap-2">
+                <span class="hidden font-mono text-[11px] text-muted-foreground/60 lg:inline">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <a
+                  href={`#${item.id}`}
+                  class="inline-block rounded-full border border-border bg-card px-2.5 py-0.5 text-muted-foreground transition-colors hover:border-accent/50 hover:text-foreground lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:py-0"
+                >
+                  {item.label}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
 
-      <h2>{en ? "Product Submissions" : "产品提交"}</h2>
-      <p>
-        {en
-          ? <>Submitted products are stored as <strong>public GitHub Issues</strong> in the SolHub repository. You don't need a GitHub account to submit — fill the form and send directly. Once submitted:</>
-          : <>提交的产品以<strong>公开 GitHub Issue</strong>形式存储。提交无需 GitHub 账号，填完表单直接发送即可。提交后：</>}
-      </p>
-      <ul>
-        <li>{en ? "Your product name, description, and website link are public." : "产品名称、描述和官网链接是公开的。"}</li>
-        <li>{en ? "SolHub reviews within 24 hours and marks Verified." : "SolHub 在 24 小时内核验并标记 Verified。"}</li>
-        <li>{en ? "No private data (email, phone) is required during submission." : "提交过程不需要填写私人数据（邮箱、电话）。"}</li>
-      </ul>
+      <div class="prose-solhub min-w-0">
+        <!-- 1 账号 -->
+        <h2 id="account" class="scroll-mt-24">{copy.account.title}</h2>
+        <p set:html={copy.account.body} />
+        <ul>
+          {copy.account.points.map((t) => <li set:html={t} />)}
+        </ul>
 
-      <h2>{en ? "Tools run locally" : "工具在本地运行"}</h2>
-      <p>
-        {en
-          ? <>All online tools run entirely in your browser. Your input is <strong>never sent to any server</strong>.</>
-          : <>所有在线工具都在浏览器本地运行。你的输入内容<strong>不会发送到任何服务器</strong>。</>}
-      </p>
+        <!-- 2 收集 -->
+        <h2 id="collect" class="scroll-mt-24">{copy.collect.title}</h2>
+        <p>{copy.collect.intro}</p>
+        <div class="my-5 divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
+          {
+            copy.collect.items.map((item) => (
+              <div class="flex items-start gap-3 px-4 py-3">
+                <span class="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-[14px] font-semibold text-foreground">{item.k}</span>
+                    <span
+                      class:list={[
+                        "badge !py-0 text-[10px]",
+                        item.pub
+                          ? "border-warning/40 bg-warning/10 text-warning"
+                          : "border-border bg-secondary text-foreground/65",
+                      ]}
+                    >
+                      {item.pub ? copy.collect.publicTag : copy.collect.privateTag}
+                    </span>
+                  </div>
+                  <span class="mt-0.5 block text-[13px] leading-6 text-muted-foreground">{item.v}</span>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+        <p set:html={copy.collect.never} />
 
-      <h2>{en ? "No tracking" : "不跟踪"}</h2>
-      <p>
-        {en
-          ? <>SolHub does not use analytics scripts, ad trackers, or third-party cookies. The only network requests are: loading the page itself, fetching the public product list from GitHub API, and the GitHub OAuth login flow.</>
-          : <>SolHub 不使用分析脚本、广告跟踪器或第三方 Cookie。唯一的网络请求是：加载页面本身、从 GitHub API 拉取公开产品列表、以及 GitHub OAuth 登录流程。</>}
-      </p>
+        <!-- 3 存放 -->
+        <h2 id="where" class="scroll-mt-24">{copy.where.title}</h2>
+        <p>{copy.where.intro}</p>
+        <div class="my-5 divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
+          {
+            copy.where.items.map((item) => (
+              <div class="px-4 py-3">
+                <div class="text-[13px] font-semibold text-foreground">{item.k}</div>
+                <div class="mt-0.5 text-[13px] leading-6 text-muted-foreground">{item.v}</div>
+              </div>
+            ))
+          }
+        </div>
 
-      <h2>{en ? "Static hosting" : "页面静态托管"}</h2>
-      <p>
-        {en
-          ? "SolHub is a static site on GitHub Pages. The hosting platform may record standard access logs (IP, browser type, request time) for infrastructure purposes — this is universal hosting behavior."
-          : "SolHub 是静态网站，部署于 GitHub Pages。托管平台可能出于基础设施目的记录标准访问日志（IP、浏览器类型、请求时间），这是所有托管服务的通用行为。"}
-      </p>
+        <!-- 4 本地存储 -->
+        <h2 id="local" class="scroll-mt-24">{copy.local.title}</h2>
+        <p>{copy.local.intro}</p>
+        <div class="my-5 divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
+          {
+            copy.local.items.map((item) => (
+              <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-4">
+                <code class="shrink-0 font-mono text-[12px] text-foreground">{item.k}</code>
+                <span class="text-[13px] leading-6 text-muted-foreground">{item.v}</span>
+              </div>
+            ))
+          }
+        </div>
+        <p>{copy.local.footnote}</p>
 
-      <h2>{en ? "Changes" : "变更"}</h2>
-      <p>
-        {en
-          ? "This page will be updated as features evolve."
-          : "本说明会随网站功能变化更新。"}
-      </p>
+        <!-- 5 公开 -->
+        <h2 id="public" class="scroll-mt-24">{copy.public.title}</h2>
+        <p>{copy.public.intro}</p>
+        <ul>
+          {copy.public.items.map((t) => <li>{t}</li>)}
+        </ul>
+        <p
+          class="rounded-[8px] border border-border border-l-2 border-l-accent bg-secondary/40 px-4 py-3 text-[13px] leading-6 text-muted-foreground"
+          set:html={copy.public.footnote}
+        />
+
+        <!-- 6 不做 -->
+        <h2 id="never" class="scroll-mt-24">{copy.never.title}</h2>
+        <ul>
+          {copy.never.items.map((t) => <li>{t}</li>)}
+        </ul>
+
+        <!-- 7 权利 -->
+        <h2 id="rights" class="scroll-mt-24">{copy.rights.title}</h2>
+        <ul>
+          {copy.rights.items.map((t) => <li set:html={t} />)}
+        </ul>
+
+        <!-- 8 安全 -->
+        <h2 id="security" class="scroll-mt-24">{copy.security.title}</h2>
+        <p>{copy.security.body}</p>
+
+        <!-- 9 未成年 -->
+        <h2 id="minors" class="scroll-mt-24">{copy.minors.title}</h2>
+        <p>{copy.minors.body}</p>
+
+        <!-- 10 变更 -->
+        <h2 id="changes" class="scroll-mt-24">{copy.changes.title}</h2>
+        <p set:html={copy.changes.body} />
+      </div>
     </div>
   </section>
 </BaseLayout>
