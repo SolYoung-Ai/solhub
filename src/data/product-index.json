@@ -14,6 +14,7 @@
     "verificationStatus": "verified",
     "publishedAt": "2026-10-16",
     "developerName": "Sol Young",
+    "developerLogin": "solyoung",
     "isDemo": false,
     "rankPosition": 2
   },
@@ -32,6 +33,7 @@
     "verificationStatus": "verified",
     "publishedAt": "2026-10-16",
     "developerName": "Sol Young",
+    "developerLogin": "solyoung",
     "isDemo": false,
     "rankPosition": 3
   },
@@ -50,6 +52,7 @@
     "verificationStatus": "verified",
     "publishedAt": "2026-10-16",
     "developerName": "Sol Young",
+    "developerLogin": "solyoung",
     "isDemo": false
   },
   {
@@ -67,6 +70,7 @@
     "verificationStatus": "verified",
     "publishedAt": "2026-10-16",
     "developerName": "Sol Young",
+    "developerLogin": "solyoung",
     "isDemo": false
   },
   {
@@ -84,6 +88,7 @@
     "verificationStatus": "verified",
     "publishedAt": "2026-10-16",
     "developerName": "Sol Young",
+    "developerLogin": "solyoung",
     "isDemo": false
   },
   {
@@ -102,6 +107,7 @@
     "verificationStatus": "verified",
     "publishedAt": "2026-10-25",
     "developerName": "Sol Young",
+    "developerLogin": "solyoung",
     "isDemo": false
   },
   {
@@ -120,6 +126,7 @@
     "verificationStatus": "verified",
     "publishedAt": "2026-10-25",
     "developerName": "Sol Young",
+    "developerLogin": "solyoung",
     "isDemo": false
   }
 ]

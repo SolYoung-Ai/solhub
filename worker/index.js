@@ -342,32 +342,69 @@ async function blockedIfBanned(request, env, login) {
 }
 
 /** 读取仓库里的社区产品数据（只读，失败返回空数组，不阻塞页面）。 */
-async function readCommunity(env) {
-  if (!env.GITHUB_PAT) return [];
-  try {
-    const fileRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json?ref=main`, {
-      headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
-    });
-    const fileData = await fileRes.json();
-    if (!fileData.content) return [];
-    return JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, "")))));
-  } catch {
-    return [];
-  }
-}
+/**
+ * 社区产品/官方目录的缓存键。
+ *
+ * 设计要点：目录数据（社区提交 + 官方目录索引）在每次提交/改动后写入 KV，
+ * 读取一律「KV 优先」。只有在 KV 还没灌过数据的情况下才回退到 GitHub 仓库文件
+ * （需要 GITHUB_PAT），拿到后立刻写回 KV 缓存。
+ * 这样即使 GITHUB_PAT 失效 / 过期 / 未配置，个人主页与「我的收录」依旧可用。
+ */
+const KV_COMMUNITY = "catalog:community:v1";
+const KV_INDEX = "catalog:index:v1";
 
-/** 读取仓库里的产品索引（构建时由 products.ts 生成，失败返回空数组）。 */
-async function readProductIndex(env) {
-  if (!env.GITHUB_PAT) return [];
+/** 从 GitHub 仓库读取一个 JSON 文件（内部工具，失败返回 null）。 */
+async function githubJSON(env, path) {
+  if (!env.GITHUB_PAT) return null;
   try {
-    const res = await fetch(`${API}/repos/${REPO}/contents/src/data/product-index.json?ref=main`, {
+    const res = await fetch(`${API}/repos/${REPO}/contents/${path}?ref=main`, {
       headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
     });
     const data = await res.json();
-    if (!data.content) return [];
+    if (!data.content) return null;
     return JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g, "")))));
   } catch {
-    return [];
+    return null;
+  }
+}
+
+/** 读取社区提交的产品：KV 优先，其次仓库文件（并写回 KV 缓存）。 */
+async function readCommunity(env) {
+  const cached = await kvGetJSON(env, KV_COMMUNITY, null);
+  if (cached) return cached;
+  const fromRepo = await githubJSON(env, "src/data/community.json");
+  if (fromRepo) await kvPutJSON(env, KV_COMMUNITY, fromRepo);
+  return fromRepo || [];
+}
+
+/** 读取官方目录索引（构建时由 products.ts 生成）：KV 优先，其次仓库文件。 */
+async function readProductIndex(env) {
+  const cached = await kvGetJSON(env, KV_INDEX, null);
+  if (cached) return cached;
+  const fromRepo = await githubJSON(env, "src/data/product-index.json");
+  if (fromRepo) await kvPutJSON(env, KV_INDEX, fromRepo);
+  return fromRepo || [];
+}
+
+/** 把仓库里的社区数据推回 GitHub（尽力而为：无 PAT 或失败都不抛错）。 */
+async function syncCommunityToRepo(env, community, message) {
+  if (!env.GITHUB_PAT) return false;
+  try {
+    const cur = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json?ref=main`, {
+      headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
+    });
+    const curData = await cur.json();
+    if (!curData.sha) return false;
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(community, null, 2))));
+    const writeRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub", "Content-Type": "application/json" },
+      body: JSON.stringify({ message, content, sha: curData.sha }),
+    });
+    const writeData = await writeRes.json();
+    return !!writeData.commit;
+  } catch {
+    return false;
   }
 }
 
@@ -415,6 +452,20 @@ function mergeProducts(communityProducts, claimedSlugs, index) {
 function claimedSlugsOf(user) {
   if (!user || !Array.isArray(user.productSlugs)) return [];
   return user.productSlugs.filter((s) => typeof s === "string" && s.length < 80).slice(0, 50);
+}
+
+/**
+ * 官方目录里「开发者标识 = 该用户公开标识」的产品，视为该用户拥有的作品。
+ * 这样目录中的作品会自动出现在其个人主页，无需额外维护 productSlugs。
+ */
+function ownedSlugsOf(index, login) {
+  if (!login || !Array.isArray(index)) return [];
+  return index.filter((p) => p && typeof p.slug === "string" && String(p.developerLogin || "") === login).map((p) => p.slug);
+}
+
+/** 该用户在个人主页上应展示的全部认领 slug（目录归属 + 手动认领，去重） */
+function allClaimedSlugs(index, login, user) {
+  return [...new Set([...ownedSlugsOf(index, login), ...claimedSlugsOf(user)])];
 }
 
 async function hydratePost(env, id, viewer) {
@@ -1067,7 +1118,7 @@ export default {
 
     /* ---------- 提交产品（登录用户自动收录到 community.json） ---------- */
     if (url.pathname === "/publish" && request.method === "POST") {
-      if (!env.GITHUB_PAT) return json(request, { error: "server not configured" }, 500);
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
       const identity = await getIdentity(request, env);
       if (!identity) return json(request, { error: "请先登录" }, 401);
 
@@ -1093,14 +1144,7 @@ export default {
         return json(request, { error: `无法访问 ${websiteUrl}，请确认网站可以正常打开` }, 400);
       }
 
-      const fileRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json?ref=main`, {
-        headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
-      });
-      const fileData = await fileRes.json();
-      let community = [];
-      if (fileData.content) {
-        try { community = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))))); } catch { community = []; }
-      }
+      const community = await readCommunity(env);
 
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) + "-" + Date.now().toString(36);
       const who = await displayOf(env, identity);
@@ -1125,63 +1169,41 @@ export default {
       };
       community.push(newProduct);
 
-      const content = btoa(unescape(encodeURIComponent(JSON.stringify(community, null, 2))));
-      const writeRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub", "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: `community: add ${name} by @${who.login}`,
-          content,
-          sha: fileData.sha,
-        }),
-      });
-      const writeData = await writeRes.json();
-      if (!writeData.commit) return json(request, { error: "写入失败", detail: writeData }, 500);
+      /* 主存储：写回 KV，产品立刻出现在个人主页与「我的收录」 */
+      await kvPutJSON(env, KV_COMMUNITY, community);
+      /* 尽力同步到仓库（供静态站构建期目录；PAT 缺失或失败不影响提交结果） */
+      const synced = await syncCommunityToRepo(env, community, `community: add ${name} by @${who.login}`);
       /* 官方账号自动播报新品（后台执行，不影响提交结果） */
       if (ctx && ctx.waitUntil) ctx.waitUntil(announceNewProduct(env, newProduct).catch(() => {}));
       else announceNewProduct(env, newProduct).catch(() => {});
-      return json(request, { ok: true, product: newProduct, message: "链接检测通过，产品已自动收录上线" });
+      return json(request, { ok: true, product: newProduct, synced, message: "链接检测通过，产品已自动收录上线" });
     }
 
     /* ---------- 我的收录产品 ---------- */
     if (url.pathname === "/my-products" && request.method === "GET") {
-      if (!env.GITHUB_PAT) return json(request, { error: "server not configured" }, 500);
       const identity = await getIdentity(request, env);
       if (!identity) return json(request, { error: "not authenticated" }, 401);
-      const fileRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json?ref=main`, {
-        headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
-      });
-      const fileData = await fileRes.json();
-      let community = [];
-      if (fileData.content) {
-        try { community = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))))); } catch {}
-      }
-      const [index, mine] = await Promise.all([
+      const myPid = await pidOf(env, identity.login);
+      const [community, index, mine] = await Promise.all([
+        readCommunity(env),
         readProductIndex(env),
         kvGetJSON(env, `user:${identity.login}`, null),
       ]);
       const claimed = mergeProducts(
-        productsOf(community, await pidOf(env, identity.login)),
-        claimedSlugsOf(mine),
+        productsOf(community, myPid),
+        allClaimedSlugs(index, myPid, mine),
         index,
       );
-      return json(request, { products: claimed, sha: fileData.sha });
+      return json(request, { products: claimed });
     }
 
     if (url.pathname.startsWith("/my-products/")) {
-      if (!env.GITHUB_PAT) return json(request, { error: "server not configured" }, 500);
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
       const identity = await getIdentity(request, env);
       if (!identity) return json(request, { error: "not authenticated" }, 401);
       const slug = url.pathname.split("/")[2];
 
-      const fileRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json?ref=main`, {
-        headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
-      });
-      const fileData = await fileRes.json();
-      let community = [];
-      if (fileData.content) {
-        try { community = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))))); } catch {}
-      }
+      const community = await readCommunity(env);
       const myPid = await pidOf(env, identity.login);
       const idx = community.findIndex(
         (p) => p.slug === slug && (p.submittedBy === myPid || p.submittedBy === identity.login),
@@ -1223,19 +1245,15 @@ export default {
         if (body.developerName) p.developerName = String(body.developerName).slice(0, 80);
       }
 
-      const content = btoa(unescape(encodeURIComponent(JSON.stringify(community, null, 2))));
-      const writeRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub", "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: `${request.method === "DELETE" ? "remove" : "update"} community product ${slug} by @${myPid}`,
-          content,
-          sha: fileData.sha,
-        }),
-      });
-      const writeData = await writeRes.json();
-      if (!writeData.commit) return json(request, { error: "写入失败", detail: writeData }, 500);
-      return json(request, { ok: true });
+      /* 主存储：写回 KV（保证个人主页 / 我的收录立即可见） */
+      await kvPutJSON(env, KV_COMMUNITY, community);
+      /* 尽力同步到仓库（供静态站构建期目录；PAT 缺失或失败不影响结果） */
+      const synced = await syncCommunityToRepo(
+        env,
+        community,
+        `${request.method === "DELETE" ? "remove" : "update"} community product ${slug} by @${myPid}`,
+      );
+      return json(request, { ok: true, synced });
     }
 
     /* ================= 管理后台 ================= */
@@ -1456,7 +1474,7 @@ export default {
     }
 
     if (url.pathname === "/admin/products" && request.method === "GET") {
-      if (!env.GITHUB_PAT) return json(request, { error: "未配置 GITHUB_PAT" }, 500);
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
       const gate = await requireAdmin(request, env);
       if (gate.error) return gate.error;
 
@@ -1496,33 +1514,19 @@ export default {
         const community = await readCommunity(env);
         const hit = community.find((p) => p.slug === slug);
         if (hit) {
-          if (!env.GITHUB_PAT) return json(request, { error: "未配置 GITHUB_PAT" }, 500);
-          const fileRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json?ref=main`, {
-            headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
-          });
-          const fileData = await fileRes.json();
-          let list = [];
-          if (fileData.content) {
-            try { list = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))))); } catch {}
-          }
-          const idx = list.findIndex((p) => p.slug === slug);
+          const idx = community.findIndex((p) => p.slug === slug);
           if (idx === -1) return json(request, { error: "产品不存在" }, 404);
-          list[idx].verificationStatus = verified ? "verified" : "pending";
-          list[idx].verifiedAt = verified ? stamp : "";
-          list[idx].verifiedBy = verified ? gate.identity.login : "";
-          const content = btoa(unescape(encodeURIComponent(JSON.stringify(list, null, 2))));
-          const writeRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json`, {
-            method: "PUT",
-            headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub", "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: `admin: ${verified ? "verify" : "unverify"} community product ${slug}`,
-              content,
-              sha: fileData.sha,
-            }),
-          });
-          const writeData = await writeRes.json();
-          if (!writeData.commit) return json(request, { error: "写入仓库失败", detail: writeData }, 500);
-          return json(request, { ok: true, verified, source: "community" });
+          community[idx].verificationStatus = verified ? "verified" : "pending";
+          community[idx].verifiedAt = verified ? stamp : "";
+          community[idx].verifiedBy = verified ? gate.identity.login : "";
+          /* 主存储写 KV，仓库同步尽力而为 */
+          await kvPutJSON(env, KV_COMMUNITY, community);
+          const synced = await syncCommunityToRepo(
+            env,
+            community,
+            `admin: ${verified ? "verify" : "unverify"} community product ${slug}`,
+          );
+          return json(request, { ok: true, verified, source: "community", synced });
         }
 
         await env.PROFILES.put(
@@ -1748,7 +1752,7 @@ export default {
         ]);
         const author = await publicUser(env, targetPid);
         const posts = await feedPosts(env, postIds, viewer, 30);
-        const mine = mergeProducts(productsOf(community, targetPid), claimedSlugsOf(user), index);
+        const mine = mergeProducts(productsOf(community, targetPid), allClaimedSlugs(index, targetPid, user), index);
         const overrides = await readProductOverrides(env, mine.map((p) => p.slug));
         const products = mine.map((p) => applyOverride(p, overrides));
         return json(request, {

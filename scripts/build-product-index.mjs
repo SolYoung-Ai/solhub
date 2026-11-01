@@ -12,10 +12,19 @@ const out = path.join(root, "src/data/product-index.json");
 
 const text = readFileSync(src, "utf8");
 
-/** 取第一个匹配到的带引号字段 */
+/** 解析文件里的常量赋值：const NAME = "value" 或 const NAME = BARE */
+const consts = {};
+for (const m of text.matchAll(/const\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*("([^"]*)"|'([^']*)'|([A-Za-z_][A-Za-z0-9_]*))/g)) {
+  consts[m[1]] = m[3] ?? m[4] ?? m[5];
+}
+
+/** 取字段值：优先带引号的字面量，否则尝试解析为已定义的常量名 */
 const str = (block, key) => {
-  const m = block.match(new RegExp(`\\b${key}:\\s*"((?:[^"\\\\]|\\\\.)*)"`));
-  return m ? m[1] : "";
+  const q = block.match(new RegExp(`\\b${key}:\\s*"((?:[^"\\\\]|\\\\.)*)"`));
+  if (q) return q[1];
+  const b = block.match(new RegExp(`\\b${key}:\\s*([A-Za-z_][A-Za-z0-9_]*)`));
+  if (b && consts[b[1]] != null) return consts[b[1]];
+  return "";
 };
 
 /** 取数字字段 */
@@ -51,6 +60,7 @@ const products = blocks
       verificationStatus: str(block, "verificationStatus") || "unverified",
       publishedAt: str(block, "publishedAt"),
       developerName: str(block, "developerName"),
+      developerLogin: str(block, "developerLogin"),
       isDemo: /\bisDemo:\s*true/.test(block),
       rankPosition: num(block, "rankPosition"),
     };
