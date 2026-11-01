@@ -347,8 +347,8 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
     <div className="mx-auto w-full max-w-2xl">
       {/* ============ 顶部栏：发布 + 最新/关注 Tab（X 风格） ============ */}
       {!viewUser && (
-        <div className="sticky top-14 z-30 -mx-4 border-b border-border bg-background/90 backdrop-blur-md sm:-mx-6">
-          <div className="flex items-center gap-1 px-2 sm:px-3">
+        <div className="sticky top-14 z-30 border-b border-border bg-background/90 backdrop-blur-md">
+          <div className="flex items-center gap-1 px-4">
             <button
               type="button"
               onClick={openComposer}
