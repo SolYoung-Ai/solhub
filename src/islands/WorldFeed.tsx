@@ -33,11 +33,13 @@ import {
   fetchFeed,
   fetchProfile,
   hostOf,
+  searchWorld,
   timeAgo,
   toggleFollow,
   toggleLike,
   isOfficial,
   type PublicProfile,
+  type SearchUser,
   type WorldComment,
   type WorldPost,
 } from "@/lib/world";
@@ -106,10 +108,14 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
   const [commentBusy, setCommentBusy] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
-  /* 搜索（人 + 帖子）：客户端过滤已加载的信息流，X 风格 */
+  /* 搜索（开发者 + 帖子）：走后端 /search，覆盖全部注册账号与帖子 */
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [people, setPeople] = useState<SearchUser[]>([]);
+  const [searchPosts, setSearchPosts] = useState<WorldPost[] | null>(null);
+  const [searchBusy, setSearchBusy] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const searchSeq = useRef(0);
 
   /* 查看某个用户的主页（?u=<login>） */
   const [viewUser, setViewUser] = useState<string | null>(() => {
@@ -177,6 +183,38 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
     }
   }, [loading]);
 
+  /* 搜索请求（防抖 220ms，丢弃过期响应） */
+  useEffect(() => {
+    const term = query.trim();
+    if (viewUser || !term) {
+      setPeople([]);
+      setSearchPosts(null);
+      setSearchBusy(false);
+      return;
+    }
+    const seq = ++searchSeq.current;
+    setSearchBusy(true);
+    const timer = window.setTimeout(() => {
+      void searchWorld(term, 20).then((res) => {
+        if (seq !== searchSeq.current) return;
+        setPeople(res.users);
+        setSearchPosts(res.posts);
+        setSearchBusy(false);
+      });
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [query, viewUser]);
+
+  /** 同步更新信息流与搜索结果里的同一条帖子 */
+  const patchPost = (id: string, next: (post: WorldPost) => WorldPost) => {
+    setPosts((prev) => prev.map((x) => (x.id === id ? next(x) : x)));
+    setSearchPosts((prev) => (prev ? prev.map((x) => (x.id === id ? next(x) : x)) : prev));
+  };
+  const dropPost = (id: string) => {
+    setPosts((prev) => prev.filter((x) => x.id !== id));
+    setSearchPosts((prev) => (prev ? prev.filter((x) => x.id !== id) : prev));
+  };
+
   const flash = (msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(null), 2000);
@@ -231,6 +269,9 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
     setPosts((prev) =>
       prev.map((x) => (x.id === post.id ? { ...x, likedByMe: Boolean(res.liked), likeCount: res.likeCount ?? x.likeCount } : x)),
     );
+    setSearchPosts((prev) =>
+      prev ? prev.map((x) => (x.id === post.id ? { ...x, likedByMe: Boolean(res.liked), likeCount: res.likeCount ?? x.likeCount } : x)) : prev,
+    );
   };
 
   const openCommentPanel = async (post: WorldPost) => {
@@ -256,6 +297,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
     }
     setComments((c) => ({ ...c, [post.id]: [...(c[post.id] || []), res.comment as WorldComment] }));
     setPosts((prev) => prev.map((x) => (x.id === post.id ? { ...x, commentCount: x.commentCount + 1 } : x)));
+    setSearchPosts((prev) => (prev ? prev.map((x) => (x.id === post.id ? { ...x, commentCount: x.commentCount + 1 } : x)) : prev));
     setCommentDraft("");
   };
 
@@ -273,7 +315,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
     if (!confirm(en ? "Delete this post?" : "确定删除这条帖子？")) return;
     const res = await deletePost(post.id);
     if (!res.ok) { setError(res.error || (en ? "Delete failed" : "删除失败")); return; }
-    setPosts((prev) => prev.filter((x) => x.id !== post.id));
+    dropPost(post.id);
   };
 
   const follow = async (login: string) => {
@@ -283,28 +325,11 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
     setUserProfile((u) => (u ? { ...u, isFollowing: Boolean(res.following), followerCount: res.followerCount ?? u.followerCount } : u));
   };
 
-  /* ---------------- 搜索结果派生 ---------------- */
-  const q = query.trim().toLowerCase();
+  /* ---------------- 搜索结果 ---------------- */
+  const q = query.trim();
   const searching = !viewUser && q.length > 0;
-  const people = (() => {
-    if (!searching) return [] as { login: string; name: string; avatar?: string }[];
-    const seen = new Map<string, { login: string; name: string; avatar?: string }>();
-    for (const p of posts) {
-      if (!seen.has(p.author)) seen.set(p.author, { login: p.author, name: p.authorName || p.author, avatar: p.authorAvatar });
-    }
-    return [...seen.values()].filter(
-      (u) => u.name.toLowerCase().includes(q) || cleanHandle(u.login).toLowerCase().includes(q),
-    );
-  })();
-  const visiblePosts = searching
-    ? posts.filter(
-        (p) =>
-          (p.text || "").toLowerCase().includes(q) ||
-          (p.linkUrl || "").toLowerCase().includes(q) ||
-          (p.authorName || "").toLowerCase().includes(q) ||
-          cleanHandle(p.author).toLowerCase().includes(q),
-      )
-    : posts;
+  const visiblePosts = searching ? searchPosts ?? [] : posts;
+  const searchPending = searching && searchBusy && searchPosts === null;
 
   const toggleSearch = () => {
     setSearchOpen((open) => {
@@ -359,7 +384,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
               type="button"
               onClick={toggleSearch}
               aria-label={en ? "Search" : "搜索"}
-              title={en ? "Search people and posts" : "搜索人和帖子"}
+              title={en ? "Search developers and posts" : "搜索开发者和帖子"}
               aria-pressed={searchOpen}
               className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
                 searchOpen ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -377,7 +402,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Escape") { setQuery(""); setSearchOpen(false); } }}
-                  placeholder={en ? "Search people and posts" : "搜索人和帖子"}
+                  placeholder={en ? "Search developers and posts" : "搜索开发者和帖子"}
                   className="w-full rounded-full border border-border bg-secondary/40 py-2 pl-9 pr-9 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-accent"
                 />
                 {query && (
@@ -549,11 +574,11 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
         </div>
       )}
 
-      {/* ============ 搜索结果：人物 ============ */}
+      {/* ============ 搜索结果：开发者 ============ */}
       {searching && people.length > 0 && (
         <section className="border-t border-border">
           <h3 className="px-4 pb-1 pt-3 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {en ? "People" : "人物"}
+            {en ? "Developers" : "开发者"}
           </h3>
           <ul className="divide-y divide-border">
             {people.map((u) => (
@@ -561,7 +586,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                 <button
                   type="button"
                   onClick={() => openUser(u.login)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/20"
+                  className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/20"
                 >
                   <Avatar name={u.name} src={u.avatar} />
                   <div className="min-w-0 flex-1">
@@ -574,6 +599,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                       )}
                     </div>
                     <span className="block truncate text-[13px] text-muted-foreground">@{cleanHandle(u.login)}</span>
+                    {u.bio && <span className="mt-0.5 block truncate text-[13px] text-foreground/70">{u.bio}</span>}
                   </div>
                 </button>
               </li>
@@ -588,9 +614,9 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
       )}
 
       {/* ============ 时间线（X 风格：通栏 + 1px 分割线） ============ */}
-      {loading ? (
+      {loading || searchPending ? (
         <div className="flex items-center justify-center gap-2 border-t border-border py-16 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> {en ? "Loading…" : "加载中…"}
+          <Loader2 className="h-4 w-4 animate-spin" /> {en ? "Searching…" : "搜索中…"}
         </div>
       ) : visiblePosts.length === 0 ? (
         <div className="border-t border-border py-14 text-center">
@@ -600,7 +626,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
               <p className="mt-3 text-sm font-medium text-foreground/70">
                 {people.length > 0
                   ? (en ? "No matching posts" : "没有相关帖子")
-                  : (en ? "No people or posts found" : "没有找到相关的人和帖子")}
+                  : (en ? "No developers or posts found" : "没有找到相关的开发者和帖子")}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {en ? "Try a different keyword." : "换个关键词试试。"}

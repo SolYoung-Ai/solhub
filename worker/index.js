@@ -248,6 +248,95 @@ async function toggleInList(env, key, value) {
   return !has;
 }
 
+/* ---------------- 搜索：开发者 + 帖子 ---------------- */
+
+const SEARCH_POST_SCAN = 300; // 与 feed:global 上限保持一致
+const SEARCH_USER_SCAN = 500; // 一次最多扫描的用户记录数
+
+/** 批量读 KV（每批 40 并发，避免瞬时过多子请求） */
+async function kvGetMany(env, keys) {
+  const out = [];
+  for (let i = 0; i < keys.length; i += 40) {
+    out.push(...(await Promise.all(keys.slice(i, i + 40).map((k) => env.PROFILES.get(k)))));
+  }
+  return out;
+}
+
+/** 列出某前缀下的全部 key（分页拉取，最多 cap 个） */
+async function listKeys(env, prefix, cap) {
+  const keys = [];
+  let cursor;
+  while (keys.length < cap) {
+    const page = await env.PROFILES.list({ prefix, limit: Math.min(1000, cap - keys.length), cursor });
+    for (const k of page.keys) keys.push(k.name);
+    if (page.list_complete || !page.cursor) break;
+    cursor = page.cursor;
+  }
+  return keys.slice(0, cap);
+}
+
+function hit(q, fields) {
+  return fields.some((f) => f && String(f).toLowerCase().includes(q));
+}
+
+/** 搜索所有注册过的开发者（邮箱用户 + GitHub 用户） */
+async function searchUsers(env, q, limit) {
+  const emailKeys = await listKeys(env, "user:", SEARCH_USER_SCAN);
+  const ghKeys = await listKeys(env, "profile:", 100);
+  const raws = await kvGetMany(env, [...emailKeys, ...ghKeys]);
+  const users = [];
+  const seen = new Set();
+  raws.forEach((raw, i) => {
+    if (!raw) return;
+    let u;
+    try { u = JSON.parse(raw); } catch { return; }
+    const isEmail = i < emailKeys.length;
+    const login = isEmail ? u.email : ghKeys[i - emailKeys.length];
+    if (!login || seen.has(login)) return;
+    const name = u.displayName || (isEmail ? login.split("@")[0] : login);
+    if (!hit(q, [name, login, String(login).split("@")[0], u.bio, u.website, u.location])) return;
+    seen.add(login);
+    users.push({
+      login,
+      name,
+      avatar: u.avatar || "",
+      bio: u.bio || "",
+      website: u.website || "",
+      joinedAt: u.createdAt || "",
+    });
+  });
+  return users.slice(0, limit);
+}
+
+/** 搜索全部帖子（正文 / 链接 / 作者名 / 账号） */
+async function searchPosts(env, q, viewer, limit) {
+  const ids = (await kvGetJSON(env, "feed:global", [])).slice(0, SEARCH_POST_SCAN);
+  if (!ids.length) return [];
+  const raws = await kvGetMany(env, ids.map((id) => `post:${id}`));
+  const matched = [];
+  raws.forEach((raw, i) => {
+    if (!raw) return;
+    let p;
+    try { p = JSON.parse(raw); } catch { return; }
+    if (!hit(q, [p.text, p.linkUrl, p.authorName, p.author])) return;
+    matched.push(p);
+  });
+  const out = [];
+  for (const p of matched.slice(0, limit)) {
+    const [likes, comments] = await Promise.all([
+      kvGetJSON(env, `post:${p.id}:likes`, []),
+      kvGetJSON(env, `post:${p.id}:comments`, []),
+    ]);
+    out.push({
+      ...p,
+      likeCount: likes.length,
+      likedByMe: viewer ? likes.includes(viewer) : false,
+      commentCount: comments.length,
+    });
+  }
+  return out;
+}
+
 /* ---------------- 主路由 ---------------- */
 
 export default {
@@ -633,6 +722,23 @@ export default {
       const writeData = await writeRes.json();
       if (!writeData.commit) return json(request, { error: "写入失败", detail: writeData }, 500);
       return json(request, { ok: true });
+    }
+
+    /* ---------- 搜索：开发者 + 帖子 ---------- */
+    if (url.pathname === "/search" && request.method === "GET") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      const viewer = identity ? identity.login : null;
+      const qRaw = String(url.searchParams.get("q") || "").trim().slice(0, 60);
+      const limit = Math.min(Number(url.searchParams.get("limit") || 20) || 20, 50);
+      if (!qRaw) return json(request, { query: "", users: [], posts: [] });
+
+      const q = qRaw.toLowerCase();
+      const [users, posts] = await Promise.all([
+        searchUsers(env, q, limit),
+        searchPosts(env, q, viewer, limit),
+      ]);
+      return json(request, { query: qRaw, users, posts });
     }
 
     /* ---------- 世界：信息流 ---------- */

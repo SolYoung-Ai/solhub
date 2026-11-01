@@ -84,6 +84,21 @@ export interface FollowUser {
   avatar?: string;
 }
 
+/** 搜索命中的开发者（含从未发帖、只注册过的账号） */
+export interface SearchUser {
+  login: string;
+  name: string;
+  avatar?: string;
+  bio?: string;
+  website?: string;
+  joinedAt?: string;
+}
+
+export interface SearchResult {
+  users: SearchUser[];
+  posts: WorldPost[];
+}
+
 async function getJSON<T>(path: string, fallback: T): Promise<T> {
   try {
     const res = await fetch(`${base()}${path}`, { credentials: "include", cache: "no-store" });
@@ -195,6 +210,28 @@ export async function toggleFollow(login: string): Promise<{ ok: boolean; follow
 export async function fetchFollowList(login: string, kind: "following" | "followers"): Promise<FollowUser[]> {
   const data = await getJSON<{ users: FollowUser[] }>(`/users/${encodeURIComponent(login)}/${kind}`, { users: [] });
   return Array.isArray(data.users) ? data.users : [];
+}
+
+/**
+ * 全站搜索（服务端）：开发者（所有注册账号）+ 帖子（全量信息流）。
+ * Worker 端 /search 会遍历 KV 里的用户记录与帖子，不限于当前已加载的信息流。
+ */
+export async function searchWorld(query: string, limit = 20): Promise<SearchResult> {
+  const q = query.trim();
+  if (!q) return { users: [], posts: [] };
+  const params = new URLSearchParams({ q, limit: String(limit) });
+  const empty: SearchResult = { users: [], posts: [] };
+  try {
+    const res = await fetch(`${base()}/search?${params.toString()}`, { credentials: "include", cache: "no-store" });
+    if (!res.ok) return empty;
+    const data = (await res.json()) as Partial<SearchResult>;
+    return {
+      users: Array.isArray(data.users) ? data.users : [],
+      posts: Array.isArray(data.posts) ? data.posts : [],
+    };
+  } catch {
+    return empty;
+  }
 }
 
 /** 相对时间：刚刚 / 5 分钟前 / 3 小时前 / 10月3日 */
