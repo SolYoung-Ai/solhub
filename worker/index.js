@@ -150,7 +150,7 @@ async function allocateHandle(env, email, preferred) {
   if (RESERVED_HANDLES.has(base) && email !== OFFICIAL_LOGIN) base = `${base.slice(0, 18)}_`;
   let candidate = base;
   for (let i = 0; i < 40; i += 1) {
-    const owner = await env.PROFILES.get(`handle:${candidate}`);
+    const owner = await env.PROFILES.get(`handle:${candidate}`, { cacheTtl: 30 });
     if (!owner || owner === email) {
       await env.PROFILES.put(`handle:${candidate}`, email);
       return candidate;
@@ -168,6 +168,7 @@ async function ensureUserHandle(env, email, user) {
   const handle = await allocateHandle(env, email, "");
   user.handle = handle;
   await env.PROFILES.put(`user:${email}`, JSON.stringify(user));
+  await cacheWrite(env, `user:${email}`, JSON.stringify(user));
   return handle;
 }
 
@@ -175,7 +176,7 @@ async function ensureUserHandle(env, email, user) {
 async function pidOf(env, sid) {
   if (!sid) return "";
   if (!isEmailLogin(sid)) return sid;
-  const user = await kvGetJSON(env, `user:${sid}`, null);
+  const user = await kvGetJSON(env, `user:${sid}`, null, true);
   return (user && user.handle) || handleFromEmail(sid);
 }
 
@@ -185,7 +186,7 @@ async function sidOf(env, pidOrSid) {
   if (!id) return "";
   if (isEmailLogin(id)) return id.toLowerCase();
   const raw = id.replace(/^@+/, "");
-  const owner = await env.PROFILES.get(`handle:${raw.toLowerCase()}`);
+  const owner = await env.PROFILES.get(`handle:${raw.toLowerCase()}`, { cacheTtl: 30 });
   if (owner) return owner;
   /* GitHub 账号：用户名本身就是公开标识，保持原样 */
   return raw;
@@ -199,7 +200,7 @@ async function sidOf(env, pidOrSid) {
  */
 async function accountExists(env, sid) {
   if (!sid) return false;
-  if (isEmailLogin(sid)) return !!(await env.PROFILES.get(`user:${sid}`));
+  if (isEmailLogin(sid)) return !!(await env.PROFILES.get(`user:${sid}`, { cacheTtl: 30 }));
   return !!(await env.PROFILES.get(`profile:${sid}`));
 }
 
@@ -207,7 +208,7 @@ async function publicUser(env, pidOrSid) {
   const sid = await sidOf(env, pidOrSid);
   if (!sid) return { login: "", name: "", avatar: "" };
   if (isEmailLogin(sid)) {
-    const u = await kvGetJSON(env, `user:${sid}`, null);
+    const u = await kvGetJSON(env, `user:${sid}`, null, true);
     const handle = (u && u.handle) || handleFromEmail(sid);
     return {
       login: handle,
@@ -297,17 +298,17 @@ async function getSessionUser(request, env) {
     let email = s.email || "";
     /* 优先用 handle 反查当前邮箱：用户改过邮箱时映射已更新，这里自动跟着走 */
     if (s.handle) {
-      const mapped = await env.PROFILES.get(`handle:${s.handle}`);
+      const mapped = await env.PROFILES.get(`handle:${s.handle}`, { cacheTtl: 30 });
       if (mapped) email = mapped;
     }
-    let userRaw = email ? await env.PROFILES.get(`user:${email}`) : null;
+    let userRaw = email ? await env.PROFILES.get(`user:${email}`, { cacheTtl: 30 }) : null;
     /* 兜底：老会话只记了邮箱，改邮箱后走 alias 链找回 */
     let hops = 0;
     while (!userRaw && email && hops < 3) {
-      const alias = await env.PROFILES.get(`alias:${email}`);
+      const alias = await env.PROFILES.get(`alias:${email}`, { cacheTtl: 30 });
       if (!alias) break;
       email = alias;
-      userRaw = await env.PROFILES.get(`user:${email}`);
+      userRaw = await env.PROFILES.get(`user:${email}`, { cacheTtl: 30 });
       hops += 1;
     }
     if (!userRaw) return null;
@@ -363,7 +364,66 @@ const POST_MAX = 500;
 const COMMENT_MAX = 300;
 const FEED_CAP = 300;
 
-async function kvGetJSON(env, key, fallback) {
+/* ---------------- 资料读穿缓存（绕开 KV 最终一致性） ----------------
+   Cloudflare KV 的读走边缘缓存（默认 60s，cacheTtl 下限 30s），
+   写完之后立刻读常常拿到旧值 —— 表现就是「刚打开公开邮箱，页面还显示不公开」，
+   也会让「刚收到的验证码立刻输却提示不正确」。
+   这里在 KV 之上叠一层 Workers Cache API：同一数据中心内写入立即可见，
+   跨机房最多等一次 KV 刷新（30s）。 */
+const KV_CACHE_HOST = "https://solhub-kvcache.internal/";
+
+function kvCacheRequest(key) {
+  return new Request(KV_CACHE_HOST + encodeURIComponent(key));
+}
+
+/** 读读穿缓存；miss 返回 null */
+async function cacheRead(env, key) {
+  try {
+    const hit = await caches.default.match(kvCacheRequest(key));
+    return hit ? await hit.text() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 写穿：让本机房后续读取立刻看到新值 */
+async function cacheWrite(env, key, raw) {
+  try {
+    await caches.default.put(
+      kvCacheRequest(key),
+      new Response(raw, { headers: { "cache-control": "max-age=31536000" } }),
+    );
+  } catch {
+    /* 缓存写失败不影响主流程（KV 里已落盘） */
+  }
+}
+
+/** 删除读穿缓存（KV 键被删时同步清理） */
+async function cacheDrop(env, key) {
+  try {
+    await caches.default.delete(kvCacheRequest(key));
+  } catch {
+    /* ignore */
+  }
+}
+
+/* Cloudflare KV 是最终一致的：边缘缓存默认 60s，
+   刚写完就读常常拿到旧值（表现就是「刚打开公开邮箱，页面仍显示不公开」）。
+   身份 / 资料这类要求实时性的读取传 fresh=true，先查读穿缓存，
+   未命中才落到 KV（并把结果灌进读穿缓存）。 */
+async function kvGetJSON(env, key, fallback, fresh) {
+  if (fresh) {
+    const cached = await cacheRead(env, key);
+    if (cached !== null) {
+      try { return JSON.parse(cached); } catch { /* 落到 KV 重读 */ }
+    }
+    const raw = await env.PROFILES.get(key, { cacheTtl: 30 });
+    if (!raw) return fallback;
+    let val;
+    try { val = JSON.parse(raw); } catch { return fallback; }
+    await cacheWrite(env, key, raw);
+    return val;
+  }
   const raw = await env.PROFILES.get(key);
   if (!raw) return fallback;
   try { return JSON.parse(raw); } catch { return fallback; }
@@ -695,15 +755,17 @@ async function takeVCode(env, purpose, email, input) {
   const code = String(input || "").trim();
   if (!/^\d{6}$/.test(code)) return { ok: false, error: "验证码不正确" };
   const metaKey = vcodeMetaKey(purpose, email);
-  const meta = (await kvGetJSON(env, metaKey, null)) || {};
+  const meta = (await kvGetJSON(env, metaKey, null, true)) || {};
   const now = Date.now();
   /* 已锁定：只挡「继续猜码」，发码不受影响（发码是用户唯一的自救手段） */
   if (meta.l && now - meta.l < VCODE_TTL * 1000) {
     return { ok: false, error: "验证码尝试次数过多，请重新获取验证码" };
   }
-  /* 码即键：按输入的码精确查找，命中即通过 */
+  /* 码即键：按输入的码精确查找，命中即通过。
+     必须实时读：验证码是刚写进去的，走边缘缓存会读到「不存在」，
+     表现为「刚收到的码立刻输却提示不正确」。 */
   const key = vcodeKey(purpose, email, code);
-  if (!(await env.PROFILES.get(key))) {
+  if (!(await env.PROFILES.get(key, { cacheTtl: 30 }))) {
     const n = (meta.n || 0) + 1;
     const l = meta.l || (n >= VCODE_LOCK_AT ? now : 0);
     await env.PROFILES.put(metaKey, JSON.stringify({ ...meta, n, l }), { expirationTtl: VCODE_TTL });
@@ -723,8 +785,8 @@ async function resolveCurrentEmail(env, email) {
   let cur = String(email || "").trim().toLowerCase();
   for (let i = 0; i < 3; i++) {
     if (!cur) return "";
-    if (await env.PROFILES.get(`user:${cur}`)) return cur;
-    const alias = await env.PROFILES.get(`alias:${cur}`);
+    if (await env.PROFILES.get(`user:${cur}`, { cacheTtl: 30 })) return cur;
+    const alias = await env.PROFILES.get(`alias:${cur}`, { cacheTtl: 30 });
     if (!alias) return "";
     cur = alias;
   }
@@ -757,7 +819,7 @@ function isDevRequest(request, env) {
  */
 async function claimVCodeQuota(env) {
   const today = new Date().toISOString().slice(0, 10);
-  const q = (await kvGetJSON(env, "vcode:quota", null)) || {};
+  const q = (await kvGetJSON(env, "vcode:quota", null, true)) || {};
   const day = q.d === today ? (q.day || 0) : 0;   // 跨天自动归零
   const total = q.total || 0;
   if (day >= dailyBudget(env)) {
@@ -777,7 +839,7 @@ async function claimVCodeQuota(env) {
 /** 退回一次配额（发信失败时调用，避免临时故障白白吃掉当天额度） */
 async function releaseVCodeQuota(env) {
   const today = new Date().toISOString().slice(0, 10);
-  const q = (await kvGetJSON(env, "vcode:quota", null)) || {};
+  const q = (await kvGetJSON(env, "vcode:quota", null, true)) || {};
   const day = q.d === today ? Math.max(0, (q.day || 0) - 1) : 0;
   const total = Math.max(0, (q.total || 0) - 1);
   await env.PROFILES.put(
@@ -808,7 +870,7 @@ async function issueCode(request, env, purpose, target) {
   const metaKey = vcodeMetaKey(purpose, target);
 
   /* 1) 熔断标记：阿里云返回配额类错误后置位，当天不再白跑 */
-  const fuse = await kvGetJSON(env, "vcode:fuse", null);
+  const fuse = await kvGetJSON(env, "vcode:fuse", null, true);
   if (!devMode && fuse && fuse.until && fuse.until > now) {
     return { status: 429, body: { error: "今日验证码发送额度已用尽，请明天再试" } };
   }
@@ -823,8 +885,8 @@ async function issueCode(request, env, purpose, target) {
   }
   let quotaClaimed = true;
 
-  /* 3) 元数据：冷却 / 窗口次数 */
-  const meta = (await kvGetJSON(env, metaKey, null)) || {};
+  /* 3) 元数据：冷却 / 窗口次数（实时读：冷却窗口要能立刻生效） */
+  const meta = (await kvGetJSON(env, metaKey, null, true)) || {};
   if (meta.w && now - meta.w < VCODE_COOLDOWN * 1000) {
     return { status: 429, body: { error: `请 ${retryAfterSec(meta.w, VCODE_COOLDOWN)} 秒后再获取验证码` } };
   }
@@ -1446,10 +1508,10 @@ export default {
         if (purpose === "verify") target = identity.user.email;
         if (purpose === "change") {
           if (email === identity.user.email) return json(request, { error: "新邮箱与当前邮箱相同" }, 400);
-          if (await env.PROFILES.get(`user:${email}`)) return json(request, { error: "该邮箱已被注册" }, 409);
+          if (await env.PROFILES.get(`user:${email}`, { cacheTtl: 30 })) return json(request, { error: "该邮箱已被注册" }, 409);
         }
       }
-      if (purpose === "register" && (await env.PROFILES.get(`user:${email}`))) {
+      if (purpose === "register" && (await env.PROFILES.get(`user:${email}`, { cacheTtl: 30 }))) {
         return json(request, { error: "该邮箱已注册，请直接登录" }, 409);
       }
       const out = await issueCode(request, env, purpose, target);
@@ -1467,10 +1529,11 @@ export default {
       const v = await takeVCode(env, "verify", email, code);
       if (!v.ok) return json(request, { error: v.error }, 400);
       const key = `user:${email}`;
-      const user = await kvGetJSON(env, key, null);
+      const user = await kvGetJSON(env, key, null, true);
       if (!user) return json(request, { error: "用户不存在" }, 404);
       user.emailVerified = true;
       await env.PROFILES.put(key, JSON.stringify(user));
+      await cacheWrite(env, key, JSON.stringify(user));
       return json(request, { ok: true, emailVerified: true });
     }
 
@@ -1485,18 +1548,20 @@ export default {
       const oldEmail = identity.user.email;
       if (!EMAIL_RE.test(newEmail)) return json(request, { error: "邮箱格式不正确" }, 400);
       if (newEmail === oldEmail) return json(request, { error: "新邮箱与当前邮箱相同" }, 400);
-      if (await env.PROFILES.get(`user:${newEmail}`)) return json(request, { error: "该邮箱已被注册" }, 409);
+      if (await env.PROFILES.get(`user:${newEmail}`, { cacheTtl: 30 })) return json(request, { error: "该邮箱已被注册" }, 409);
       const v = await takeVCode(env, "change", newEmail, code);
       if (!v.ok) return json(request, { error: v.error }, 400);
 
       const oldKey = `user:${oldEmail}`;
-      const user = await kvGetJSON(env, oldKey, null);
+      const user = await kvGetJSON(env, oldKey, null, true);
       if (!user) return json(request, { error: "用户不存在" }, 404);
       user.email = newEmail;
       user.emailVerified = true;
       user.emailPublic = false; /* 换了邮箱先收回公开状态，需要用户重新开启 */
       await env.PROFILES.put(`user:${newEmail}`, JSON.stringify(user));
+      await cacheWrite(env, `user:${newEmail}`, JSON.stringify(user));
       await env.PROFILES.delete(oldKey);
+      await cacheDrop(env, oldKey);
       /* 别名：让改邮箱前签发的旧会话仍能定位到账号 */
       await env.PROFILES.put(`alias:${oldEmail}`, newEmail);
       if (user.handle) await env.PROFILES.put(`handle:${user.handle}`, newEmail);
@@ -1560,6 +1625,7 @@ export default {
       /* 密码版本号 +1：所有旧会话的版本对不上，自动失效 */
       user.pwdVersion = (user.pwdVersion || 0) + 1;
       await env.PROFILES.put(key, JSON.stringify(user));
+      await cacheWrite(env, key, JSON.stringify(user));
       const cookie = await createSession(request, env, current);
       return json(request, { ok: true, message: "密码已重置，请用新密码登录" }, 200, cookie);
     }
@@ -1591,10 +1657,10 @@ export default {
       }
 
       const key = `user:${email}`;
-      if (await env.PROFILES.get(key)) {
+      if (await env.PROFILES.get(key, { cacheTtl: 30 })) {
         return json(request, { error: "该邮箱已注册，请直接登录" }, 409);
       }
-      if (wanted && (await env.PROFILES.get(`handle:${wanted}`))) {
+      if (wanted && (await env.PROFILES.get(`handle:${wanted}`, { cacheTtl: 30 }))) {
         return json(request, { error: "该用户名已被使用，换一个试试" }, 409);
       }
 
@@ -1645,7 +1711,7 @@ export default {
         return json(request, { error: `请求过于频繁，请 ${retryAfterSec(ipState.startedAt, 900)} 秒后再试` }, 429);
       }
 
-      const raw = await env.PROFILES.get(`user:${email}`);
+      const raw = await env.PROFILES.get(`user:${email}`, { cacheTtl: 30 });
       const user = raw ? JSON.parse(raw) : null;
       /* 无论账号是否存在都做一次同样的 PBKDF2 运算，避免用响应耗时探测账号是否注册 */
       const hash = await hashPassword(password, (user && user.passSalt) || "AAAAAAAAAAAAAAAAAAAAAA==");
@@ -1733,7 +1799,7 @@ export default {
       if (!identity) return json(request, { authenticated: false }, 401);
       if (identity.type === "email") {
         const email = identity.user.email;
-        const rec = await kvGetJSON(env, `user:${email}`, null);
+        const rec = await kvGetJSON(env, `user:${email}`, null, true);
         const handle = rec ? await ensureUserHandle(env, email, rec) : (identity.user.handle || handleFromEmail(email));
         const admin = isAdminLogin(env, email);
         return json(request, {
@@ -1763,7 +1829,7 @@ export default {
       if (request.method === "GET") {
         if (identity.type === "email") {
           const u = identity.user;
-          const rec = await kvGetJSON(env, `user:${u.email}`, null);
+          const rec = await kvGetJSON(env, `user:${u.email}`, null, true);
           const handle = rec ? await ensureUserHandle(env, u.email, rec) : (u.handle || handleFromEmail(u.email));
           return json(request, {
             login: handle,
@@ -1815,14 +1881,14 @@ export default {
               return json(request, { error: "用户名需 3–20 位，字母开头，只能是小写字母、数字或下划线" }, 400);
             }
             if (RESERVED_HANDLES.has(wanted)) return json(request, { error: "该用户名不可用" }, 409);
-            const owner = await env.PROFILES.get(`handle:${wanted}`);
+            const owner = await env.PROFILES.get(`handle:${wanted}`, { cacheTtl: 30 });
             if (owner && owner !== identity.user.email) return json(request, { error: "该用户名已被使用，换一个试试" }, 409);
             nextHandle = wanted;
           }
         }
         if (identity.type === "email") {
           const key = `user:${identity.login}`;
-          const raw = await env.PROFILES.get(key);
+          const raw = await env.PROFILES.get(key, { cacheTtl: 30 });
           if (!raw) return json(request, { error: "user not found" }, 404);
           const user = JSON.parse(raw);
           Object.assign(user, allowed);
@@ -1842,6 +1908,7 @@ export default {
           }
           if (!user.handle) user.handle = await allocateHandle(env, user.email, "");
           await env.PROFILES.put(key, JSON.stringify(user));
+          await cacheWrite(env, key, JSON.stringify(user));
           return json(request, { ok: true, ...allowed, handle: user.handle, emailPublic: user.emailPublic });
         }
         /* GitHub 账号没有站内邮箱，不提供「公开邮箱」开关 */
@@ -2589,7 +2656,7 @@ export default {
           kvGetJSON(env, `feed:user:${targetSid}`, []),
           viewer ? kvGetJSON(env, `following:${viewer}`, []) : Promise.resolve([]),
           readCommunity(env),
-          kvGetJSON(env, `user:${targetSid}`, null),
+          kvGetJSON(env, `user:${targetSid}`, null, true),
           readProductIndex(env),
           banOf(env, targetSid),
         ]);
@@ -2647,6 +2714,7 @@ export default {
       await env.PROFILES.put(`handle:${wanted}`, email);
       user.handle = wanted;
       await env.PROFILES.put(`user:${email}`, JSON.stringify(user));
+      await cacheWrite(env, `user:${email}`, JSON.stringify(user));
       await republishAuthor(env, email, wanted, prev);
       return json(request, { ok: true, email, handle: wanted, previous: prev });
     }
