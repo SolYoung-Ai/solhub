@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowRight,
+  Compass,
+  Globe,
+  Info,
   Languages,
   LogOut,
-  Menu,
-  Monitor,
   Moon,
+  Pencil,
+  Plus,
   Search,
   ShieldCheck,
-  Smartphone,
   Sun,
+  Trophy,
   UserCog,
   UserRound,
+  Wrench,
   X,
 } from "lucide-react";
 import type { SearchIndexEntry } from "@/data/types";
@@ -28,8 +31,18 @@ interface Props {
   locale?: Locale;
 }
 
+/**
+ * 站点导航：桌面左右布局的左侧栏 + 手机端顶栏/底部标签栏。
+ *
+ * 三档：
+ *   ≥1280px  完整侧栏（图标 + 文字，240px）
+ *   1024–1279 折叠为图标栏（76px，仅图标，靠 title 提示）
+ *   <1024px  顶栏（Logo/搜索/头像）+ 底部标签栏
+ *
+ * 设计语言沿用 SolHub：白底 + 暖灰描边 + 橙色激活态（不是 X 的黑白反色），
+ * 这样侧栏只改变信息架构，不改变品牌观感。
+ */
 export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -47,12 +60,13 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
     return () => window.removeEventListener("click", close);
   }, [userMenuOpen]);
 
-  const NAV: { label: string; path: string; match: (r: string) => boolean }[] = [
-    { label: translate(dict, "nav.discover"), path: "/", match: (r) => r === "/" },
-    { label: translate(dict, "nav.launches"), path: "/launches/", match: (r) => r.startsWith("/launches/") },
-    { label: translate(dict, "nav.world"), path: "/world/", match: (r) => r.startsWith("/world/") },
-    { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", match: (r) => r.startsWith("/my-submissions/") },
-    { label: translate(dict, "nav.about"), path: "/about/", match: (r) => r.startsWith("/about/") },
+  const NAV: { label: string; path: string; icon: typeof Compass; match: (r: string) => boolean }[] = [
+    { label: translate(dict, "nav.discover"), path: "/", icon: Compass, match: (r) => r === "/" },
+    { label: translate(dict, "nav.launches"), path: "/launches/", icon: Trophy, match: (r) => r.startsWith("/launches/") },
+    { label: translate(dict, "nav.world"), path: "/world/", icon: Globe, match: (r) => r.startsWith("/world/") },
+    { label: translate(dict, "nav.tools"), path: "/tools/", icon: Wrench, match: (r) => r.startsWith("/tools/") },
+    { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, match: (r) => r.startsWith("/my-submissions/") },
+    { label: translate(dict, "nav.about"), path: "/about/", icon: Info, match: (r) => r.startsWith("/about/") },
   ];
 
   useEffect(() => {
@@ -63,245 +77,296 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
 
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setSearchOpen(false);
-        setMenuOpen(false);
-      }
+      if (e.key === "Escape") setSearchOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   useEffect(() => {
-    if (searchOpen || menuOpen) {
-      const prev = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => { document.body.style.overflow = prev; };
-    }
-  }, [searchOpen, menuOpen]);
+    if (!searchOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [searchOpen]);
+
+  const displayName = user ? user.displayName || user.login : "";
+  const handle = user ? user.handle || user.login : "";
 
   return (
     <>
-    <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
-      <div className="container-page flex h-14 items-center justify-between gap-2">
-        {/* 左侧：三条杠 + Logo */}
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] text-foreground hover:bg-secondary md:hidden"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-expanded={menuOpen}
-            aria-label={menuOpen ? "关闭菜单" : "打开菜单"}
+      {/* ==================== 桌面：左侧固定栏 ==================== */}
+      <aside
+        className="app-sidebar sticky top-0 z-40 hidden h-screen shrink-0 flex-col border-r border-border bg-background lg:flex lg:w-[76px] xl:w-[244px]"
+        aria-label={en ? "Main navigation" : "主导航"}
+      >
+        <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain px-3 py-5 xl:px-4">
+          {/* Logo：图标栏只留标识，完整栏带字标 */}
+          <a
+            href={p("/", locale)}
+            className="flex shrink-0 items-center justify-center gap-2.5 rounded-[8px] px-1 py-1 xl:justify-start xl:px-2"
+            aria-label="SolHub"
           >
-            {menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </button>
-          <Logo locale={locale} />
-        </div>
+            <img src="/solhub-mark.png" alt="" width={30} height={30} className="shrink-0" />
+            <span className="hidden font-display text-[19px] font-bold tracking-tight text-foreground xl:block">
+              SolHub
+            </span>
+          </a>
 
-        {/* 桌面导航 */}
-        <nav className="hidden items-center gap-1 md:flex" aria-label={translate(dict, "nav.mainNav")}>
-          {NAV.map((item) => (
-            <a
-              key={item.path}
-              href={p(item.path, locale)}
-              aria-current={item.match(currentRoute) ? "page" : undefined}
-              className={cx(
-                "rounded-[6px] px-3 py-1.5 text-sm font-medium transition-colors",
-                item.match(currentRoute)
-                  ? "bg-secondary text-foreground"
-                  : "text-foreground/70 hover:bg-secondary/60 hover:text-foreground",
-              )}
-            >
-              {item.label}
-            </a>
-          ))}
-        </nav>
+          {/* 主导航 */}
+          <nav className="mt-7 flex flex-col gap-1">
+            {NAV.map((item) => {
+              const on = item.match(currentRoute);
+              const Icon = item.icon;
+              return (
+                <a
+                  key={item.path}
+                  href={p(item.path, locale)}
+                  aria-current={on ? "page" : undefined}
+                  title={item.label}
+                  className={cx(
+                    "group flex items-center justify-center gap-3 rounded-[8px] px-3 py-2.5 text-[14px] font-medium transition-colors xl:justify-start",
+                    on
+                      ? "bg-accent/10 text-accent"
+                      : "text-foreground/65 hover:bg-secondary hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={on ? 2.1 : 1.7} />
+                  <span className="hidden xl:block">{item.label}</span>
+                </a>
+              );
+            })}
+          </nav>
 
-        {/* 右侧功能按钮 */}
-        <div className="flex shrink-0 items-center gap-1.5">
-          {/* 搜索 - 所有屏幕都显示 */}
+          {/* 搜索：与导航同构，点击打开全站搜索浮层 */}
+          <div className="my-2 h-px bg-border" aria-hidden="true" />
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
+            title={en ? "Search" : "搜索"}
+            className="flex items-center justify-center gap-3 rounded-[8px] px-3 py-2.5 text-[14px] font-medium text-foreground/65 transition-colors hover:bg-secondary hover:text-foreground xl:justify-start"
+          >
+            <Search className="h-[19px] w-[19px] shrink-0" strokeWidth={1.7} />
+            <span className="hidden xl:block">{en ? "Search" : "搜索"}</span>
+          </button>
+
+          {/* 主行动：紧跟导航区（对应 X 的「发帖」大按钮位置），
+              不压在最底部 —— 底部只留辅助控件和账号，视觉重量更轻 */}
+          <div className="mt-4 flex flex-col gap-2">
+            {/* 发帖：次级动作，跳世界页并直接打开写作框 */}
+            <a
+              href={p("/world/?compose=1", locale)}
+              title={en ? "New post" : "发帖"}
+              className="flex h-9 items-center justify-center gap-2 rounded-[8px] border border-border bg-card text-[13px] font-medium text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
+            >
+              <Pencil className="h-4 w-4 shrink-0" />
+              <span className="hidden xl:block">{en ? "Post" : "发帖"}</span>
+            </a>
+
+            {/* 提交产品：主行动，整个侧栏唯一的实心色块 */}
+            <a
+              href={p("/submit/", locale)}
+              title={translate(dict, "nav.submit")}
+              className="flex h-10 items-center justify-center gap-2 rounded-[8px] bg-accent text-[13px] font-semibold text-accent-foreground shadow-xs transition-colors hover:brightness-95"
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              <span className="hidden xl:block">{translate(dict, "nav.submit")}</span>
+            </a>
+          </div>
+
+          {/* 底部：辅助控件 → 账号 */}
+          <div className="mt-auto flex flex-col gap-3 pt-6">
+            <div className="flex flex-col items-center gap-1 xl:flex-row xl:gap-1">
+              <LangButton locale={locale} currentRoute={currentRoute} />
+              <ThemeButton />
+            </div>
+
+            {/* 账号 */}
+            {user ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setUserMenuOpen((v) => !v); }}
+                  aria-expanded={userMenuOpen}
+                  aria-label={displayName}
+                  title={displayName}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-[8px] p-1.5 transition-colors hover:bg-secondary xl:justify-start"
+                >
+                  <Avatar user={user} size={30} />
+                  <span className="hidden min-w-0 text-left xl:block">
+                    <span className="block truncate text-[13px] font-medium leading-4 text-foreground">{displayName}</span>
+                    <span className="block truncate text-[11px] leading-4 text-muted-foreground">@{handle}</span>
+                  </span>
+                </button>
+
+                {userMenuOpen && (
+                  <div
+                    className="fixed bottom-[86px] left-3 z-50 w-[228px] overflow-hidden rounded-[10px] border border-border bg-card py-1 shadow-xl xl:bottom-[92px] xl:left-4 xl:w-[212px]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <UserMenuItems user={user} locale={locale} en={en} onNavigate={() => setUserMenuOpen(false)} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <a
+                href={p("/login/", locale)}
+                className="flex h-9 items-center justify-center gap-2 rounded-[8px] text-[13px] font-medium text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <UserRound className="h-4 w-4 shrink-0" />
+                <span className="hidden xl:block">{translate(dict, "nav.login")}</span>
+              </a>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* ==================== 手机：顶栏 ==================== */}
+      <header className="app-topbar sticky top-0 z-40 flex h-[52px] items-center gap-2 border-b border-border bg-background/90 px-3 backdrop-blur-md lg:hidden">
+        <a href={p("/", locale)} className="flex items-center gap-2" aria-label="SolHub">
+          <img src="/solhub-mark.png" alt="" width={24} height={24} />
+          <span className="font-display text-[17px] font-bold tracking-tight text-foreground">SolHub</span>
+        </a>
+
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label={en ? "Search" : "搜索"}
             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-            aria-label="搜索"
           >
             <Search className="h-3.5 w-3.5" />
           </button>
 
-          {/* 登录 / 用户菜单
-              注意：外层必须是 flex 容器。原来这里是普通块级 div，里面放的是
-              inline-flex 的按钮 —— 行内级元素会坐在父容器的基线上，父容器因此
-              多出一段字体降部空间，把头像整体顶上去了约 2px，与其它按钮错位。
-              改成 flex + items-center 后，头像与搜索/语言/主题按钮完全对齐。 */}
           {user ? (
             <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setUserMenuOpen((v) => !v); }}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border hover:border-foreground/40"
-                aria-label={user.displayName || user.login}
+                aria-label={displayName}
                 aria-expanded={userMenuOpen}
+                className="inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border"
               >
-                {avatarOf(user) ? (
-                  <img src={avatarOf(user)} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="font-display text-[13px] font-bold uppercase text-foreground">
-                    {(user.displayName || user.login).slice(0, 1)}
-                  </span>
-                )}
+                <Avatar user={user} size={32} />
               </button>
               {userMenuOpen && (
                 <div
-                  className="absolute right-0 top-9 z-50 w-44 overflow-hidden rounded-[10px] border border-border bg-card py-1 shadow-xl"
+                  className="absolute right-0 top-10 z-50 w-[220px] overflow-hidden rounded-[10px] border border-border bg-card py-1 shadow-xl"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="border-b border-border px-3 py-2">
-                    <p className="truncate text-[13px] font-bold text-foreground">{user.displayName || user.login}</p>
-                    {user.email && <p className="truncate text-[11px] text-muted-foreground">{user.email}</p>}
-                  </div>
-                  <a
-                    href={p("/my-submissions/", locale)}
-                    onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
-                  >
-                    <UserRound className="h-3.5 w-3.5" /> {en ? "My account" : "个人中心"}
-                  </a>
-                  <a
-                    href={p("/my-submissions/#account", locale)}
-                    onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
-                  >
-                    <UserCog className="h-3.5 w-3.5" /> {en ? "Account info" : "账号信息"}
-                  </a>
-                  {user.isAdmin && (
-                    <a
-                      href={p("/guanli/")}
-                      onClick={() => setUserMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
-                    >
-                      <ShieldCheck className="h-3.5 w-3.5" /> {en ? "Admin" : "管理后台"}
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => { setUserMenuOpen(false); void logout().then(() => window.location.reload()); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-foreground/80 hover:bg-secondary hover:text-destructive"
-                  >
-                    <LogOut className="h-3.5 w-3.5" /> {en ? "Log out" : "退出登录"}
-                  </button>
+                  <UserMenuItems user={user} locale={locale} en={en} onNavigate={() => setUserMenuOpen(false)} />
                 </div>
               )}
             </div>
           ) : (
             <a
               href={p("/login/", locale)}
-              className="inline-flex h-8 items-center gap-1 rounded-[6px] border border-border bg-card px-2.5 text-xs font-medium text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
+              className="inline-flex h-8 items-center rounded-[6px] border border-border bg-card px-2.5 text-xs font-medium text-foreground/80"
             >
               {translate(dict, "nav.login")}
             </a>
           )}
-
-          {/* 分隔线：左右间距交给父级统一的 gap，这里不再额外加外边距 */}
-          <span className="hidden h-4 w-px shrink-0 bg-border sm:block" aria-hidden="true" />
-          {/* 语言/主题 - 桌面显示 */}
-          <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
-            <LangButton locale={locale} currentRoute={currentRoute} />
-            <ThemeButton />
-          </div>
         </div>
-      </div>
-
-      {/* 全局搜索浮层 */}
-      {searchOpen && (
-        <SearchDialog index={searchIndex} locale={locale} onClose={() => setSearchOpen(false)} />
-      )}
       </header>
 
-      {/* 移动端侧边菜单 */}
-      {menuOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-[90] md:hidden bg-black/30"
-            onClick={() => setMenuOpen(false)}
-          />
-          <div className="fixed left-0 top-0 bottom-0 z-[100] md:hidden w-[280px] overflow-y-auto overscroll-contain shadow-2xl bg-background dark:bg-card border-r border-border">
-            <div className="flex items-center justify-between px-5 pt-5 pb-4">
-              <span className="font-display text-lg font-bold text-foreground">SolHub</span>
-              <button onClick={() => setMenuOpen(false)} className="p-1 text-muted-foreground hover:text-foreground" aria-label="Close menu">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <nav className="px-3 py-2">
-              {NAV.map((item) => (
-                <a
-                  key={item.path}
-                  href={p(item.path, locale)}
-                  onClick={() => setMenuOpen(false)}
-                  className={cx(
-                    "flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium transition-colors",
-                    item.match(currentRoute) ? "text-accent bg-accent/10" : "text-foreground/80 hover:bg-secondary/60",
-                  )}
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-            <div className="mx-5 my-3 border-t border-border/50" />
-            <div className="px-3 py-2">
-              {user ? (
-                <>
-                  <a
-                    href={p("/my-submissions/", locale)}
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium text-accent"
-                  >
-                    {user.displayName || user.login}
-                  </a>
-                  <a
-                    href={p("/my-submissions/#account", locale)}
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium text-foreground/80 hover:bg-secondary/60"
-                  >
-                    <UserCog className="h-4 w-4" /> {en ? "Account info" : "账号信息"}
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => { setMenuOpen(false); void logout().then(() => window.location.reload()); }}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[15px] font-medium text-foreground/80 hover:bg-secondary/60"
-                  >
-                    <LogOut className="h-4 w-4" /> {en ? "Log out" : "退出登录"}
-                  </button>
-                </>
-              ) : (
-                <a
-                  href={p("/login/", locale)}
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium text-foreground/80 hover:bg-secondary/60"
-                >
-                  {translate(dict, "nav.login")}
-                </a>
+      {/* ==================== 手机：底部标签栏 ==================== */}
+      <nav
+        className="app-tabbar fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-background/95 backdrop-blur-md lg:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        aria-label={en ? "Main navigation" : "主导航"}
+      >
+        {NAV.map((item) => {
+          const on = item.match(currentRoute);
+          const Icon = item.icon;
+          return (
+            <a
+              key={item.path}
+              href={p(item.path, locale)}
+              aria-current={on ? "page" : undefined}
+              className={cx(
+                "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] leading-none transition-colors",
+                on ? "text-accent" : "text-muted-foreground",
               )}
-              <div className="flex items-center gap-4 px-3 py-3">
-                <LangButton locale={locale} currentRoute={currentRoute} />
-                <ThemeButton />
-              </div>
-            </div>
-            <div className="mx-5 my-3 border-t border-border/50" />
-            <div className="mx-5 mb-6 rounded-xl border border-dashed border-accent/30 bg-accent/5 p-4">
-              <p className="text-sm font-semibold text-foreground">Feedback?</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">Bug, idea or suggestion — we read every one.</p>
-            </div>
-          </div>
-        </>
-      )}
+            >
+              <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={on ? 2.1 : 1.7} />
+              <span className="truncate">{item.label}</span>
+            </a>
+          );
+        })}
+      </nav>
+
+      {/* 全站搜索浮层 */}
+      {searchOpen && <SearchDialog index={searchIndex} locale={locale} onClose={() => setSearchOpen(false)} />}
     </>
   );
 }
 
-/* ---------------- 登录按钮（已移除） ---------------- */
+/* ---------------- 头像 ---------------- */
 
-/* ---------------- 右上角控件 ---------------- */
+function Avatar({ user, size = 32 }: { user: AuthUser; size?: number }) {
+  const src = avatarOf(user);
+  if (src) {
+    return <img src={src} alt="" width={size} height={size} className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />;
+  }
+  return (
+    <span
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-secondary font-display text-[12px] font-bold uppercase text-foreground"
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    >
+      {(user.displayName || user.login).slice(0, 1)}
+    </span>
+  );
+}
+
+/* ---------------- 账号菜单（桌面侧栏 / 手机顶栏共用） ---------------- */
+
+function UserMenuItems({
+  user, locale, en, onNavigate,
+}: {
+  user: AuthUser; locale: Locale; en: boolean; onNavigate: () => void;
+}) {
+  return (
+    <>
+      <div className="border-b border-border px-3 py-2">
+        <p className="truncate text-[13px] font-bold text-foreground">{user.displayName || user.login}</p>
+        {user.email && <p className="truncate text-[11px] text-muted-foreground">{user.email}</p>}
+      </div>
+      <a
+        href={p("/my-submissions/", locale)}
+        onClick={onNavigate}
+        className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
+      >
+        <UserRound className="h-3.5 w-3.5" /> {en ? "My account" : "个人中心"}
+      </a>
+      <a
+        href={p("/my-submissions/#account", locale)}
+        onClick={onNavigate}
+        className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
+      >
+        <UserCog className="h-3.5 w-3.5" /> {en ? "Account info" : "账号信息"}
+      </a>
+      {user.isAdmin && (
+        <a
+          href={p("/guanli/")}
+          onClick={onNavigate}
+          className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
+        >
+          <ShieldCheck className="h-3.5 w-3.5" /> {en ? "Admin" : "管理后台"}
+        </a>
+      )}
+      <button
+        type="button"
+        onClick={() => { onNavigate(); void logout().then(() => window.location.reload()); }}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-foreground/80 hover:bg-secondary hover:text-destructive"
+      >
+        <LogOut className="h-3.5 w-3.5" /> {en ? "Log out" : "退出登录"}
+      </button>
+    </>
+  );
+}
+
+/* ---------------- 侧栏底部辅助控件 ---------------- */
 
 function IconButton({
   label, onClick, children, ariaPressed,
@@ -312,7 +377,7 @@ function IconButton({
     <button
       type="button" onClick={onClick} aria-label={label} title={label}
       aria-pressed={ariaPressed}
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-border bg-card text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-border bg-card text-foreground/70 transition-colors hover:border-foreground/30 hover:text-foreground"
     >
       {children}
     </button>
@@ -328,7 +393,7 @@ function LangButton({ locale, currentRoute }: { locale: Locale; currentRoute: st
       onClick={() => { try { localStorage.setItem("solhub:lang", other); } catch {} }}
       aria-label={other === "en" ? "Switch to English" : "切换到中文"}
       title={other === "en" ? "Switch to English" : "切换到中文"}
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-border bg-card text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-border bg-card text-foreground/70 transition-colors hover:border-foreground/30 hover:text-foreground"
     >
       <Languages className="h-3.5 w-3.5" aria-hidden="true" />
     </a>
@@ -353,42 +418,6 @@ function ThemeButton() {
     <IconButton label={dark ? "切换到浅色" : "切换到深色"} onClick={toggle} ariaPressed={dark}>
       {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
     </IconButton>
-  );
-}
-
-function ViewportButton() {
-  const [mobile, setMobile] = useState(false);
-  useEffect(() => {
-    try { setMobile(document.documentElement.classList.contains("viewport-mobile")); } catch {}
-  }, []);
-  const toggle = () => {
-    const next = !mobile;
-    setMobile(next);
-    const root = document.documentElement;
-    if (next) root.classList.add("viewport-mobile"); else root.classList.remove("viewport-mobile");
-    try { localStorage.setItem("solhub:viewport", next ? "mobile" : "desktop"); } catch {}
-  };
-  return (
-    <IconButton label={mobile ? "切换到电脑视图" : "切换到手机视图"} onClick={toggle} ariaPressed={mobile}>
-      {mobile ? <Monitor className="h-3.5 w-3.5" /> : <Smartphone className="h-3.5 w-3.5" />}
-    </IconButton>
-  );
-}
-
-/* ---------------- Logo ---------------- */
-
-function Logo({ locale = "zh" }: { locale?: Locale }) {
-  return (
-    <a href={p("/", locale)} className="inline-flex items-center gap-2 leading-none" aria-label="SolHub">
-      <img
-        src="/solhub-mark.png"
-        alt=""
-        width={28}
-        height={28}
-        className="shrink-0"
-      />
-      <span className="font-display text-[19px] font-bold tracking-tight text-foreground">SolHub</span>
-    </a>
   );
 }
 
@@ -420,7 +449,9 @@ function SearchDialog({
   return (
     <div className="fixed inset-0 z-50 animate-fade-in" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
-      <div className="absolute inset-x-0 top-0 mx-auto w-full max-w-2xl px-4 pt-16 sm:pt-24">
+      {/* app-search-layer：桌面端把浮层起点让到侧栏右侧，让搜索框在内容区居中，
+          而不是相对整个视口居中（否则会明显偏左，像和侧栏抢位置） */}
+      <div className="app-search-layer absolute inset-x-0 top-0 mx-auto w-full max-w-2xl px-4 pt-16 sm:pt-24">
         <div className="animate-dialog-in overflow-hidden rounded-[10px] border border-border bg-card shadow-xl">
           <div className="flex items-center gap-2 border-b border-border px-4">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />

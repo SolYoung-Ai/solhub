@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   BadgeCheck,
   CalendarDays,
   Check,
@@ -95,6 +96,8 @@ function Avatar({
 export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
   const en = locale === "en";
   const [me, setMe] = useState<AuthUser | null>(null);
+  /* 登录态是否已问过服务端：深链要等这个变 true 再决定「直接开写作框」还是「先去登录」 */
+  const [meReady, setMeReady] = useState(false);
   const [posts, setPosts] = useState<WorldPost[]>([]);
   const [tab, setTab] = useState<"latest" | "following">("latest");
   const [loading, setLoading] = useState(true);
@@ -165,12 +168,51 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
   }, []);
 
   useEffect(() => {
-    void fetchMe().then(setMe);
+    void fetchMe().then((u) => { setMe(u); setMeReady(true); });
   }, []);
 
   useEffect(() => {
     if (!viewUser) void load(tab);
   }, [tab, load, viewUser]);
+
+  /* 右栏「活跃开发者」：直接从当前时间线统计，避免为它单开一个接口。
+     数据为空（未加载 / 无人发帖）时整块不渲染。 */
+  const activeDevs = useMemo(() => {
+    const map = new Map<string, { author: string; name: string; avatar?: string; verified?: boolean; count: number }>();
+    for (const item of posts) {
+      if (!item.author) continue;
+      const hit = map.get(item.author);
+      if (hit) hit.count += 1;
+      else map.set(item.author, {
+        author: item.author,
+        name: item.authorName || item.author,
+        avatar: item.authorAvatar,
+        verified: item.authorVerified,
+        count: 1,
+      });
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 5);
+  }, [posts]);
+
+  /* 深链：从左侧栏「发帖」进来（/world/?compose=1）时自动打开写作框。
+     未登录则带着 next 去登录页，登录回来参数还在，会再次触发。 */
+  const composeHandled = useRef(false);
+  useEffect(() => {
+    if (!meReady || composeHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("compose") !== "1") return;
+    composeHandled.current = true;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("compose");
+    window.history.replaceState(null, "", url.toString());
+    if (!me) {
+      window.location.href = p("/login/?next=" + encodeURIComponent("/world/?compose=1"), locale);
+      return;
+    }
+    setError(null);
+    setComposerOpen(true);
+    window.setTimeout(() => composerRef.current?.focus(), 80);
+  }, [meReady, me, locale]);
 
   /* 深链定位：/world/#post-<id> */
   useEffect(() => {
@@ -343,11 +385,14 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
     });
   };
 
+  /* 看某人的主页时只用单列 672px；时间线视图才开三栏（左列 + 右栏） */
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className={`mx-auto w-full ${viewUser ? "max-w-2xl" : "flex max-w-2xl items-start gap-6 xl:max-w-[1000px]"}`}>
+      <div className="min-w-0 flex-1 pb-8">
       {/* ============ 顶部栏：发布 + 最新/关注 Tab（X 风格） ============ */}
+      {/* 吸顶偏移：手机端顶栏 52px；桌面端没有顶栏（左侧栏布局），贴 0 即可 */}
       {!viewUser && (
-        <div className="sticky top-14 z-30 border-b border-border bg-background/90 backdrop-blur-md">
+        <div className="sticky top-[52px] z-30 border-b border-border bg-background/90 backdrop-blur-md lg:top-0">
           <div className="flex items-center gap-1 px-4">
             <button
               type="button"
@@ -823,6 +868,85 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
             </li>
           ))}
         </ul>
+      )}
+      </div>
+
+      {/* ============ 右栏（仅桌面 + 时间线视图）============
+          信息流本身只有 672px，宽屏上两侧会空出很多；补一列导读内容，
+          与 X 的三栏结构一致。数据全部来自已加载的时间线，不额外请求。 */}
+      {!viewUser && (
+        <aside className="sticky top-4 hidden w-[300px] shrink-0 pt-4 xl:block" aria-label={en ? "World sidebar" : "世界侧栏"}>
+          <div className="space-y-4">
+            <section className="overflow-hidden rounded-[10px] border border-border bg-card">
+              <div className="border-b border-border px-4 py-3">
+                <h2 className="font-display text-[14px] font-bold text-foreground">{en ? "The World" : "关于世界"}</h2>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-[12.5px] leading-6 text-muted-foreground">
+                  {en
+                    ? "SolHub's public timeline: post updates, share links, follow indie developers. Links are unfurled into cards automatically."
+                    : "SolHub 的公共时间线：发布动态、分享链接、关注独立开发者。贴出的链接会自动展开成卡片。"}
+                </p>
+                <a href={p("/about/", locale)} className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-accent hover:underline">
+                  {en ? "Learn more" : "了解更多"}
+                  <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                </a>
+              </div>
+            </section>
+
+            {activeDevs.length > 0 && (
+              <section className="overflow-hidden rounded-[10px] border border-border bg-card">
+                <div className="border-b border-border px-4 py-3">
+                  <h2 className="font-display text-[14px] font-bold text-foreground">{en ? "Active developers" : "活跃开发者"}</h2>
+                </div>
+                <ul className="divide-y divide-border">
+                  {activeDevs.map((dev) => (
+                    <li key={dev.author}>
+                      <button
+                        type="button"
+                        onClick={() => openUser(dev.author)}
+                        className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-secondary/50"
+                      >
+                        <Avatar name={dev.name} src={dev.avatar} className="h-8 w-8 text-[11px]" />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-1">
+                            <span className="truncate text-[13px] font-medium text-foreground">{dev.name}</span>
+                            {dev.verified && <BadgeCheck className="h-3 w-3 shrink-0 text-accent" aria-hidden="true" />}
+                          </span>
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            @{dev.author} · {dev.count} {en ? (dev.count > 1 ? "posts" : "post") : "条动态"}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <section className="rounded-[10px] border border-border bg-card px-4 py-3">
+              {me ? (
+                <a href={p("/my-submissions/", locale)} className="flex items-center gap-2 text-[13px] font-medium text-foreground transition-colors hover:text-accent">
+                  <UserPlus className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  {en ? "Go to my profile" : "回到我的主页"}
+                  <ArrowRight className="ml-auto h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+              ) : (
+                <>
+                  <p className="text-[12.5px] leading-6 text-muted-foreground">
+                    {en ? "Log in to post, comment and follow developers." : "登录后即可发帖、评论和关注开发者。"}
+                  </p>
+                  <a
+                    href={p("/login/?next=" + encodeURIComponent("/world/"), locale)}
+                    className="mt-2.5 flex h-9 items-center justify-center rounded-[8px] bg-accent text-[13px] font-semibold text-accent-foreground transition-colors hover:brightness-95"
+                  >
+                    {en ? "Log in" : "登录 / 注册"}
+                  </a>
+                </>
+              )}
+            </section>
+          </div>
+        </aside>
       )}
 
       {/* ============ 发帖浮层 ============ */}

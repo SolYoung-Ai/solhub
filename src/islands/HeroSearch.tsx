@@ -14,9 +14,20 @@ export default function HeroSearch() {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  /* 窄屏放不下完整占位文案（会被硬截断成 “SolY”），单独给一版短的。
+     用 effect 而非初始值，避免 SSR 与首帧水合不一致。 */
+  const [narrow, setNarrow] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const index = useMemo(() => buildSearchIndex(products, tools, locale), [locale]);
   const results = query.trim() ? searchIndex(query, index, locale) : [];
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const sync = () => setNarrow(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -45,8 +56,13 @@ export default function HeroSearch() {
             else if (e.key === "Enter" && results[active]) go(results[active]);
             else if (e.key === "Escape") setOpen(false);
           }}
-          placeholder={locale === "en" ? "Search products & tools, e.g. “json”, “QR”, “SolYoung”…" : "搜索产品或工具，比如 “json”“二维码”“SolYoung”…"}
-          className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+          placeholder={
+            locale === "en"
+              ? narrow ? "Search products & tools…" : "Search products & tools, e.g. “json”, “QR”, “SolYoung”…"
+              : narrow ? "搜索产品或工具…" : "搜索产品或工具，比如 “json”“二维码”“SolYoung”…"
+          }
+          /* 移动端 16px：iOS Safari 对小于 16px 的输入框会在聚焦时自动放大页面 */
+          className="flex-1 bg-transparent text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none sm:text-sm"
           aria-label={translate(dict, "nav.search")}
         />
         {query && (

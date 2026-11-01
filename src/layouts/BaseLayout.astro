@@ -136,12 +136,20 @@ const orgJsonLd = {
     </script>
     <script type="application/ld+json" set:html={JSON.stringify(orgJsonLd)} />
   </head>
-  <body class="flex min-h-screen flex-col">
-    <HeaderApp client:load currentRoute={currentRoute} searchIndex={searchIndex} locale={locale} />
-    <main class="flex-1">
-      <slot />
-    </main>
-    <Footer locale={locale} />
+  <body class="min-h-screen">
+    {/* 桌面是「左侧栏 + 内容列」的并排结构，手机是单列（顶栏/底栏由 HeaderApp 渲染）。
+        app-shell 必须在 lg 断点才变成 flex —— 手机上侧栏是 display:none，
+        若整体一直是 flex，移动顶栏会成为第一个 flex item 而被挤成窄条。 */}
+    <div class="app-shell">
+      <HeaderApp client:load currentRoute={currentRoute} searchIndex={searchIndex} locale={locale} />
+      <div class="app-content">
+        <main class="flex-1">
+          <slot />
+        </main>
+        {/* Footer 收进内容列：否则会横跨到侧栏下方，和内容列错位 */}
+        <Footer locale={locale} />
+      </div>
+    </div>
   </body>
 </html>
 

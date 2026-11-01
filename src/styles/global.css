@@ -103,6 +103,50 @@ html.dark {
   }
 }
 
+/* ---------- App shell：桌面左侧栏 + 手机底部标签栏 ---------- */
+/* 内容列自己撑满一屏并把 Footer 压到底；手机端要同时扣掉顶栏 52px、
+   并预留底部标签栏的高度，否则页面会多出一段可滚动的空白，
+   或最后一段内容被固定底栏遮住（border-box 下 padding 已含在高度里）。 */
+.app-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  min-height: calc(100vh - 52px);
+  padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    display: flex;
+    align-items: flex-start;
+  }
+  .app-content {
+    flex: 1 1 auto;
+    min-height: 100vh;
+    padding-bottom: 0;
+  }
+}
+
+/* 搜索浮层：桌面端让开侧栏宽度，使搜索框在内容区居中而非整个视口居中 */
+@media (min-width: 1024px) {
+  .app-search-layer {
+    left: 76px;
+  }
+}
+@media (min-width: 1280px) {
+  .app-search-layer {
+    left: 244px;
+  }
+}
+
+/* 桌面有侧栏时，内容列本身已经比整屏窄了 244px；若容器仍按 72rem(1152px)，
+   1440px 屏上内容两侧只剩 20 余像素，会像贴住侧栏。缩到 68rem 换回呼吸感。 */
+@media (min-width: 1280px) {
+  .app-content .container-page {
+    max-width: 68rem;
+  }
+}
+
 /* ---------- Mobile viewport simulation ---------- */
 /* 「手机 / 电脑」切换按钮：html.viewport-mobile 时把内容限制为手机宽度并居中 */
 html.viewport-mobile body {
@@ -112,6 +156,41 @@ html.viewport-mobile body {
 }
 html.viewport-mobile .container-page {
   max-width: 430px;
+}
+
+/* 视图模拟时必须强制走手机布局：窗口本身仍是很宽的桌面尺寸，
+   若照常按 lg 断点渲染，侧栏会把 430px 的内容区挤爆。 */
+html.viewport-mobile .app-shell {
+  display: block;
+}
+html.viewport-mobile .app-sidebar {
+  display: none !important;
+}
+html.viewport-mobile .app-topbar,
+html.viewport-mobile .app-tabbar {
+  display: flex !important;
+}
+html.viewport-mobile .app-search-layer {
+  left: 0;
+}
+html.viewport-mobile .app-content {
+  min-height: calc(100vh - 52px);
+  padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+}
+/* 模拟模式下窗口宽度仍是桌面尺寸，sm/lg 的多列网格照常命中，
+   但容器只有 430px —— 卡片会被挤成竖条。统一压回单列。 */
+html.viewport-mobile .container-page [class*="sm:grid-cols-"],
+html.viewport-mobile .container-page [class*="md:grid-cols-"],
+html.viewport-mobile .container-page [class*="lg:grid-cols-"] {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+/* body 被限制成 430px 居中，fixed 底栏却以整个视口定位，会横在窗口外 */
+html.viewport-mobile .app-tabbar {
+  inset-inline: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 430px;
+  max-width: 100%;
 }
 
 /* ---------- Base ---------- */
@@ -151,8 +230,7 @@ html.viewport-mobile .container-page {
 @layer components {
   .container-page {
     @apply mx-auto w-full max-w-[72rem] px-4 sm:px-6 lg:px-8;
-  }
-  .btn {
+  }  .btn {
     @apply inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium transition-all duration-150 select-none disabled:pointer-events-none disabled:opacity-50;
   }
   .btn-primary {
