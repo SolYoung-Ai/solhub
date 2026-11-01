@@ -1,0 +1,40 @@
+---
+/**
+ * 旧地址兼容：/admin/ 已改名为 /guanli/。
+ * 这里只做一次跳转，避免旧书签或历史链接 404。
+ */
+import { baseUrl } from "@/lib/paths";
+
+const target = `${baseUrl()}guanli/`;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta http-equiv="refresh" content={`0; url=${target}`} />
+    <link rel="canonical" href={target} />
+    <title>跳转中 · SolHub</title>
+    <script is:inline define:vars={{ target }}>
+      window.location.replace(target);
+    </script>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: #faf8f3;
+        color: #2b2724;
+      }
+      a {
+        color: #b4762a;
+      }
+    </style>
+  </head>
+  <body>
+    <p>正在跳转到 <a href={target}>{target}</a> …</p>
+  </body>
+</html>
