@@ -248,7 +248,7 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
         <p className="mt-2 text-sm text-muted-foreground">
           {gate === "unauthorized" ? "请先用管理员账号登录。" : "当前账号没有管理权限。"}
         </p>
-        <a href={p("/login/?next=" + encodeURIComponent("/admin/"), locale)} className="btn btn-accent mt-6 inline-flex">
+        <a href={p("/login/?next=" + encodeURIComponent("/guanli/"), locale)} className="btn btn-accent mt-6 inline-flex">
           {gate === "unauthorized" ? "去登录" : "换个账号登录"}
         </a>
       </div>

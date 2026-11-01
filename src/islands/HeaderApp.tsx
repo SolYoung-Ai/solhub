@@ -164,7 +164,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
                   </a>
                   {user.isAdmin && (
                     <a
-                      href={p("/admin/", locale)}
+                      href={p("/guanli/")}
                       onClick={() => setUserMenuOpen(false)}
                       className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
                     >
