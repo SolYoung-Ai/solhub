@@ -14,6 +14,7 @@ export default function VerifyCodeField({
   onError,
   locale = "zh",
   label,
+  optional = false,
 }: {
   email: string;
   purpose: VerifyPurpose;
@@ -22,6 +23,8 @@ export default function VerifyCodeField({
   onError?: (msg: string | null) => void;
   locale?: "zh" | "en";
   label?: string;
+  /** 验证码是否可选（注册场景：不填也能注册，之后可补验） */
+  optional?: boolean;
 }) {
   const en = locale === "en";
   const [left, setLeft] = useState(0);
@@ -69,7 +72,11 @@ export default function VerifyCodeField({
 
   return (
     <div>
-      <span className="label">{label || (en ? "Email verification code" : "邮箱验证码")}</span>
+      <span className="label">
+        {label || (optional
+          ? (en ? "Email verification code (optional)" : "邮箱验证码（可选）")
+          : (en ? "Email verification code" : "邮箱验证码"))}
+      </span>
       <div className="mt-1.5 flex gap-2">
         <div className="relative flex-1">
           <Mail
@@ -113,9 +120,13 @@ export default function VerifyCodeField({
           ? en
             ? "Code sent — it expires in 10 minutes. Don't forget to check the spam folder."
             : "验证码已发送，10 分钟内有效。没收到的话记得看一眼垃圾箱。"
-          : en
-            ? "We'll email a 6-digit code to this address."
-            : "我们会向该邮箱发送 6 位验证码。"}
+          : optional
+            ? en
+              ? "We'll email a 6-digit code to this address. You can skip it and verify later in My Account."
+              : "我们会向该邮箱发送 6 位验证码；不想现在验证也可以留空，之后在「个人中心」随时补验。"
+            : en
+              ? "We'll email a 6-digit code to this address."
+              : "我们会向该邮箱发送 6 位验证码。"}
       </p>
     </div>
   );

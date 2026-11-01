@@ -94,8 +94,8 @@ export default function EmailSecurity({
       </div>
       <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
         {en
-          ? "Your email is never shown publicly unless you turn it on. Verifying it lets you change it and recover your password."
-          : "邮箱默认不公开；只有你主动开启才会展示在主页上。验证邮箱后才可以更换邮箱、找回密码。"}
+          ? "Your email is never shown publicly unless you turn it on. Verifying it lets you publish the address with a Verified badge."
+          : "邮箱默认不公开；只有你主动开启才会展示在主页上。完成验证后即可公开邮箱，并显示「已验证」标识。"}
       </p>
 
       {mode === "none" && (

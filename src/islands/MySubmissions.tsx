@@ -12,6 +12,7 @@ import {
   MessageCircle,
   PackagePlus,
   Pencil,
+  ShieldCheck,
   Trash2,
   User,
 } from "lucide-react";
@@ -412,6 +413,12 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                 {user.emailPublic && user.email && (
                   <span className="inline-flex items-center gap-1">
                     <Mail className="h-3 w-3" />{user.email}
+                    {user.emailVerified && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-accent">
+                        <ShieldCheck className="h-2.5 w-2.5" aria-hidden="true" />
+                        {en ? "Verified" : "已验证"}
+                      </span>
+                    )}
                   </span>
                 )}
                 <span className="inline-flex items-center gap-1">
@@ -420,17 +427,6 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                 </span>
               </div>
             </div>
-
-            {!isGithub && user.email && (
-              <EmailSecurity
-                email={user.email}
-                verified={!!user.emailVerified}
-                locale={locale}
-                onChanged={(next) =>
-                  setUser((u) => (u ? { ...u, email: next, emailVerified: true } : u))
-                }
-              />
-            )}
           </div>
         ) : (
           /* 编辑资料 */
@@ -509,19 +505,24 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
               </span>
             </div>
             {!isGithub && (
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-[10px] border border-border bg-secondary/40 px-3 py-2.5">
+              <label className={`flex items-start gap-2.5 rounded-[10px] border border-border bg-secondary/40 px-3 py-2.5 ${user.emailVerified ? "cursor-pointer" : "opacity-60"}`}>
                 <input
                   type="checkbox"
                   checked={pf.emailPublic}
+                  disabled={!user.emailVerified}
                   onChange={(e) => setPf({ ...pf, emailPublic: e.target.checked })}
                   className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
                 />
                 <span className="text-xs leading-5 text-muted-foreground">
                   {en ? "Show my registered email on my public profile" : "在公开主页上展示我的注册邮箱"}
                   <span className="mt-0.5 block text-[11px] opacity-80">
-                    {en
-                      ? "Off by default. When on, the email appears on your profile page only — never in search results, posts or comments."
-                      : "默认关闭。开启后邮箱只出现在你的主页上，不会出现在搜索结果、帖子或评论里。"}
+                    {user.emailVerified
+                      ? (en
+                          ? "Off by default. When on, the email appears on your profile page only — never in search results, posts or comments."
+                          : "默认关闭。开启后邮箱只出现在你的主页上，不会出现在搜索结果、帖子或评论里。")
+                      : (en
+                          ? "Verify your email first (see Email security below), then you can publish it with a Verified badge."
+                          : "需要先完成邮箱验证（见下方「邮箱安全」），验证后即可公开，并显示「已验证」标识。")}
                   </span>
                 </span>
               </label>
@@ -539,6 +540,20 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
               </button>
             </div>
           </div>
+        )}
+
+        {/* 邮箱安全：放在资料区之外 —— 分隔线是卡片级分割线，
+            资料区自己的 pb-5 / pb-6 负责把文字和这条线隔开（之前嵌在
+            带 padding 的容器里，导致文字直接压在分隔线上）。 */}
+        {!isGithub && user.email && (
+          <EmailSecurity
+            email={user.email}
+            verified={!!user.emailVerified}
+            locale={locale}
+            onChanged={(next) =>
+              setUser((u) => (u ? { ...u, email: next, emailVerified: true } : u))
+            }
+          />
         )}
       </div>
 

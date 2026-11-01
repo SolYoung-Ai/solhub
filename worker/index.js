@@ -1598,15 +1598,18 @@ export default {
         return json(request, { error: "该用户名已被使用，换一个试试" }, 409);
       }
 
-      /* 邮箱验证：
-         邮件通道就绪时必须带验证码；通道未配置（或显式关闭）时降级放行，
-         账号标记为「未验证」，用户可在「我」页面随时补验。 */
-      const mailReady = !!(env.DM_ACCESS_KEY_ID && env.DM_ACCESS_KEY_SECRET && env.DM_SENDER);
-      const requireVerify = env.REQUIRE_EMAIL_VERIFY === "1" || (env.REQUIRE_EMAIL_VERIFY !== "0" && mailReady);
-      if (requireVerify) {
+      /* 邮箱验证：**默认可选**。
+         用户可以先注册完事，之后在「个人中心 → 邮箱安全」随时补验；
+         但填了验证码就必须填对（错码直接拒绝，不静默放行），
+         否则「填了码却没验上」会让用户以为自己验证成功了。
+         env.REQUIRE_EMAIL_VERIFY=1 可强制「注册即验证」（运营需要时再开）。 */
+      const requireVerify = env.REQUIRE_EMAIL_VERIFY === "1";
+      let emailVerified = false;
+      if (requireVerify || code) {
         if (!code) return json(request, { error: "请输入邮箱验证码" }, 400);
         const v = await takeVCode(env, "register", email, code);
         if (!v.ok) return json(request, { error: v.error }, 400);
+        emailVerified = true;
       }
 
       const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
@@ -1614,12 +1617,12 @@ export default {
       const handle = await allocateHandle(env, email, wanted);
       await env.PROFILES.put(key, JSON.stringify({
         email, handle, displayName, passSalt: salt, passHash,
-        emailVerified: requireVerify,
+        emailVerified,
         createdAt: new Date().toISOString(),
       }));
       await rateLimitHit(regKey, 3600);
       const cookie = await createSession(request, env, email);
-      return json(request, { ok: true, user: { login: handle, handle, email, displayName, emailVerified: requireVerify } }, 200, cookie);
+      return json(request, { ok: true, user: { login: handle, handle, email, displayName, emailVerified } }, 200, cookie);
     }
 
     /* ---------- 邮箱登录 ---------- */

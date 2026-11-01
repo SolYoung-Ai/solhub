@@ -68,8 +68,8 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
         ? "Username must be 3–20 characters: start with a letter, then letters, digits or underscore."
         : "用户名需 3–20 位，字母开头，只能是小写字母、数字或下划线。";
     }
-    if (mode === "register" && code.length !== 6) {
-      return en ? "Please enter the 6-digit verification code from your email." : "请输入邮箱里的 6 位验证码。";
+    if (mode === "register" && code.trim().length > 0 && !/^\d{6}$/.test(code.trim())) {
+      return en ? "Please enter the full 6-digit code, or clear the field to skip verification." : "请输入完整的 6 位验证码，或清空该栏跳过验证。";
     }
     return null;
   };
@@ -251,6 +251,7 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
                   onCodeChange={setCode}
                   onError={setError}
                   locale={locale}
+                  optional
                 />
               )}
 

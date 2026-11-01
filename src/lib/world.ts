@@ -75,6 +75,8 @@ export interface PublicProfile {
     contact?: string;
     /** 注册邮箱：仅当用户本人开启「公开邮箱」时才有值 */
     email?: string;
+    /** 邮箱是否已通过验证码验证（公开邮箱必须已验证） */
+    emailVerified?: boolean;
     joinedAt?: string;
     /** 黄V 认证 */
     verified?: boolean;

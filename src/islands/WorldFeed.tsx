@@ -18,6 +18,7 @@ import {
   Search,
   Send,
   Share,
+  ShieldCheck,
   Trash2,
   UserPlus,
   Users,
@@ -496,7 +497,15 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                       <span className="inline-flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{userProfile.user.contact}</span>
                     )}
                     {userProfile.user.email && (
-                      <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{userProfile.user.email}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Mail className="h-3.5 w-3.5" />{userProfile.user.email}
+                        {userProfile.user.emailVerified && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-accent">
+                            <ShieldCheck className="h-2.5 w-2.5" aria-hidden="true" />
+                            {en ? "Verified" : "已验证"}
+                          </span>
+                        )}
+                      </span>
                     )}
                     {userProfile.user.joinedAt && (
                       <span className="inline-flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />
