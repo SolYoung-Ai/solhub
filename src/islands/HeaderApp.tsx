@@ -202,7 +202,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
             className="fixed inset-0 z-[90] md:hidden bg-black/30"
             onClick={() => setMenuOpen(false)}
           />
-          <div className="fixed left-0 top-0 bottom-0 z-[100] md:hidden w-[280px] overflow-y-auto overscroll-contain shadow-2xl bg-[#f4f0e7] dark:bg-[#17140f] border-r border-border">
+          <div className="fixed left-0 top-0 bottom-0 z-[100] md:hidden w-[280px] overflow-y-auto overscroll-contain shadow-2xl bg-background dark:bg-card border-r border-border">
             <div className="flex items-center justify-between px-5 pt-5 pb-4">
               <span className="font-display text-lg font-bold text-foreground">SolHub</span>
               <button onClick={() => setMenuOpen(false)} className="p-1 text-muted-foreground hover:text-foreground" aria-label="Close menu">
