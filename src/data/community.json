@@ -22,5 +22,24 @@
     "verifiedAt": "2026-10-21",
     "isDemo": false,
     "submittedBy": "solyoungwork@gmail.com"
+  },
+  {
+    "id": "bot-check-mvxjyawx",
+    "slug": "bot-check-mvxjyawx",
+    "name": "Bot Check",
+    "shortDescription": "自动化测试用的临时产品，稍后删除",
+    "description": "自动化测试用的临时产品，稍后删除",
+    "websiteUrl": "https://example.com",
+    "icon": "",
+    "category": "other",
+    "tags": [],
+    "developerName": "Bot 自检",
+    "publishedAt": "2026-11-01",
+    "launchBatch": "Community",
+    "verificationStatus": "verified",
+    "verificationMethod": "官网链接自动检测可访问，已自动收录上线",
+    "verifiedAt": "2026-11-01",
+    "isDemo": false,
+    "submittedBy": "botcheck2026@solyoung.top"
   }
 ]
