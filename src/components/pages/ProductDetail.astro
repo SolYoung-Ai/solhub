@@ -8,7 +8,7 @@ import { formatDateZh } from "@/lib/utils";
 import { p, absoluteUrl } from "@/lib/paths";
 import Badge from "@/components/Badge.astro";
 import ProductCard from "@/components/ProductCard.astro";
-import { ExternalLink, ShieldCheck, AlertCircle } from "lucide-react";
+import { ExternalLink, ShieldCheck, AlertCircle, ArrowUpRight } from "lucide-react";
 import { getDict, translate } from "@/i18n";
 import type { Locale } from "@/i18n";
 import {
@@ -56,6 +56,12 @@ const related = rankProducts(products)
 
 const shortDesc = productShortDescription(product.slug, product.shortDescription, locale);
 const fullDesc = productDescription(product.slug, product.description, locale);
+
+/** 开发者账号：目录产品用 developerLogin，社区产品回落到 submittedBy */
+const developerLogin = product.developerLogin || product.submittedBy || "";
+const developerHref = developerLogin
+  ? p(`/world/?u=${encodeURIComponent(developerLogin)}`, locale)
+  : "";
 
 const schemaJsonLd = {
   "@context": "https://schema.org",
@@ -191,7 +197,25 @@ const schemaJsonLd = {
           </div>
           <div class="flex items-center justify-between py-2">
             <dt class="text-muted-foreground">{en ? "Developer" : "开发者"}</dt>
-            <dd class="font-medium text-foreground">{product.developerName}</dd>
+            <dd class="font-medium text-foreground">
+              {
+                developerHref ? (
+                  <a
+                    href={developerHref}
+                    title={en ? "View developer profile" : "查看开发者主页"}
+                    class="group inline-flex items-center gap-1 hover:text-accent hover:underline"
+                  >
+                    {product.developerName}
+                    <ArrowUpRight
+                      className="h-3.5 w-3.5 text-muted-foreground transition-colors group-hover:text-accent"
+                      aria-hidden="true"
+                    />
+                  </a>
+                ) : (
+                  product.developerName
+                )
+              }
+            </dd>
           </div>
           <div class="flex items-center justify-between py-2">
             <dt class="text-muted-foreground">{en ? "Added" : "收录时间"}</dt>

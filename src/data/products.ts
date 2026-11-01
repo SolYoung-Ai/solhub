@@ -13,6 +13,9 @@ import communityProducts from "./community.json";
  *    避免编造无法核实的发布时间；榜单批次 launchBatch 表示人工精选批次。
  * 4. rankPosition 是人工精选顺序，规则见 src/lib/ranking.ts，与数据分离。
  */
+
+/** 目录内产品的开发者账号（登录名）。详情页「开发者」据此链接到其世界页个人主页。 */
+const OWNER_LOGIN = "solyoungwork@gmail.com";
 export const products: Product[] = [
   {
     id: "solyoung",
@@ -26,6 +29,7 @@ export const products: Product[] = [
     category: "creator-space",
     tags: ["personal-site", "portfolio", "content"],
     developerName: "Sol Young",
+    developerLogin: OWNER_LOGIN,
     publishedAt: "2026-10-16",
     launchBatch: "Curated W42",
     verificationStatus: "verified",
@@ -47,6 +51,7 @@ export const products: Product[] = [
     category: "services",
     tags: ["website", "brand", "ai-assisted"],
     developerName: "Sol Young",
+    developerLogin: OWNER_LOGIN,
     publishedAt: "2026-10-16",
     launchBatch: "Curated W42",
     verificationStatus: "verified",
@@ -68,6 +73,7 @@ export const products: Product[] = [
     category: "productivity",
     tags: ["personal-os", "notes", "productivity"],
     developerName: "Sol Young",
+    developerLogin: OWNER_LOGIN,
     publishedAt: "2026-10-16",
     launchBatch: "Curated W42",
     verificationStatus: "verified",
@@ -88,6 +94,7 @@ export const products: Product[] = [
     category: "fun-tools",
     tags: ["personality", "quiz", "free"],
     developerName: "Sol Young",
+    developerLogin: OWNER_LOGIN,
     publishedAt: "2026-10-16",
     launchBatch: "Curated W42",
     verificationStatus: "verified",
@@ -108,6 +115,7 @@ export const products: Product[] = [
     category: "creator-tools",
     tags: ["photography", "simulator", "free"],
     developerName: "Sol Young",
+    developerLogin: OWNER_LOGIN,
     publishedAt: "2026-10-16",
     launchBatch: "Curated W42",
     verificationStatus: "verified",
@@ -128,6 +136,7 @@ export const products: Product[] = [
     category: "creator-tools",
     tags: ["video-parser", "subtitle", "content-creator", "douyin"],
     developerName: "Sol Young",
+    developerLogin: OWNER_LOGIN,
     publishedAt: "2026-10-25",
     launchBatch: "Curated W43",
     verificationStatus: "verified",
@@ -148,6 +157,7 @@ export const products: Product[] = [
     category: "growth-marketing",
     tags: ["x-twitter", "analytics", "csv", "privacy"],
     developerName: "Sol Young",
+    developerLogin: OWNER_LOGIN,
     publishedAt: "2026-10-25",
     launchBatch: "Curated W43",
     verificationStatus: "verified",

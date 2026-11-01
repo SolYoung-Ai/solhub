@@ -21,6 +21,13 @@ export interface Product {
   category: string;
   tags: string[];
   developerName: string;
+  /**
+   * 开发者账号（登录名 / 邮箱）。有值时产品详情页的「开发者」会链接到
+   * 该账号在世界页的个人主页（/world/?u=<login>）；为空则只显示纯文本。
+   */
+  developerLogin?: string;
+  /** 社区产品的提交者账号（由 Worker 写入 community.json，作为 developerLogin 的兜底） */
+  submittedBy?: string;
   /** ISO 日期 */
   publishedAt: string;
   launchBatch: string;
