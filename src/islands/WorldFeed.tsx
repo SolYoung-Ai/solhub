@@ -14,6 +14,7 @@ import {
   MapPin,
   MessageCircle,
   Package,
+  Search,
   Send,
   Share,
   Trash2,
@@ -105,6 +106,11 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
   const [commentBusy, setCommentBusy] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
+  /* 搜索（人 + 帖子）：客户端过滤已加载的信息流，X 风格 */
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
   /* 查看某个用户的主页（?u=<login>） */
   const [viewUser, setViewUser] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -144,7 +150,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
 
   const load = useCallback(async (which: "latest" | "following") => {
     setLoading(true);
-    const list = await fetchFeed({ tab: which, limit: 40 });
+    const list = await fetchFeed({ tab: which, limit: 60 });
     setPosts(list);
     setLoading(false);
   }, []);
@@ -277,6 +283,38 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
     setUserProfile((u) => (u ? { ...u, isFollowing: Boolean(res.following), followerCount: res.followerCount ?? u.followerCount } : u));
   };
 
+  /* ---------------- 搜索结果派生 ---------------- */
+  const q = query.trim().toLowerCase();
+  const searching = !viewUser && q.length > 0;
+  const people = (() => {
+    if (!searching) return [] as { login: string; name: string; avatar?: string }[];
+    const seen = new Map<string, { login: string; name: string; avatar?: string }>();
+    for (const p of posts) {
+      if (!seen.has(p.author)) seen.set(p.author, { login: p.author, name: p.authorName || p.author, avatar: p.authorAvatar });
+    }
+    return [...seen.values()].filter(
+      (u) => u.name.toLowerCase().includes(q) || cleanHandle(u.login).toLowerCase().includes(q),
+    );
+  })();
+  const visiblePosts = searching
+    ? posts.filter(
+        (p) =>
+          (p.text || "").toLowerCase().includes(q) ||
+          (p.linkUrl || "").toLowerCase().includes(q) ||
+          (p.authorName || "").toLowerCase().includes(q) ||
+          cleanHandle(p.author).toLowerCase().includes(q),
+      )
+    : posts;
+
+  const toggleSearch = () => {
+    setSearchOpen((open) => {
+      const next = !open;
+      if (next) setTimeout(() => searchRef.current?.focus(), 40);
+      else setQuery("");
+      return next;
+    });
+  };
+
   return (
     <div className="mx-auto w-full max-w-2xl">
       {/* ============ 顶部栏：发布 + 最新/关注 Tab（X 风格） ============ */}
@@ -317,7 +355,44 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={toggleSearch}
+              aria-label={en ? "Search" : "搜索"}
+              title={en ? "Search people and posts" : "搜索人和帖子"}
+              aria-pressed={searchOpen}
+              className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
+                searchOpen ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              <Search className="h-[18px] w-[18px]" aria-hidden="true" />
+            </button>
           </div>
+          {searchOpen && (
+            <div className="px-3 pb-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <input
+                  ref={searchRef}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Escape") { setQuery(""); setSearchOpen(false); } }}
+                  placeholder={en ? "Search people and posts" : "搜索人和帖子"}
+                  className="w-full rounded-full border border-border bg-secondary/40 py-2 pl-9 pr-9 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-accent"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => { setQuery(""); searchRef.current?.focus(); }}
+                    aria-label={en ? "Clear" : "清空"}
+                    className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -474,32 +549,86 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
         </div>
       )}
 
+      {/* ============ 搜索结果：人物 ============ */}
+      {searching && people.length > 0 && (
+        <section className="border-t border-border">
+          <h3 className="px-4 pb-1 pt-3 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {en ? "People" : "人物"}
+          </h3>
+          <ul className="divide-y divide-border">
+            {people.map((u) => (
+              <li key={u.login}>
+                <button
+                  type="button"
+                  onClick={() => openUser(u.login)}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/20"
+                >
+                  <Avatar name={u.name} src={u.avatar} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1">
+                      <span className="truncate font-bold text-foreground">{u.name}</span>
+                      {isOfficial(u.login) && (
+                        <span className="inline-flex shrink-0 items-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-accent-foreground">
+                          {en ? "Official" : "官方"}
+                        </span>
+                      )}
+                    </div>
+                    <span className="block truncate text-[13px] text-muted-foreground">@{cleanHandle(u.login)}</span>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {searching && visiblePosts.length > 0 && (
+        <h3 className="border-t border-border px-4 pb-1 pt-3 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {en ? "Posts" : "帖子"}
+        </h3>
+      )}
+
       {/* ============ 时间线（X 风格：通栏 + 1px 分割线） ============ */}
       {loading ? (
         <div className="flex items-center justify-center gap-2 border-t border-border py-16 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> {en ? "Loading…" : "加载中…"}
         </div>
-      ) : posts.length === 0 ? (
+      ) : visiblePosts.length === 0 ? (
         <div className="border-t border-border py-14 text-center">
-          <Globe2 className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-          <p className="mt-3 text-sm font-medium text-foreground/70">
-            {viewUser
-              ? (en ? "No posts yet" : "还没有发帖")
-              : tab === "following"
-                ? (en ? "No posts from people you follow" : "关注的人还没有发帖")
-                : (en ? "No posts yet" : "还没有人发帖")}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {viewUser
-              ? (en ? "When they post, it shows up here." : "他发布的内容会出现在这里。")
-              : tab === "following"
-                ? (en ? "Follow creators from any post or their profile." : "在帖子里或用户主页关注感兴趣的创作者。")
-                : (en ? "Be the first to post something." : "来发第一条吧。")}
-          </p>
+          {searching ? (
+            <>
+              <Search className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
+              <p className="mt-3 text-sm font-medium text-foreground/70">
+                {people.length > 0
+                  ? (en ? "No matching posts" : "没有相关帖子")
+                  : (en ? "No people or posts found" : "没有找到相关的人和帖子")}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {en ? "Try a different keyword." : "换个关键词试试。"}
+              </p>
+            </>
+          ) : (
+            <>
+              <Globe2 className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
+              <p className="mt-3 text-sm font-medium text-foreground/70">
+                {viewUser
+                  ? (en ? "No posts yet" : "还没有发帖")
+                  : tab === "following"
+                    ? (en ? "No posts from people you follow" : "关注的人还没有发帖")
+                    : (en ? "No posts yet" : "还没有人发帖")}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {viewUser
+                  ? (en ? "When they post, it shows up here." : "他发布的内容会出现在这里。")
+                  : tab === "following"
+                    ? (en ? "Follow creators from any post or their profile." : "在帖子里或用户主页关注感兴趣的创作者。")
+                    : (en ? "Be the first to post something." : "来发第一条吧。")}
+              </p>
+            </>
+          )}
         </div>
       ) : (
-        <ul className="divide-y divide-border border-t border-border">
-          {posts.map((post) => (
+        <ul className={`divide-y divide-border ${searching ? "" : "border-t border-border"}`}>
+          {visiblePosts.map((post) => (
             <li key={post.id} id={`post-${post.id}`} className="px-4 py-3 transition-colors hover:bg-secondary/20">
               <div className="flex gap-3">
                 <button
