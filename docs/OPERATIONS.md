@@ -151,6 +151,21 @@
 阿里云「免费发信量」的规则是：**每个主账户共 2000 封免费额度，每天最多免费发送 200 封**；
 **超过免费额度的部分会自动转按量计费**（¥2/1000 封）。
 
+这条规则可以用接口直接读出来（`DescAccountSummary`），**不要靠控制台截图猜**：
+
+| 字段 | 含义 | 本项目实测值（开通时） |
+|---|---|---|
+| `RemainFreeQuota` | **总**免费额度剩余 | 2000 |
+| `DailyRemainFreeQuota` | **日**免费额度剩余 | 200 |
+| `DailyQuota` | 日发送上限（由信誉等级决定，**不是免费额度**） | 2000 |
+| `MonthQuota` | 月发送上限 | 62000 |
+| `QuotaLevel` / `MaxQuotaLevel` | 当前信誉等级 / 用户设定的最高等级 | 2 / 2 |
+| `IpChannelType` | 出口通道，normal = 正常通道 | normal |
+
+> ⚠️ **`DailyQuota=2000` 是个陷阱**：它是信誉等级决定的**发送上限**，超了发不出去；
+> 而**免费**额度只有 200 封/天。从第 201 封起就已经按 ¥2/千 计费了。
+> 真正的"免费/收费"分界线是 `DailyRemainFreeQuota`。
+
 所以真正要防的不是"用超额度"，而是"被刷到超额"。三层防线：
 
 | 层 | 手段 | 效果 |
@@ -159,6 +174,12 @@
 | 地板 | 阿里云**概览页 → 最高信誉等级限制** 设为 1 级 | 账号级日额度 500 封/天（最低档）。这是阿里云侧唯一的闸门，**控制台没有「每日发送量上限」这个选项** |
 | 熔断 | 阿里云返回配额类错误 → Worker 写 `vcode:fuse` 标记 → 1 小时内不再调用阿里云 | 避免反复去撞阿里云、也避免刷屏式报错 |
 
+> 💡 信誉等级与日额度对照（官方）：1 级 500 / 2 级 2,000 / 3 级 5,000 / 4 级 8,000 /
+> 5 级 10,000 / 6 级 20,000 / 7 级 50,000 / 8 级 100,000 … 16 级 1,000 万。
+> **最低初始等级就是 2 级**（对应 2000 封/天），所以默认状态其实已经是"最低档附近"。
+> 自动升级要求日发 300+ 且送达率 >92%、无效地址率 <5%、垃圾邮件率 <2.5%，
+> 升级也不会超过用户自己设的等级上限 —— **把上限压到 1 级就锁死了**。
+>
 > ⚠️ **别再找「日发送量上限」了 —— 阿里云官方明确说过「邮件推送无法设置每日发送上限额度」，控制台里没有这个选项。**
 > 账号级能设的只有**最高信誉等级限制**（概览页），1 级 = 500 封/天。
 >
@@ -172,29 +193,57 @@
 
 ### 开通清单（需要人工操作的部分）
 
-| # | 操作 | 备注 |
-|---|---|---|
-| 1 | 阿里云账号**实名认证** | 未实名不能开通邮件推送 |
-| 2 | 开通**邮件推送 DirectMail** | 按量付费 ¥2/千，配合 Worker 侧 150/天的配额不会产生费用 |
-| 3 | 添加**发信域名**（建议用子域名 `mail.solyoung.top`） | 不要用主域名，避免与企业邮箱 MX 冲突 |
-| 4 | 把控制台给出的 **DKIM / SPF / DMARC / MX** 记录值发给我 | DNS 在 Cloudflare，**记录可以代加**；新域名只需这 4 项，不需要 `aliyundm` 所有权 TXT |
-| 5 | 创建**发信地址**（类型必须选「触发邮件」，如 `noreply@mail.solyoung.top`） | 触发邮件 = 注册通知/验证找密；**不能与批量营销邮件混用** |
-| 6 | 添加并验证**回信地址** | `ReplyToAddress=true` 要求回信地址已验证 |
-| 7 | 创建 **RAM AccessKey**，把 AK / SK 给我 | 只会写进 wrangler secret，不进仓库 |
-| 8 | **概览页 → 最高信誉等级限制 → 设为 1 级**（日额度 500 封/天） | 阿里云侧唯一的账号级闸门 |
+| # | 操作 | 备注 | 状态 |
+|---|---|---|---|
+| 1 | 阿里云账号**实名认证** | 未实名不能开通邮件推送 | ✅ |
+| 2 | 开通**邮件推送 DirectMail** | 按量付费 ¥2/千，配合 Worker 侧 150/天的配额不会产生费用 | ✅ |
+| 3 | 添加**发信域名**（用子域名 `mail.solyoung.top`） | 不要用主域名，避免与企业邮箱 MX 冲突 | ✅ |
+| 4 | 配置 **DKIM / SPF / DMARC / MX** 四条 DNS 记录 | 新域名只需这 4 项，不需要 `aliyundm` 所有权 TXT | ✅ 已由 `scripts/cf-dns-apply.mjs` 落地并校验 |
+| 5 | 点「验证」等域名变成已验证 | 接口读 `DomainStatus=0` 即为通过 | ✅ |
+| 6 | 创建**发信地址**，类型选「触发邮件」 | 触发邮件 = 注册通知/验证找密；**不能与批量营销邮件混用** | ✅ `solhub@mail.solyoung.top` |
+| 7 | 添加并验证**回信地址** | `ReplyToAddress=true` 要求回信地址已验证 | ⚠️ 见下方说明 |
+| 8 | 创建 **RAM 子账号** + 授 `AliyunDirectMailFullAccess` + 建 AccessKey | 只会写进 wrangler secret，不进仓库；**不要用主账号 AK** | ✅ |
+| 9 | **概览页 → 最高信誉等级限制 → 设为 1 级**（日额度 500 封/天） | 阿里云侧唯一的账号级闸门 | ⬜ 待做 |
+
+> ⚠️ **回信地址的坑**：控制台默认把回信地址设成了 `solhub@solyoung.top`，
+> 但 **`solyoung.top` 主域没有 MX 记录**（根域是 GitHub Pages 的 A 记录），
+> 所以这个地址**收不到阿里云发来的验证邮件 → 永远验证不通过**（接口里 `ReplyStatus=1`）。
+>
+> 好消息：实测 `SingleSendMail` **带 `ReplyToAddress=true` 也能发信成功**，
+> 所以验证码通道不受影响。但如果希望用户点"回复"能收到信，应把回信地址改成
+> 一个**真实可收信的邮箱**（如 `solyoungwork@gmail.com`）并完成验证，
+> 或者给主域补 MX 记录。
 
 ### Worker 环境变量
 
 | 变量 | 用途 | 状态 |
 |---|---|---|
-| `DM_ACCESS_KEY_ID` | 阿里云 AccessKey ID | secret |
-| `DM_ACCESS_KEY_SECRET` | 阿里云 AccessKey Secret | secret |
-| `DM_SENDER` | 发信地址，如 `noreply@mail.solyoung.top` | secret |
+| `DM_ACCESS_KEY_ID` | 阿里云 AccessKey ID | secret ✅ 已配 |
+| `DM_ACCESS_KEY_SECRET` | 阿里云 AccessKey Secret | secret ✅ 已配 |
+| `DM_SENDER` | 发信地址 | secret ✅ `solhub@mail.solyoung.top` |
 | `DM_REGION_ID` | 地域，默认 `cn-hangzhou` | 可选 |
 | `DM_FROM_ALIAS` | 发件人显示名，默认 `SolHub` | 可选 |
 | `DM_TAG` | 邮件标签，便于控制台统计 | 可选 |
-| `DM_DRY_RUN` | 干跑模式：`=1` 时只走完校验不真发信 | **生产必须不设 / 设为 0** |
-| `DM_DEV_KEY` | 联调密钥，配合 `DM_DRY_RUN=1` 时才会回传验证码 | **生产必须删除** |
+| `DM_DAILY_BUDGET` | 每日发码上限，默认 150 | 可选（调参不用改代码） |
+| `DM_TOTAL_BUDGET` | 累计发码上限，默认 1800 | 可选 |
+| `DM_DRY_RUN` | 干跑模式：`=1` 时只走完校验不真发信 | **生产已删除** |
+| `DM_DEV_KEY` | 联调密钥，配合 `DM_DRY_RUN=1` 时才会回传验证码 | **生产已删除** |
+
+> 邮件通道一旦配齐（`DM_ACCESS_KEY_ID` + `DM_ACCESS_KEY_SECRET` + `DM_SENDER` 三者齐全），
+> Worker 会**自动**把注册切成强制验证（`emailVerified` 初始为 true），
+> 不需要额外开关。要临时放宽用 `REQUIRE_EMAIL_VERIFY=0`。
+
+### 运维脚本
+
+| 脚本 | 作用 |
+|---|---|
+| `scripts/aliyun-check.mjs` | **只读**自检：AK 有效性、权限、域名验证状态、发信地址类型、回信地址状态、免费额度余量 |
+| `scripts/aliyun-send-test.mjs` | 真实发信测试（会消耗额度），分别试 `ReplyToAddress` true/false |
+| `scripts/test-aliyun-sign.mjs` | 签名回归：与 `@alicloud/openapi-core` 交叉比对，逐字节校验 |
+| `scripts/test-aliyun-live.mjs` | 用假 AK 打真接口，验证请求结构能被正确解析 |
+| `scripts/cf-dns-apply.mjs` | Cloudflare DNS 幂等 upsert + 回读校验 |
+| `scripts/dm-dns-records.json` | `mail.solyoung.top` 的 4 条 DNS 记录 |
+| `scripts/dm-dns-verify.sh` | dig 校验 + OpenSSL 反解 DKIM 公钥 + 权威 NS 直查 |
 | `REQUIRE_EMAIL_VERIFY` | `1` 强制校验邮箱；`0` 关闭；不设则"邮件通道就绪时自动强制" | 可选 |
 
 > 🔒 **生产上线前必须删除 `DM_DRY_RUN` 与 `DM_DEV_KEY`**，否则联调密钥会绕过"同 IP 限流"并把验证码回传给任何带对请求头的人。
