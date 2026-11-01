@@ -33,7 +33,10 @@ const {
 const dict = getDict(locale);
 const htmlLang = locale === "en" ? "en" : "zh-CN";
 const ogLocale = locale === "en" ? "en_US" : "zh_CN";
-const pageTitle = title === siteConfig.name ? title : `${title} · ${siteConfig.name}`;
+const pageTitle =
+  title === siteConfig.name || title.includes(siteConfig.name)
+    ? title
+    : `${title} · ${siteConfig.name}`;
 const canonical = absoluteUrl(route, locale);
 const searchIndex = buildSearchIndex(products, tools, locale);
 const currentRoute = stripBase(Astro.url.pathname);
