@@ -119,6 +119,9 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   const [pf, setPf] = useState({ displayName: "", bio: "", location: "", website: "", avatar: "", handle: "", contact: "", emailPublic: false });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  /* 头部那一行的「公开 / 不公开」快捷开关 */
+  const [publicBusy, setPublicBusy] = useState(false);
+  const [publicError, setPublicError] = useState<string | null>(null);
 
   /* 产品管理 */
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
@@ -232,6 +235,37 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     } else {
       setProfileError(result.error || "保存失败");
     }
+  };
+
+  /**
+   * 头部那一行的「公开 / 不公开」快捷开关。
+   * 服务端 PUT /profile 是整包覆盖（缺字段会被写成空串），所以这里把当前
+   * 表单里的文本字段一起带上，只翻转 emailPublic 这一个值。
+   */
+  const toggleEmailPublic = async () => {
+    if (!user || publicBusy) return;
+    const next = !user.emailPublic;
+    if (next && !user.emailVerified) {
+      setPublicError(en ? "Verify your email first (see Email security below)." : "请先完成邮箱验证（见下方「邮箱安全」）。");
+      return;
+    }
+    setPublicBusy(true);
+    setPublicError(null);
+    const result = await saveProfile({
+      displayName: pf.displayName,
+      bio: pf.bio,
+      location: pf.location,
+      website: ensureHttps(pf.website),
+      contact: pf.contact.trim(),
+      emailPublic: next,
+    });
+    setPublicBusy(false);
+    if (!result.ok) {
+      setPublicError(result.error || (en ? "Update failed." : "更新失败。"));
+      return;
+    }
+    setPf((v) => ({ ...v, emailPublic: next }));
+    setUser((u) => (u ? { ...u, emailPublic: next } : u));
   };
 
   const startEdit = (prod: CommunityProduct) => {
@@ -390,9 +424,34 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                   @{user.handle || user.login}
                 </a>
                 {!isGithub && user.email && (
-                  <span className="text-[11px] text-muted-foreground/80">
-                    · {en ? "sign-in email (private)" : "登录邮箱（不公开）"} {user.email}
+                  <span className="inline-flex flex-wrap items-center gap-x-1 text-[11px] text-muted-foreground/80">
+                    · {user.emailPublic
+                      ? (en ? "public email" : "公开邮箱")
+                      : (en ? "sign-in email (private)" : "登录邮箱（不公开）")}
+                    <span>{user.email}</span>
+                    <button
+                      type="button"
+                      onClick={() => void toggleEmailPublic()}
+                      disabled={publicBusy || (!user.emailVerified && !user.emailPublic)}
+                      title={
+                        !user.emailVerified && !user.emailPublic
+                          ? (en ? "Verify your email first" : "请先完成邮箱验证")
+                          : (user.emailPublic
+                              ? (en ? "Make this email private" : "把这个邮箱设为不公开")
+                              : (en ? "Publish this email on your profile" : "把这个邮箱公开到主页上"))
+                      }
+                      className="rounded-[4px] px-1 py-px text-accent transition-colors hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground/60 disabled:no-underline"
+                    >
+                      {publicBusy
+                        ? "…"
+                        : user.emailPublic
+                          ? (en ? "make private" : "设为不公开")
+                          : (en ? "publish" : "公开")}
+                    </button>
                   </span>
+                )}
+                {publicError && (
+                  <span className="text-[11px] text-destructive">{publicError}</span>
                 )}
               </p>
               {user.bio && <p className="mt-2 text-sm leading-6 text-foreground/80">{user.bio}</p>}
