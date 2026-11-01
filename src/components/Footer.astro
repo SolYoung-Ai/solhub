@@ -30,7 +30,7 @@ const dict = getDict(locale);
 
       <nav aria-label={locale === "en" ? "Product navigation" : "产品导航"}>
         <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {translate(dict, "footer.discover")}
+          {translate(dict, "footer.products")}
         </p>
         <ul class="mt-3 space-y-2 text-sm">
           <li><a href={p("/", locale)} class="text-foreground/80 transition-colors hover:text-accent">{translate(dict, "footer.discover")}</a></li>

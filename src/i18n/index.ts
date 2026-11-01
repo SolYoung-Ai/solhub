@@ -234,6 +234,7 @@ export const zh: Dict = {
 
   // 页脚
   "footer.tagline": "发现好产品，使用好工具，让独立创作更高效。",
+  "footer.products": "产品",
   "footer.discover": "发现",
   "footer.launches": "产品发布榜单",
   "footer.tools": "免费在线工具箱",
@@ -502,6 +503,7 @@ export const en: Dict = {
 
   // Footer
   "footer.tagline": "Discover good products, use good tools, make independent creation more efficient.",
+  "footer.products": "Products",
   "footer.discover": "Discover",
   "footer.launches": "Product launches",
   "footer.tools": "Free online toolbox",

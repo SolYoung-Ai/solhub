@@ -4,6 +4,8 @@ import {
   Ban,
   KeyRound,
   Loader2,
+  Lock,
+  LockOpen,
   Package,
   Search,
   ShieldCheck,
@@ -23,6 +25,8 @@ import {
   adminUsers,
   adminVerifyProduct,
   adminVerifyUser,
+  setAdminKey,
+  unlockAdmin,
   type AdminPost,
   type AdminProduct,
   type AdminStats,
@@ -65,7 +69,10 @@ function Tag({ tone, children }: { tone: "accent" | "gold" | "danger" | "muted";
 }
 
 export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }) {
-  const [gate, setGate] = useState<"loading" | "unauthorized" | "forbidden" | "ok">("loading");
+  const [gate, setGate] = useState<"loading" | "unauthorized" | "forbidden" | "locked" | "ok">("loading");
+  const [pass, setPass] = useState("");
+  const [passBusy, setPassBusy] = useState(false);
+  const [passErr, setPassErr] = useState<string | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [tab, setTab] = useState<"users" | "posts" | "products">("users");
   const [q, setQ] = useState("");
@@ -85,6 +92,7 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
     const res = await adminStats();
     if (res.status === "unauthorized") return setGate("unauthorized");
     if (res.status === "forbidden") return setGate("forbidden");
+    if (res.status === "locked") return setGate("locked");
     if (res.status !== "ok" || !res.data) {
       setGate("ok");
       setError(res.error || "加载失败");
@@ -94,11 +102,42 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
     setGate("ok");
   }, []);
 
+  const unlock = async () => {
+    const key = pass.trim();
+    if (!key) return;
+    setPassBusy(true);
+    setPassErr(null);
+    const res = await unlockAdmin(key);
+    setPassBusy(false);
+    if (res.status === "ok" && res.data) {
+      setStats(res.data);
+      setPass("");
+      setError(null);
+      setGate("ok");
+      return;
+    }
+    if (res.status === "unauthorized") return setGate("unauthorized");
+    if (res.status === "forbidden") return setGate("forbidden");
+    setPassErr(res.status === "locked" ? "口令不正确，请重试。" : res.error || "校验失败，请重试。");
+  };
+
+  const lockNow = () => {
+    setAdminKey("");
+    setStats(null);
+    setUsers([]);
+    setPosts([]);
+    setProducts([]);
+    setPass("");
+    setPassErr(null);
+    setGate("locked");
+  };
+
   const loadUsers = useCallback(async (term: string) => {
     setBusy(true);
     const res = await adminUsers(term);
     setBusy(false);
     if (res.status === "ok" && res.data) setUsers(res.data.users);
+    else if (res.status === "locked") setGate("locked");
     else setError(res.error || "加载失败");
   }, []);
 
@@ -107,6 +146,7 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
     const res = await adminPosts(term);
     setBusy(false);
     if (res.status === "ok" && res.data) setPosts(res.data.posts);
+    else if (res.status === "locked") setGate("locked");
     else setError(res.error || "加载失败");
   }, []);
 
@@ -115,6 +155,7 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
     const res = await adminProducts();
     setBusy(false);
     if (res.status === "ok" && res.data) setProducts(res.data.products);
+    else if (res.status === "locked") setGate("locked");
     else setError(res.error || "加载失败");
   }, []);
 
@@ -134,6 +175,10 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
     const res = await fn();
     setBusy(false);
     if (res.status !== "ok") {
+      if (res.status === "locked") {
+        setGate("locked");
+        return;
+      }
       setError(res.error || "操作失败");
       return;
     }
@@ -146,6 +191,51 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
     return (
       <div className="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" /> 校验管理员身份…
+      </div>
+    );
+  }
+
+  if (gate === "locked") {
+    return (
+      <div className="mx-auto max-w-sm py-20">
+        <div className="text-center">
+          <Lock className="mx-auto h-9 w-9 text-muted-foreground/50" />
+          <h1 className="mt-4 font-display text-xl font-bold text-foreground">管理后台已锁定</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            请输入管理口令以继续。口令只在本次浏览器会话中记住。
+          </p>
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void unlock();
+          }}
+          className="mt-6 space-y-3"
+        >
+          <div className="relative">
+            <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="password"
+              value={pass}
+              onChange={(e) => {
+                setPass(e.target.value);
+                setPassErr(null);
+              }}
+              autoFocus
+              autoComplete="current-password"
+              placeholder="管理口令"
+              className="w-full rounded-full border border-border bg-secondary/40 py-2.5 pl-9 pr-3 text-center text-[15px] tracking-widest outline-none transition-colors placeholder:tracking-normal placeholder:text-muted-foreground focus:border-accent"
+            />
+          </div>
+          {passErr && <p className="text-center text-[13px] text-destructive">{passErr}</p>}
+          <button type="submit" disabled={passBusy || !pass.trim()} className="btn btn-accent w-full">
+            {passBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockOpen className="h-4 w-4" />}
+            {passBusy ? "校验中…" : "解锁"}
+          </button>
+        </form>
+        <p className="mt-6 text-center text-[12px] text-muted-foreground">
+          忘记口令可重新部署 Worker 并更新 <code className="rounded bg-secondary px-1 py-0.5">ADMIN_KEY</code>。
+        </p>
       </div>
     );
   }
@@ -179,6 +269,14 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
           <ShieldCheck className="h-5 w-5 text-accent" />
           <h1 className="font-display text-xl font-bold text-foreground">管理后台</h1>
           <Tag tone="muted">仅管理员可见</Tag>
+          <button
+            type="button"
+            onClick={lockNow}
+            className="ml-auto inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[12px] text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+            title="清除口令，重新上锁"
+          >
+            <Lock className="h-3 w-3" /> 锁定
+          </button>
         </div>
         <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
           <span className="rounded-full border border-border px-2.5 py-1 text-muted-foreground">
@@ -275,13 +373,13 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
                     onClick={() =>
                       void run(
                         () => adminVerifyUser(u.login, !u.verified),
-                        u.verified ? `已取消 ${u.name} 的认证` : `已认证 ${u.name}`,
+                        u.verified ? `已取消 ${u.name} 的 Verified` : `已给 ${u.name} 加上 Verified`,
                         () => void loadUsers(q),
                       )
                     }
                     className="btn btn-outline !h-7 gap-1.5 px-3 text-xs"
                   >
-                    <BadgeCheck className="h-3.5 w-3.5" /> {u.verified ? "取消黄V" : "加黄V"}
+                    <BadgeCheck className="h-3.5 w-3.5" /> {u.verified ? "取消 Verified" : "加 Verified"}
                   </button>
                   <button
                     type="button"
@@ -404,7 +502,7 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="truncate font-bold text-foreground">{prod.name}</span>
-                  {prod.verified ? <Tag tone="accent">已认证</Tag> : <Tag tone="muted">未认证</Tag>}
+                  {prod.verified ? <Tag tone="gold">Verified</Tag> : <Tag tone="muted">未 Verified</Tag>}
                   <Tag tone="muted">{prod.source === "catalog" ? "官方目录" : "用户上传"}</Tag>
                 </div>
                 <div className="mt-0.5 truncate text-[13px] text-muted-foreground">
@@ -418,13 +516,13 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
                     onClick={() =>
                       void run(
                         () => adminVerifyProduct(prod.slug, !prod.verified),
-                        prod.verified ? `已取消 ${prod.name} 的认证` : `已认证 ${prod.name}`,
+                        prod.verified ? `已取消 ${prod.name} 的 Verified` : `已把 ${prod.name} 设为 Verified`,
                         () => void loadProducts(),
                       )
                     }
                     className="btn btn-outline !h-7 gap-1.5 px-3 text-xs"
                   >
-                    <BadgeCheck className="h-3.5 w-3.5" /> {prod.verified ? "取消认证" : "认证该产品"}
+                    <BadgeCheck className="h-3.5 w-3.5" /> {prod.verified ? "取消 Verified" : "设为 Verified"}
                   </button>
                 </div>
               </div>

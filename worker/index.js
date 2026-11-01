@@ -34,7 +34,7 @@ function corsFor(request) {
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
     "Access-Control-Allow-Credentials": "true",
     Vary: "Origin",
   };
@@ -426,11 +426,25 @@ function isAdminLogin(env, login) {
   return !!login && adminEmails(env).includes(String(login).toLowerCase());
 }
 
-/** 校验管理员身份；通过返回 { identity }，否则返回 { error: Response } */
+/** 管理口令（env.ADMIN_KEY，wrangler secret，不写进仓库）。 */
+function adminKeyOk(request, env) {
+  const expected = String(env.ADMIN_KEY || "");
+  if (!expected) return false;
+  const got = String(request.headers.get("x-admin-key") || "");
+  if (!got || got.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ got.charCodeAt(i);
+  return diff === 0;
+}
+
+/** 校验管理员身份（登录态白名单 + 管理口令）；通过返回 { identity } */
 async function requireAdmin(request, env) {
   const identity = await getIdentity(request, env);
   if (!identity) return { error: json(request, { error: "未登录" }, 401) };
   if (!isAdminLogin(env, identity.login)) return { error: json(request, { error: "无权访问" }, 403) };
+  if (!adminKeyOk(request, env)) {
+    return { error: json(request, { error: "需要管理口令", needKey: true }, 401) };
+  }
   return { identity };
 }
 

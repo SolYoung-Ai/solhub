@@ -11,7 +11,7 @@ function base(): string {
   return API_BASE.replace(/\/$/, "");
 }
 
-export type AdminStatus = "unauthorized" | "forbidden" | "ok" | "error";
+export type AdminStatus = "unauthorized" | "forbidden" | "locked" | "ok" | "error";
 
 export interface AdminResult<T> {
   status: AdminStatus;
@@ -19,21 +19,59 @@ export interface AdminResult<T> {
   error?: string;
 }
 
+/* ---------------- 管理口令 ----------------
+ * 口令只存在本次浏览器会话（sessionStorage），关掉标签页即失效；
+ * Worker 侧用 wrangler secret 的 ADMIN_KEY 比对，仓库里没有明文。
+ */
+const KEY_STORAGE = "solhub.admin.key";
+
+export function getAdminKey(): string {
+  try {
+    return window.sessionStorage.getItem(KEY_STORAGE) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function setAdminKey(key: string) {
+  try {
+    if (key) window.sessionStorage.setItem(KEY_STORAGE, key);
+    else window.sessionStorage.removeItem(KEY_STORAGE);
+  } catch {
+    /* 隐私模式下忽略 */
+  }
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<AdminResult<T>> {
+  const key = getAdminKey();
+  const headers = new Headers(init?.headers);
+  if (key && !headers.has("X-Admin-Key")) headers.set("X-Admin-Key", key);
   try {
     const res = await fetch(`${base()}${path}`, {
       credentials: "include",
       cache: "no-store",
       ...init,
+      headers,
     });
     const data = await res.json().catch(() => ({}));
-    if (res.status === 401) return { status: "unauthorized", error: data.error || "未登录" };
+    if (res.status === 401) {
+      if (data.needKey) return { status: "locked", error: data.error || "需要管理口令" };
+      return { status: "unauthorized", error: data.error || "未登录" };
+    }
     if (res.status === 403) return { status: "forbidden", error: data.error || "无权访问" };
     if (!res.ok) return { status: "error", error: data.error || `请求失败（${res.status}）` };
     return { status: "ok", data: data as T };
   } catch {
     return { status: "error", error: "网络错误，请稍后重试。" };
   }
+}
+
+/** 用口令试一次 /admin/stats：成功则记住口令。 */
+export async function unlockAdmin(key: string): Promise<AdminResult<AdminStats>> {
+  const res = await call<AdminStats>("/admin/stats", { headers: { "X-Admin-Key": key } });
+  if (res.status === "ok") setAdminKey(key);
+  else if (res.status === "locked") setAdminKey("");
+  return res;
 }
 
 export interface AdminStats {
