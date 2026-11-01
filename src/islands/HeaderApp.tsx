@@ -7,6 +7,7 @@ import {
   Monitor,
   Moon,
   Search,
+  ShieldCheck,
   Smartphone,
   Sun,
   UserRound,
@@ -161,6 +162,15 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
                   >
                     <UserRound className="h-3.5 w-3.5" /> {en ? "My account" : "个人中心"}
                   </a>
+                  {user.isAdmin && (
+                    <a
+                      href={p("/admin/", locale)}
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" /> {en ? "Admin" : "管理后台"}
+                    </a>
+                  )}
                   <button
                     type="button"
                     onClick={() => { setUserMenuOpen(false); void logout().then(() => window.location.reload()); }}

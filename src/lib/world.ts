@@ -28,6 +28,8 @@ export interface WorldPost {
   author: string;
   authorName: string;
   authorAvatar?: string;
+  /** 作者黄V 认证（发帖时的快照，管理员认证后会回填） */
+  authorVerified?: boolean;
   text: string;
   linkUrl?: string;
   createdAt: string;
@@ -67,6 +69,10 @@ export interface PublicProfile {
     location?: string;
     website?: string;
     joinedAt?: string;
+    /** 黄V 认证 */
+    verified?: boolean;
+    /** 已被封禁（主页会提示） */
+    banned?: boolean;
   };
   followerCount: number;
   followingCount: number;
@@ -92,6 +98,7 @@ export interface SearchUser {
   bio?: string;
   website?: string;
   joinedAt?: string;
+  verified?: boolean;
 }
 
 export interface SearchResult {

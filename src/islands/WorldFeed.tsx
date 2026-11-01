@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { p } from "@/lib/paths";
+import GoldBadge from "@/components/GoldBadge";
 import { avatarOf, fetchMe, type AuthUser } from "@/lib/auth";
 import { ensureHttps } from "@/lib/utils";
 import {
@@ -463,8 +464,16 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                 </div>
 
                 <div className="mt-3">
-                  <p className="font-display text-lg font-bold text-foreground">{userProfile.user.name}</p>
+                  <p className="flex items-center gap-1.5 font-display text-lg font-bold text-foreground">
+                    {userProfile.user.name}
+                    {userProfile.user.verified && <GoldBadge className="h-[17px] w-[17px]" />}
+                  </p>
                   <p className="text-[13px] text-muted-foreground">@{cleanHandle(userProfile.user.login)}</p>
+                  {userProfile.user.banned && (
+                    <span className="mt-1 inline-flex w-fit items-center rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold leading-none text-destructive">
+                      {en ? "Banned" : "该账号已被封禁"}
+                    </span>
+                  )}
                   {isOfficial(userProfile.user.login) && (
                     <span className="mt-1 inline-flex w-fit items-center rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold leading-none text-accent-foreground">
                       {en ? "Official Account" : "官方账号"}
@@ -592,6 +601,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1">
                       <span className="truncate font-bold text-foreground">{u.name}</span>
+                      {u.verified && <GoldBadge className="h-[15px] w-[15px] shrink-0" />}
                       {isOfficial(u.login) && (
                         <span className="inline-flex shrink-0 items-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-accent-foreground">
                           {en ? "Official" : "官方"}
@@ -674,6 +684,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                     >
                       {post.authorName}
                     </button>
+                    {post.authorVerified && <GoldBadge className="h-[15px] w-[15px] shrink-0" />}
                     <span className="truncate text-muted-foreground">@{cleanHandle(post.author)}</span>
                     {isOfficial(post.author) && (
                       <span className="inline-flex shrink-0 items-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-accent-foreground">

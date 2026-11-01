@@ -19,6 +19,10 @@ export interface AuthUser {
   location?: string;
   website?: string;
   authType?: "email" | "github";
+  /** 黄V 认证 */
+  verified?: boolean;
+  /** 管理员（由 Worker 白名单判定） */
+  isAdmin?: boolean;
 }
 
 function base(): string {

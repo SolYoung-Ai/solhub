@@ -11,6 +11,10 @@ routes = [
 # 自定义域名生效后可关闭 workers.dev（国内不可达）
 workers_dev = true
 
+# 管理后台白名单（逗号分隔的登录名；邮箱账号即邮箱地址）
+[vars]
+ADMIN_EMAILS = "solyoungwork@gmail.com"
+
 [[kv_namespaces]]
 binding = "PROFILES"
 id = "bad8c625ab4846eb97b71b7166a3fab0"
