@@ -516,10 +516,130 @@ function applyOverride(card, overrides) {
   return { ...card, verificationStatus: o.verified ? "verified" : "pending", claimed: card.claimed };
 }
 
+/* ---------------- 官方账号自动发帖 ---------------- */
+
+/** 官方账号登录名（真实账号，前端显示 @solhub） */
+const OFFICIAL_LOGIN = "solhub@solyoung.top";
+
+/** 官方账号的作者快照；账号不存在时返回 null（静默跳过发帖）。 */
+async function officialAuthor(env) {
+  const u = await kvGetJSON(env, `user:${OFFICIAL_LOGIN}`, null);
+  if (!u) return null;
+  return {
+    login: OFFICIAL_LOGIN,
+    name: u.displayName || "SolHub 官方",
+    avatar: u.avatar || "",
+    verified: !!u.verified,
+  };
+}
+
+/** 以官方账号发一条帖子（服务端直接写 KV，不需要密码）。 */
+async function postAsOfficial(env, text, linkUrl = "") {
+  if (!env.PROFILES) return null;
+  const author = await officialAuthor(env);
+  if (!author) return null;
+  const id = newId();
+  const post = {
+    id,
+    author: author.login,
+    authorName: author.name,
+    authorAvatar: author.avatar,
+    authorVerified: author.verified,
+    text: String(text || "").trim().slice(0, POST_MAX),
+    linkUrl: String(linkUrl || "").trim().slice(0, 500),
+    createdAt: new Date().toISOString(),
+  };
+  if (!post.text && !post.linkUrl) return null;
+  await Promise.all([
+    kvPutJSON(env, `post:${id}`, post),
+    kvPutJSON(env, `post:${id}:likes`, []),
+    kvPutJSON(env, `post:${id}:comments`, []),
+  ]);
+  await Promise.all([pushFeed(env, "feed:global", id), pushFeed(env, `feed:user:${author.login}`, id)]);
+  return post;
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/** 新用户上传产品后，官方账号发一条「新成员入列」。 */
+async function announceNewProduct(env, product) {
+  if (!product || !product.name) return null;
+  if (product.submittedBy === OFFICIAL_LOGIN) return null;
+  const desc = String(product.shortDescription || "").trim().slice(0, 90);
+  const dev = String(product.developerName || "").trim();
+  const lines = [`新成员入列 ✦ ${product.name}${desc ? ` — ${desc}` : ""}`];
+  if (dev) lines.push(`开发者：${dev}`);
+  lines.push("点开看看，也欢迎在评论区聊聊你的用法。");
+  return postAsOfficial(env, lines.join("\n"), product.websiteUrl || "");
+}
+
+/** 随机推荐一个社区产品；队列轮转，且同一产品 5 天内不重复推荐。 */
+async function suggestCommunityProduct(env) {
+  const community = await readCommunity(env);
+  const all = (Array.isArray(community) ? community : []).filter(
+    (p) => p && p.slug && p.name && /^https?:\/\//.test(String(p.websiteUrl || "")),
+  );
+  if (!all.length) return null;
+
+  /* 5 天内推荐过的产品先排除，避免社区产品少时刷屏 */
+  const COOLDOWN = 5 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const lasts = await kvGetMany(env, all.map((p) => `official:last:${p.slug}`));
+  const usable = all.filter((p, i) => {
+    const t = Number(lasts[i] || 0);
+    return !t || now - t > COOLDOWN;
+  });
+  if (!usable.length) return null;
+
+  const slugs = usable.map((p) => p.slug);
+  let queue = await kvGetJSON(env, "official:queue", []);
+  if (!Array.isArray(queue)) queue = [];
+  queue = queue.filter((s) => slugs.includes(s));
+  if (!queue.length) queue = shuffle(slugs);
+
+  const slug = queue.shift();
+  await kvPutJSON(env, "official:queue", queue);
+  const p = usable.find((x) => x.slug === slug);
+  if (!p) return null;
+
+  const name = p.name;
+  const desc = String(p.shortDescription || "").trim().slice(0, 90);
+  const dev = String(p.developerName || "").trim();
+  const templates = [
+    `今日推荐 ✦ ${name}${desc ? ` — ${desc}` : ""}`,
+    `逛逛社区 ✦ ${name}${desc ? `\n${desc}` : ""}`,
+    `发现一个小玩意 ✦ ${name}${desc ? ` — ${desc}` : ""}`,
+    `社区里有人在做这个 ✦ ${name}${desc ? `\n${desc}` : ""}`,
+  ];
+  const text = templates[Math.floor(Math.random() * templates.length)] + (dev ? `\nby ${dev}` : "");
+  const post = await postAsOfficial(env, text, p.websiteUrl);
+  if (post) await env.PROFILES.put(`official:last:${p.slug}`, String(now), { expirationTtl: 30 * 24 * 3600 });
+  return post;
+}
+
+/** 每天最多两次推荐（cron 一天触发两次，这里再兜一层防止重复/重试超发）。 */
+async function suggestWithDailyQuota(env, force = false) {
+  const day = new Date().toISOString().slice(0, 10);
+  const key = `official:quota:${day}`;
+  const used = Number((await env.PROFILES.get(key)) || 0);
+  if (!force && used >= 2) return { skipped: "daily quota reached" };
+  const post = await suggestCommunityProduct(env);
+  if (!post) return { skipped: "no eligible product (all in cooldown or none uploaded)" };
+  if (!force) await env.PROFILES.put(key, String(used + 1), { expirationTtl: 60 * 60 * 48 });
+  return { ok: true, post };
+}
+
 /* ---------------- 主路由 ---------------- */
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
@@ -824,6 +944,9 @@ export default {
       });
       const writeData = await writeRes.json();
       if (!writeData.commit) return json(request, { error: "写入失败", detail: writeData }, 500);
+      /* 官方账号自动播报新品（后台执行，不影响提交结果） */
+      if (ctx && ctx.waitUntil) ctx.waitUntil(announceNewProduct(env, newProduct).catch(() => {}));
+      else announceNewProduct(env, newProduct).catch(() => {});
       return json(request, { ok: true, product: newProduct, message: "链接检测通过，产品已自动收录上线" });
     }
 
@@ -939,6 +1062,32 @@ export default {
         admins: adminEmails(env),
         me: gate.identity.login,
       });
+    }
+
+    /* 官方账号：手动播报某个社区产品（补发 / 测试用） */
+    if (url.pathname === "/admin/official/announce" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const gate = await requireAdmin(request, env);
+      if (gate.error) return gate.error;
+      let body = {};
+      try { body = await request.json(); } catch {}
+      const slug = String(body.slug || "").trim();
+      const community = await readCommunity(env);
+      const product = (Array.isArray(community) ? community : []).find((p) => p.slug === slug);
+      if (!product) return json(request, { error: "产品不存在" }, 404);
+      const post = await announceNewProduct(env, { ...product, submittedBy: "" });
+      if (!post) return json(request, { error: "发帖失败" }, 500);
+      return json(request, { ok: true, post });
+    }
+
+    /* 官方账号：手动触发一条社区产品推荐（便于测试） */
+    if (url.pathname === "/admin/official/suggest" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const gate = await requireAdmin(request, env);
+      if (gate.error) return gate.error;
+      const res = await suggestWithDailyQuota(env, true);
+      if (!res.ok) return json(request, { ok: false, reason: res.skipped }, 200);
+      return json(request, { ok: true, post: res.post });
     }
 
     if (url.pathname === "/admin/users" && request.method === "GET") {
@@ -1409,5 +1558,10 @@ export default {
     }
 
     return json(request, { error: "not found" }, 404);
+  },
+
+  /** 定时任务：每天两次（UTC 02:00 / 12:00 = 北京时间 10:00 / 20:00）随机推荐一个社区产品 */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(suggestWithDailyQuota(env).catch(() => {}));
   },
 };
