@@ -14,8 +14,8 @@ import communityProducts from "./community.json";
  * 4. rankPosition 是人工精选顺序，规则见 src/lib/ranking.ts，与数据分离。
  */
 
-/** 目录内产品的开发者账号（登录名）。详情页「开发者」据此链接到其世界页个人主页。 */
-const OWNER_LOGIN = "solyoungwork@gmail.com";
+/** 目录内产品的开发者用户名（handle）。详情页「开发者」据此链接到其世界页个人主页。 */
+const OWNER_LOGIN = "solyoung";
 export const products: Product[] = [
   {
     id: "solyoung",

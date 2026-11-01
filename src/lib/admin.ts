@@ -84,6 +84,8 @@ export interface AdminStats {
 
 export interface AdminUser {
   login: string;
+  /** 公开用户名（handle）；GitHub 账号与 login 相同 */
+  handle?: string;
   type: "email" | "github";
   name: string;
   avatar: string;

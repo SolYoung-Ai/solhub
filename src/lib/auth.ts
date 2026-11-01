@@ -9,7 +9,11 @@ const API_BASE =
   "https://solhub-auth.solyoung.top";
 
 export interface AuthUser {
+  /** 公开标识：邮箱用户为 handle（如 solyoung），GitHub 用户为用户名 */
   login: string;
+  /** 用户名（handle）：站内唯一，出现在个人主页与帖子作者里 */
+  handle?: string;
+  /** 登录邮箱（仅本人可见，永不公开） */
   email?: string;
   avatar_url?: string;
   /** 邮箱用户自传头像（data URL，存于认证服务） */
@@ -49,13 +53,13 @@ export interface AuthResult {
 }
 
 /** 邮箱 + 密码注册（成功即自动登录）。 */
-export async function registerEmail(email: string, password: string, displayName?: string): Promise<AuthResult> {
+export async function registerEmail(email: string, password: string, displayName?: string, handle?: string): Promise<AuthResult> {
   try {
     const res = await fetch(`${base()}/auth/register`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, displayName: displayName || "" }),
+      body: JSON.stringify({ email, password, displayName: displayName || "", handle: handle || "" }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `注册失败（${res.status}）` };
@@ -92,7 +96,7 @@ export async function logout(): Promise<void> {
 }
 
 /** 保存个人资料（昵称 / 简介 / 城市 / 网站 / 头像）。 */
-export async function saveProfile(fields: Partial<Pick<AuthUser, "displayName" | "bio" | "location" | "website" | "avatar">>): Promise<{ ok: boolean; error?: string; user?: Partial<AuthUser> }> {
+export async function saveProfile(fields: Partial<Pick<AuthUser, "displayName" | "bio" | "location" | "website" | "avatar" | "handle">>): Promise<{ ok: boolean; error?: string; user?: Partial<AuthUser> }> {
   try {
     const res = await fetch(`${base()}/profile`, {
       method: "PUT",

@@ -62,7 +62,7 @@ function linkify(text: string): React.ReactNode[] {
   });
 }
 
-/* 登录名即邮箱，X 风格只展示 @ 前缀的本地名，不暴露完整邮箱 */
+/* 公开标识就是 handle；历史数据里若仍是邮箱形态，只展示 @ 前缀，避免泄露邮箱 */
 function cleanHandle(login: string): string {
   if (login.includes("@")) return login.split("@")[0];
   return login;
@@ -433,7 +433,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
             <span className="truncate text-[13px] font-semibold text-foreground">
               {userProfile?.user.name || viewUser}
             </span>
-            {me && me.login === viewUser && (
+            {userProfile?.isSelf && (
               <a href={p("/my-submissions/#posts", locale)} className="ml-auto text-[12px] text-accent hover:underline">
                 {en ? "Manage" : "管理资料"}
               </a>

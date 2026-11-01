@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   ArrowRight,
+  AtSign,
   CheckCircle2,
   Eye,
   EyeOff,
@@ -28,6 +29,7 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [handle, setHandle] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +61,11 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
     if (password.length < 8) {
       return en ? "Password must be at least 8 characters." : "密码至少 8 位。";
     }
+    if (mode === "register" && handle.trim() && !/^[a-z][a-z0-9_]{2,19}$/.test(handle.trim())) {
+      return en
+        ? "Username must be 3–20 characters: start with a letter, then letters, digits or underscore."
+        : "用户名需 3–20 位，字母开头，只能是小写字母、数字或下划线。";
+    }
     return null;
   };
 
@@ -69,7 +76,7 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
     setError(null);
     const result = mode === "login"
       ? await loginEmail(email.trim(), password)
-      : await registerEmail(email.trim(), password, displayName.trim());
+      : await registerEmail(email.trim(), password, displayName.trim(), handle.trim());
     setBusy(false);
     if (!result.ok) {
       setError(result.error || (en ? "Something went wrong." : "操作失败，请重试。"));
@@ -186,6 +193,31 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
                       className="input !h-11 !pl-9"
                     />
                   </div>
+                </label>
+              )}
+
+              {mode === "register" && (
+                <label className="block">
+                  <span className="label">
+                    {en ? "Username (optional)" : "用户名（可选）"}
+                  </span>
+                  <div className="relative mt-1.5">
+                    <AtSign className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                    <input
+                      type="text"
+                      value={handle}
+                      onChange={(e) => { setHandle(e.target.value.toLowerCase()); setError(null); }}
+                      maxLength={20}
+                      placeholder={en ? "yourname" : "你的用户名"}
+                      autoComplete="username"
+                      className="input !h-11 !pl-9"
+                    />
+                  </div>
+                  <span className="mt-1 block text-[11px] text-muted-foreground">
+                    {en
+                      ? "Your public page is /world/?u=username. Leave blank and we'll pick one from your email."
+                      : "它就是你主页地址里的名字（/world/?u=用户名），留空则自动按邮箱生成。"}
+                  </span>
                 </label>
               )}
 

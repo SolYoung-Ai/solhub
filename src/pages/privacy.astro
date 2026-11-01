@@ -38,7 +38,7 @@ const copy = en
       account: {
         title: "Account & login",
         body:
-          "You sign up with <strong>email + password</strong> — no GitHub account required. Passwords are stored only as <strong>PBKDF2 hashes with a per-account random salt</strong>: the plaintext never touches the database and cannot be recovered from it.",
+          "You sign up with <strong>email + password</strong> — no GitHub account required. Passwords are stored only as <strong>PBKDF2 hashes with a per-account random salt</strong>: the plaintext never touches the database and cannot be recovered from it. You also choose a <strong>public username (handle)</strong>, which becomes your identity across SolHub — your profile, posts and submissions all show @handle. Your email is used only to sign in and is never shown to anyone else.",
         points: [
           "After login we set one cookie, <code>solhub_session</code>: HttpOnly, Secure, valid for 30 days. The server only stores the mapping between session ID and account.",
           "Logging out deletes the session record and clears the cookie immediately.",
@@ -51,7 +51,7 @@ const copy = en
         items: [
           {
             k: "Sign-up",
-            v: "Email address, display name, password hash. Required to use an account.",
+            v: "Email address (kept private), display name, password hash. Required to use an account.",
             pub: false,
           },
           {
@@ -130,10 +130,10 @@ const copy = en
           "Your profile: display name, avatar, bio, location, website, follower count.",
           "Your posts, comments, likes and follow relationships.",
           "Products you submitted or claimed, with their public fields and the Verified mark.",
-          "Account identifier: today the account ID is your sign-up email, so it shows up in your profile URL and in the submission record (for example name@example.com).",
-          "Product submissions are committed to a public repository, which includes the submitter's account ID.",
+          "Account identifier: your public ID is a username (handle) like @solyoung, shown in your profile URL and submission records. Your email is never used as a public identifier.",
+          "Product submissions are committed to a public repository, which includes the submitter's public username.",
         ],
-        footnote: `Don't want your email visible as your public ID? Write to ${contactLink} and we will switch the public ID on your account.`,
+        footnote: `Want a different username? You can change it from your account page; old profile links keep working.`,
       },
       never: {
         title: "What we never do",
@@ -187,7 +187,7 @@ const copy = en
       account: {
         title: "账号与登录",
         body:
-          "用<strong>邮箱 + 密码</strong>注册，不需要 GitHub 账号。密码只存<strong>PBKDF2 哈希 + 每个账号独立的随机盐</strong>：明文密码不落库，也无法从库里还原。",
+          "用<strong>邮箱 + 密码</strong>注册，不需要 GitHub 账号。密码只存<strong>PBKDF2 哈希 + 每个账号独立的随机盐</strong>：明文密码不落库，也无法从库里还原。注册时你还会选一个<strong>公开用户名（handle）</strong>，它就是你在本站所有公开内容的身份——个人主页、帖子、产品提交都显示 @用户名。邮箱只用来登录，永远不会展示给其他人。",
         points: [
           "登录后写入一枚 Cookie（<code>solhub_session</code>）：HttpOnly、Secure，有效期 30 天。服务端只保存「会话 ID → 账号」的对应关系。",
           "退出登录会立刻删除服务端会话记录并清除这枚 Cookie。",
@@ -200,7 +200,7 @@ const copy = en
         items: [
           {
             k: "注册信息",
-            v: "邮箱、显示名、密码哈希。使用账号所必需。",
+            v: "邮箱（不公开）、显示名、密码哈希。使用账号所必需。",
             pub: false,
           },
           {
@@ -278,10 +278,10 @@ const copy = en
           "个人资料：显示名、头像、简介、所在地、个人网站、粉丝数。",
           "你的帖子、评论、点赞和关注关系。",
           "你提交或认领的产品，以及它们的公开字段与 Verified 标记。",
-          "账号标识：目前账号标识就是注册邮箱，因此它会出现在你的个人主页地址与产品提交记录里（例如 name@example.com）。",
-          "产品提交会提交进公开仓库，其中包含提交者的账号标识。",
+          "账号标识：你的公开标识是一个用户名（handle），例如 @solyoung，会出现在个人主页地址与产品提交记录里。邮箱绝不会作为公开标识。",
+          "产品提交会提交进公开仓库，其中包含提交者的公开用户名。",
         ],
-        footnote: `不希望邮箱作为公开标识？发邮件到 ${contactLink}，我们帮你更换公开标识。`,
+        footnote: `想换用户名？在「我」页面就能改；旧的个人主页链接依然有效。`,
       },
       never: {
         title: "我们不做的事",

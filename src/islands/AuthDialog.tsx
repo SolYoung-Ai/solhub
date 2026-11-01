@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Loader2, Mail, Lock, User, X, LogIn, UserPlus } from "lucide-react";
+import { Loader2, Mail, Lock, User, X, LogIn, UserPlus, AtSign } from "lucide-react";
 import { loginEmail, registerEmail } from "@/lib/auth";
 import type { Locale } from "@/i18n";
 
@@ -13,6 +13,7 @@ export default function AuthDialog({ locale = "zh", onClose }: { locale?: Locale
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [handle, setHandle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -27,6 +28,11 @@ export default function AuthDialog({ locale = "zh", onClose }: { locale?: Locale
     if (password.length < 8) {
       return en ? "Password must be at least 8 characters." : "密码至少 8 位。";
     }
+    if (mode === "register" && handle.trim() && !/^[a-z][a-z0-9_]{2,19}$/.test(handle.trim())) {
+      return en
+        ? "Username must be 3–20 characters: start with a letter, then letters, digits or underscore."
+        : "用户名需 3–20 位，字母开头，只能是小写字母、数字或下划线。";
+    }
     return null;
   };
 
@@ -37,7 +43,7 @@ export default function AuthDialog({ locale = "zh", onClose }: { locale?: Locale
     setError(null);
     const result = mode === "login"
       ? await loginEmail(email.trim(), password)
-      : await registerEmail(email.trim(), password, displayName.trim());
+      : await registerEmail(email.trim(), password, displayName.trim(), handle.trim());
     setBusy(false);
     if (!result.ok) {
       setError(result.error || (en ? "Something went wrong." : "操作失败，请重试。"));
@@ -106,6 +112,24 @@ export default function AuthDialog({ locale = "zh", onClose }: { locale?: Locale
                       onChange={(e) => setDisplayName(e.target.value)}
                       maxLength={40}
                       placeholder={en ? "Your name" : "你的名字"}
+                      className="input !pl-8"
+                    />
+                  </div>
+                </label>
+              )}
+
+              {mode === "register" && (
+                <label className="block">
+                  <span className="label">{en ? "Username (optional)" : "用户名（可选）"}</span>
+                  <div className="relative mt-1">
+                    <AtSign className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                    <input
+                      type="text"
+                      value={handle}
+                      onChange={(e) => { setHandle(e.target.value.toLowerCase()); setError(null); }}
+                      maxLength={20}
+                      placeholder={en ? "yourname" : "留空自动生成"}
+                      autoComplete="username"
                       className="input !pl-8"
                     />
                   </div>

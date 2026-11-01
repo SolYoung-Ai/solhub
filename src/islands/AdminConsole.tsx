@@ -360,6 +360,8 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
                   {u.banned && <Tag tone="danger">已封禁</Tag>}
                 </div>
                 <div className="mt-0.5 truncate text-[13px] text-muted-foreground">
+                  {u.handle && u.handle !== u.login ? <span className="text-foreground">@{u.handle}</span> : null}
+                  {u.handle && u.handle !== u.login ? " · " : ""}
                   {u.login} · {u.type === "email" ? "邮箱账号" : "GitHub"} · 注册 {u.createdAt ? u.createdAt.slice(0, 10) : "未知"} · {u.postCount} 帖
                 </div>
                 {u.bio && <div className="mt-1 line-clamp-1 text-[13px] text-foreground/70">{u.bio}</div>}

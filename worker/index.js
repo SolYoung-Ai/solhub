@@ -10,6 +10,13 @@
  *   user:<email>      邮箱用户记录（含密码哈希与个人资料）
  *   session:<id>      会话（{email, createdAt}，30 天 TTL）
  *   profile:<login>   GitHub 用户的展示资料（兼容保留）
+ *   handle:<handle>   用户名 → 邮箱索引（公开标识解析用）
+ *
+ * 标识分层（重要）：
+ *   SID（内部标识）= 邮箱 / GitHub 用户名，只用于 KV 键、登录态、封禁、限流，永不出现在公开响应里。
+ *   PID（公开标识）= 邮箱用户的 handle（如 @solyoung）或 GitHub 用户名，出现在帖子作者、
+ *                    个人主页、搜索结果、产品提交记录里。
+ *   两者用 sidOf() / pidOf() 互相解析，旧链接里的邮箱地址仍然可用（向后兼容）。
  *
  * 安全边界：任何密钥（GITHUB_CLIENT_SECRET / GITHUB_PAT）只存在于 Worker 环境变量，
  * 严禁返回给前端。密码哈希永不出库。
@@ -81,6 +88,145 @@ async function hashPassword(password, saltB64) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/* ---------------- 用户名（handle）：对外唯一的公开标识 ---------------- */
+
+const HANDLE_RE = /^[a-z][a-z0-9_]{2,19}$/;
+
+/** 保留名：避免和站内路由、官方身份撞车 */
+const RESERVED_HANDLES = new Set([
+  "admin", "administrator", "solhub", "official", "support", "help", "api", "www", "root",
+  "login", "logout", "register", "signup", "me", "my", "settings", "profile", "world", "feed",
+  "products", "product", "submit", "privacy", "terms", "about", "launches", "tools", "guanli",
+  "search", "explore", "new", "null", "undefined", "system", "moderator", "staff", "solyoung_top",
+]);
+
+function isEmailLogin(id) {
+  return String(id || "").includes("@");
+}
+
+function normalizeHandle(input) {
+  return String(input || "").trim().replace(/^@+/, "").toLowerCase();
+}
+
+/** 由邮箱前缀推导一个可读的 handle（仅作候选，冲突时会追加数字） */
+function handleFromEmail(email) {
+  const local = String(email || "").split("@")[0].toLowerCase();
+  let h = local.replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+  if (!/^[a-z]/.test(h)) h = `u${h}`;
+  h = h.slice(0, 18).replace(/_+$/, "");
+  if (h.length < 3) h = `${h}${Math.random().toString(36).slice(2, 3 + (3 - h.length))}`;
+  return h.slice(0, 20);
+}
+
+/** 分配唯一 handle：优先用户指定的，其次邮箱前缀，冲突时加数字后缀。返回最终 handle。 */
+async function allocateHandle(env, email, preferred) {
+  let base = normalizeHandle(preferred);
+  if (!HANDLE_RE.test(base) || (RESERVED_HANDLES.has(base) && email !== OFFICIAL_LOGIN)) {
+    base = handleFromEmail(email);
+  }
+  if (RESERVED_HANDLES.has(base) && email !== OFFICIAL_LOGIN) base = `${base.slice(0, 18)}_`;
+  let candidate = base;
+  for (let i = 0; i < 40; i += 1) {
+    const owner = await env.PROFILES.get(`handle:${candidate}`);
+    if (!owner || owner === email) {
+      await env.PROFILES.put(`handle:${candidate}`, email);
+      return candidate;
+    }
+    candidate = `${base.slice(0, 16)}${i + 2}`;
+  }
+  candidate = `${base.slice(0, 12)}${Math.random().toString(36).slice(2, 7)}`;
+  await env.PROFILES.put(`handle:${candidate}`, email);
+  return candidate;
+}
+
+/** 老账号登录/访问时补一个 handle（只写一次，避免每次读都写 KV） */
+async function ensureUserHandle(env, email, user) {
+  if (user && HANDLE_RE.test(String(user.handle || ""))) return user.handle;
+  const handle = await allocateHandle(env, email, "");
+  user.handle = handle;
+  await env.PROFILES.put(`user:${email}`, JSON.stringify(user));
+  return handle;
+}
+
+/** SID（内部：邮箱 / GitHub 用户名）→ PID（公开：handle / GitHub 用户名） */
+async function pidOf(env, sid) {
+  if (!sid) return "";
+  if (!isEmailLogin(sid)) return sid;
+  const user = await kvGetJSON(env, `user:${sid}`, null);
+  return (user && user.handle) || handleFromEmail(sid);
+}
+
+/** PID（或历史链接里的邮箱）→ SID */
+async function sidOf(env, pidOrSid) {
+  const id = String(pidOrSid || "").trim();
+  if (!id) return "";
+  if (isEmailLogin(id)) return id.toLowerCase();
+  const raw = id.replace(/^@+/, "");
+  const owner = await env.PROFILES.get(`handle:${raw.toLowerCase()}`);
+  if (owner) return owner;
+  /* GitHub 账号：用户名本身就是公开标识，保持原样 */
+  return raw;
+}
+
+/** 公开用户快照（入参是 PID，接受旧邮箱） */
+async function publicUser(env, pidOrSid) {
+  const sid = await sidOf(env, pidOrSid);
+  if (!sid) return { login: "", name: "", avatar: "" };
+  if (isEmailLogin(sid)) {
+    const u = await kvGetJSON(env, `user:${sid}`, null);
+    const handle = (u && u.handle) || handleFromEmail(sid);
+    return { login: handle, name: (u && u.displayName) || handle, avatar: (u && u.avatar) || "" };
+  }
+  const profile = await kvGetJSON(env, `profile:${sid}`, {});
+  return { login: sid, name: profile.displayName || sid, avatar: profile.avatar || "" };
+}
+
+/**
+ * 把一批记录里的作者标识从 SID 归一成 PID（就地修改）。
+ * 历史帖子/评论可能还写着邮箱，这里统一兜住，返回值是映射函数。
+ */
+async function normalizeAuthors(env, items, field) {
+  const emails = [...new Set(items.map((x) => x && x[field]).filter((v) => v && isEmailLogin(v)))];
+  const map = new Map();
+  if (emails.length) {
+    const raws = await kvGetMany(env, emails.map((e) => `user:${e}`));
+    emails.forEach((e, i) => {
+      let u = {};
+      try { u = JSON.parse(raws[i] || "{}"); } catch {}
+      map.set(e, u.handle || handleFromEmail(e));
+    });
+  }
+  const conv = (v) => map.get(v) || v;
+  for (const item of items) {
+    if (item && item[field]) item[field] = conv(item[field]);
+  }
+  return conv;
+}
+
+/** 改名后同步历史帖子与评论里的作者标识（后台执行，最多 200 条） */
+async function republishAuthor(env, sid, handle, prevHandle) {
+  const ids = await kvGetJSON(env, `feed:user:${sid}`, []);
+  const raws = await kvGetMany(env, ids.slice(0, 200).map((id) => `post:${id}`));
+  for (let i = 0; i < raws.length; i += 1) {
+    if (!raws[i]) continue;
+    let post;
+    try { post = JSON.parse(raws[i]); } catch { continue; }
+    if (post.author !== handle) {
+      post.author = handle;
+      await kvPutJSON(env, `post:${ids[i]}`, post);
+    }
+    const comments = await kvGetJSON(env, `post:${ids[i]}:comments`, []);
+    let touched = false;
+    for (const c of comments) {
+      if (c.author === sid || (prevHandle && c.author === prevHandle)) {
+        c.author = handle;
+        touched = true;
+      }
+    }
+    if (touched) await kvPutJSON(env, `post:${ids[i]}:comments`, comments);
+  }
+}
+
 /* ---------------- 邮箱用户与会话（KV） ---------------- */
 
 async function createSession(request, env, email) {
@@ -103,7 +249,7 @@ async function getSessionUser(request, env) {
     /* 被封禁的账号立即掉线（按匿名处理） */
     if (await env.PROFILES.get(`ban:${s.email}`)) return null;
     const user = JSON.parse(userRaw);
-    return { email: user.email, displayName: user.displayName || "", bio: user.bio || "", location: user.location || "", website: user.website || "", avatar: user.avatar || "", verified: !!user.verified };
+    return { email: user.email, handle: user.handle || "", displayName: user.displayName || "", bio: user.bio || "", location: user.location || "", website: user.website || "", avatar: user.avatar || "", verified: !!user.verified };
   } catch {
     return null;
   }
@@ -149,13 +295,13 @@ function newId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-/** 取用户展示信息快照（昵称/头像/认证） */
+/** 取用户展示信息快照（昵称/头像/认证）；login 为公开标识 PID，不含邮箱 */
 async function displayOf(env, identity) {
   if (identity.type === "email") {
     const u = identity.user;
     return {
-      login: u.email,
-      name: u.displayName || u.email.split("@")[0],
+      login: u.handle || handleFromEmail(u.email),
+      name: u.displayName || (u.handle || handleFromEmail(u.email)),
       avatar: u.avatar || "",
       verified: !!u.verified,
     };
@@ -169,14 +315,9 @@ async function displayOf(env, identity) {
   };
 }
 
-async function authorOf(env, login) {
-  if (login && login.includes("@")) {
-    const user = await kvGetJSON(env, `user:${login}`, null);
-    if (user) return { login, name: user.displayName || login.split("@")[0], avatar: user.avatar || "" };
-    return { login, name: login.split("@")[0], avatar: "" };
-  }
-  const profile = await kvGetJSON(env, `profile:${login}`, {});
-  return { login, name: profile.displayName || login, avatar: profile.avatar || "" };
+/** 兼容旧调用：按公开标识取作者快照 */
+async function authorOf(env, pidOrSid) {
+  return publicUser(env, pidOrSid);
 }
 
 /* ---------------- 封禁（独立键，便于信息流快速过滤） ---------------- */
@@ -295,11 +436,14 @@ async function feedPosts(env, ids, viewer, limit) {
   const slice = ids.slice(0, Math.min(ids.length, limit * 2));
   const posts = (await Promise.all(slice.map((id) => hydratePost(env, id, viewer)))).filter(Boolean);
   if (!posts.length) return [];
-  /* 隐藏被封禁作者的内容 */
+  /* 隐藏被封禁作者的内容（封禁键同时写了邮箱与 handle 两份，历史数据也能命中） */
   const authors = [...new Set(posts.map((p) => p.author))];
   const bans = await kvGetMany(env, authors.map((a) => `ban:${a}`));
   const banned = new Set(authors.filter((a, i) => bans[i]));
-  return (banned.size ? posts.filter((p) => !banned.has(p.author)) : posts).slice(0, limit);
+  const visible = (banned.size ? posts.filter((p) => !banned.has(p.author)) : posts).slice(0, limit);
+  /* 对外统一用 handle 作为作者标识 */
+  await normalizeAuthors(env, visible, "author");
+  return visible;
 }
 
 async function pushFeed(env, key, id) {
@@ -365,10 +509,13 @@ async function searchUsers(env, q, limit) {
     let u;
     try { u = JSON.parse(raw); } catch { return; }
     const isEmail = i < emailKeys.length;
-    const login = isEmail ? u.email : ghKeys[i - emailKeys.length];
+    /* 对外只露出 handle / GitHub 用户名，邮箱不参与搜索、也不返回 */
+    const login = isEmail
+      ? (u.handle || handleFromEmail(u.email || (emailKeys[i] || "").slice(5)))
+      : ghKeys[i - emailKeys.length];
     if (!login || seen.has(login)) return;
-    const name = u.displayName || (isEmail ? login.split("@")[0] : login);
-    if (!hit(q, [name, login, String(login).split("@")[0], u.bio, u.website, u.location])) return;
+    const name = u.displayName || login;
+    if (!hit(q, [name, login, u.bio, u.website, u.location])) return;
     seen.add(login);
     users.push({
       login,
@@ -395,7 +542,7 @@ async function searchPosts(env, q, viewer, limit) {
     if (!raw) return;
     let p;
     try { p = JSON.parse(raw); } catch { return; }
-    if (!hit(q, [p.text, p.linkUrl, p.authorName, p.author])) return;
+    if (!hit(q, [p.text, p.linkUrl, p.authorName])) return;
     matched.push(p);
   });
   const out = [];
@@ -411,6 +558,7 @@ async function searchPosts(env, q, viewer, limit) {
       commentCount: comments.length,
     });
   }
+  await normalizeAuthors(env, out, "author");
   return out;
 }
 
@@ -463,6 +611,7 @@ async function listAllUsers(env, cap) {
     if (raw) { try { u = JSON.parse(raw); } catch {} }
     accounts.push({
       login,
+      handle: isEmail ? (u.handle || handleFromEmail(login)) : login,
       type: isEmail ? "email" : "github",
       name: u.displayName || (isEmail ? login.split("@")[0] : login),
       avatar: u.avatar || "",
@@ -526,7 +675,8 @@ async function officialAuthor(env) {
   const u = await kvGetJSON(env, `user:${OFFICIAL_LOGIN}`, null);
   if (!u) return null;
   return {
-    login: OFFICIAL_LOGIN,
+    sid: OFFICIAL_LOGIN,
+    login: u.handle || "solhub",
     name: u.displayName || "SolHub 官方",
     avatar: u.avatar || "",
     verified: !!u.verified,
@@ -555,7 +705,7 @@ async function postAsOfficial(env, text, linkUrl = "") {
     kvPutJSON(env, `post:${id}:likes`, []),
     kvPutJSON(env, `post:${id}:comments`, []),
   ]);
-  await Promise.all([pushFeed(env, "feed:global", id), pushFeed(env, `feed:user:${author.login}`, id)]);
+  await Promise.all([pushFeed(env, "feed:global", id), pushFeed(env, `feed:user:${author.sid}`, id)]);
   return post;
 }
 
@@ -571,7 +721,7 @@ function shuffle(arr) {
 /** 新用户上传产品后，官方账号发一条「新成员入列」。 */
 async function announceNewProduct(env, product) {
   if (!product || !product.name) return null;
-  if (product.submittedBy === OFFICIAL_LOGIN) return null;
+  if (product.submittedBy === OFFICIAL_LOGIN || product.submittedBy === "solhub") return null;
   const desc = String(product.shortDescription || "").trim().slice(0, 90);
   const dev = String(product.developerName || "").trim();
   const lines = [`新成员入列 ✦ ${product.name}${desc ? ` — ${desc}` : ""}`];
@@ -653,21 +803,30 @@ export default {
       const email = String(body.email || "").trim().toLowerCase();
       const password = String(body.password || "");
       const displayName = String(body.displayName || "").trim().slice(0, 40);
+      const wanted = normalizeHandle(body.handle);
       if (!EMAIL_RE.test(email)) return json(request, { error: "邮箱格式不正确" }, 400);
       if (password.length < 8) return json(request, { error: "密码至少 8 位" }, 400);
+      if (wanted && !HANDLE_RE.test(wanted)) {
+        return json(request, { error: "用户名需 3–20 位，字母开头，只能是小写字母、数字或下划线" }, 400);
+      }
+      if (wanted && RESERVED_HANDLES.has(wanted)) return json(request, { error: "该用户名不可用" }, 409);
       if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
 
       const key = `user:${email}`;
       if (await env.PROFILES.get(key)) {
         return json(request, { error: "该邮箱已注册，请直接登录" }, 409);
       }
+      if (wanted && (await env.PROFILES.get(`handle:${wanted}`))) {
+        return json(request, { error: "该用户名已被使用，换一个试试" }, 409);
+      }
       const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
       const passHash = await hashPassword(password, salt);
+      const handle = await allocateHandle(env, email, wanted);
       await env.PROFILES.put(key, JSON.stringify({
-        email, displayName, passSalt: salt, passHash, createdAt: new Date().toISOString(),
+        email, handle, displayName, passSalt: salt, passHash, createdAt: new Date().toISOString(),
       }));
       const cookie = await createSession(request, env, email);
-      return json(request, { ok: true, user: { login: email, email, displayName } }, 200, cookie);
+      return json(request, { ok: true, user: { login: handle, handle, email, displayName } }, 200, cookie);
     }
 
     /* ---------- 邮箱登录 ---------- */
@@ -688,7 +847,8 @@ export default {
         return json(request, { error: ban.reason ? `账号已被封禁：${ban.reason}` : "账号已被封禁，如有疑问请联系管理员。" }, 403);
       }
       const cookie = await createSession(request, env, email);
-      return json(request, { ok: true, user: { login: email, email, displayName: user.displayName || "" } }, 200, cookie);
+      await ensureUserHandle(env, email, user);
+      return json(request, { ok: true, user: { login: user.handle || handleFromEmail(email), handle: user.handle || "", email, displayName: user.displayName || "" } }, 200, cookie);
     }
 
     /* ---------- 退出登录 ---------- */
@@ -728,8 +888,15 @@ export default {
       const identity = await getIdentity(request, env);
       if (!identity) return json(request, { authenticated: false }, 401);
       if (identity.type === "email") {
-        const admin = isAdminLogin(env, identity.login);
-        return json(request, { authenticated: true, isAdmin: admin, user: { ...identity.user, authType: "email", isAdmin: admin } });
+        const email = identity.user.email;
+        const rec = await kvGetJSON(env, `user:${email}`, null);
+        const handle = rec ? await ensureUserHandle(env, email, rec) : (identity.user.handle || handleFromEmail(email));
+        const admin = isAdminLogin(env, email);
+        return json(request, {
+          authenticated: true,
+          isAdmin: admin,
+          user: { ...identity.user, handle, login: handle, email, authType: "email", isAdmin: admin },
+        });
       }
       let profile = {};
       if (env.PROFILES) {
@@ -752,7 +919,9 @@ export default {
       if (request.method === "GET") {
         if (identity.type === "email") {
           const u = identity.user;
-          return json(request, { login: u.email, email: u.email, displayName: u.displayName, bio: u.bio, location: u.location, website: u.website, avatar: u.avatar || "" });
+          const rec = await kvGetJSON(env, `user:${u.email}`, null);
+          const handle = rec ? await ensureUserHandle(env, u.email, rec) : (u.handle || handleFromEmail(u.email));
+          return json(request, { login: handle, handle, email: u.email, displayName: u.displayName, bio: u.bio, location: u.location, website: u.website, avatar: u.avatar || "" });
         }
         let profile = {};
         if (env.PROFILES) {
@@ -778,14 +947,37 @@ export default {
             allowed.avatar = body.avatar;
           }
         }
+        /* 用户名（handle）：仅邮箱用户可改，全局唯一，改动后历史帖子同步改名 */
+        let nextHandle = "";
+        if (identity.type === "email" && typeof body.handle === "string") {
+          const wanted = normalizeHandle(body.handle);
+          const current = normalizeHandle(identity.user.handle || "");
+          if (wanted && wanted !== current) {
+            if (!HANDLE_RE.test(wanted)) {
+              return json(request, { error: "用户名需 3–20 位，字母开头，只能是小写字母、数字或下划线" }, 400);
+            }
+            if (RESERVED_HANDLES.has(wanted)) return json(request, { error: "该用户名不可用" }, 409);
+            const owner = await env.PROFILES.get(`handle:${wanted}`);
+            if (owner && owner !== identity.user.email) return json(request, { error: "该用户名已被使用，换一个试试" }, 409);
+            nextHandle = wanted;
+          }
+        }
         if (identity.type === "email") {
           const key = `user:${identity.login}`;
           const raw = await env.PROFILES.get(key);
           if (!raw) return json(request, { error: "user not found" }, 404);
           const user = JSON.parse(raw);
           Object.assign(user, allowed);
+          if (nextHandle) {
+            const prevHandle = normalizeHandle(user.handle || "");
+            if (prevHandle) await env.PROFILES.delete(`handle:${prevHandle}`);
+            await env.PROFILES.put(`handle:${nextHandle}`, user.email);
+            user.handle = nextHandle;
+            if (ctx && ctx.waitUntil) ctx.waitUntil(republishAuthor(env, user.email, nextHandle, prevHandle).catch(() => {}));
+          }
+          if (!user.handle) user.handle = await allocateHandle(env, user.email, "");
           await env.PROFILES.put(key, JSON.stringify(user));
-          return json(request, { ok: true, ...allowed });
+          return json(request, { ok: true, ...allowed, handle: user.handle });
         }
         if (env.PROFILES) {
           await env.PROFILES.put(`profile:${identity.login}`, JSON.stringify(allowed));
@@ -911,6 +1103,7 @@ export default {
       }
 
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) + "-" + Date.now().toString(36);
+      const who = await displayOf(env, identity);
       const newProduct = {
         id: slug,
         slug,
@@ -921,14 +1114,14 @@ export default {
         icon: data.iconUrl && !String(data.iconUrl).startsWith("data:") ? data.iconUrl : "",
         category: String(data.category || "other"),
         tags: Array.isArray(data.tags) ? data.tags.slice(0, 8) : String(data.tags || "").split(",").map((t) => t.trim()).filter(Boolean),
-        developerName: String(data.developerName || identity.login).slice(0, 80),
+        developerName: String(data.developerName || who.name).slice(0, 80),
         publishedAt: new Date().toISOString().slice(0, 10),
         launchBatch: "Community",
         verificationStatus: "verified",
         verificationMethod: "官网链接自动检测可访问，已自动收录上线",
         verifiedAt: new Date().toISOString().slice(0, 10),
         isDemo: false,
-        submittedBy: identity.login,
+        submittedBy: who.login,
       };
       community.push(newProduct);
 
@@ -937,7 +1130,7 @@ export default {
         method: "PUT",
         headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub", "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: `community: add ${name} by @${identity.login}`,
+          message: `community: add ${name} by @${who.login}`,
           content,
           sha: fileData.sha,
         }),
@@ -968,7 +1161,7 @@ export default {
         kvGetJSON(env, `user:${identity.login}`, null),
       ]);
       const claimed = mergeProducts(
-        productsOf(community, identity.login),
+        productsOf(community, await pidOf(env, identity.login)),
         claimedSlugsOf(mine),
         index,
       );
@@ -989,7 +1182,10 @@ export default {
       if (fileData.content) {
         try { community = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\n/g, ""))))); } catch {}
       }
-      const idx = community.findIndex((p) => p.slug === slug && p.submittedBy === identity.login);
+      const myPid = await pidOf(env, identity.login);
+      const idx = community.findIndex(
+        (p) => p.slug === slug && (p.submittedBy === myPid || p.submittedBy === identity.login),
+      );
       if (idx === -1) return json(request, { error: "产品不存在或不是你的" }, 404);
 
       if (request.method === "DELETE") {
@@ -1032,7 +1228,7 @@ export default {
         method: "PUT",
         headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub", "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: `${request.method === "DELETE" ? "remove" : "update"} community product ${slug} by @${identity.login}`,
+          message: `${request.method === "DELETE" ? "remove" : "update"} community product ${slug} by @${myPid}`,
           content,
           sha: fileData.sha,
         }),
@@ -1101,6 +1297,7 @@ export default {
         users = users.filter((u) =>
           u.name.toLowerCase().includes(q) ||
           u.login.toLowerCase().includes(q) ||
+          String(u.handle || "").toLowerCase().includes(q) ||
           (u.bio || "").toLowerCase().includes(q) ||
           (u.website || "").toLowerCase().includes(q),
         );
@@ -1136,13 +1333,16 @@ export default {
             await env.PROFILES.delete(`post:${id}:comments`);
             await removeFromFeed(env, "feed:global", id);
           }
+          const pid = await pidOf(env, login);
           await Promise.all([
             env.PROFILES.delete(`feed:user:${login}`),
             env.PROFILES.delete(key),
             env.PROFILES.delete(`ban:${login}`),
+            pid && pid !== login ? env.PROFILES.delete(`ban:${pid}`) : null,
+            pid && pid !== login ? env.PROFILES.delete(`handle:${pid}`) : null,
             env.PROFILES.delete(`following:${login}`),
             env.PROFILES.delete(`followers:${login}`),
-          ]);
+          ].filter(Boolean));
           return json(request, { ok: true, deletedPosts: ids.length });
         }
 
@@ -1152,13 +1352,18 @@ export default {
 
         if (action === "ban") {
           if (isAdminLogin(env, login)) return json(request, { error: "不能封禁管理员账号" }, 400);
+          /* 封禁键写两份：SID（登录态拦截）+ PID（信息流过滤历史帖子） */
+          const pid = await pidOf(env, login);
+          const banKeys = pid && pid !== login ? [...new Set([login, pid])] : [login];
           if (body.banned) {
-            await env.PROFILES.put(
-              `ban:${login}`,
-              JSON.stringify({ bannedAt: new Date().toISOString(), reason: String(body.reason || "").slice(0, 200), by: gate.identity.login }),
-            );
+            for (const key2 of banKeys) {
+              await env.PROFILES.put(
+                `ban:${key2}`,
+                JSON.stringify({ bannedAt: new Date().toISOString(), reason: String(body.reason || "").slice(0, 200), by: gate.identity.login }),
+              );
+            }
           } else {
-            await env.PROFILES.delete(`ban:${login}`);
+            for (const key2 of banKeys) await env.PROFILES.delete(`ban:${key2}`);
           }
           return json(request, { ok: true, banned: !!body.banned });
         }
@@ -1349,28 +1554,32 @@ export default {
     if (url.pathname === "/world" && request.method === "GET") {
       if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
       const identity = await getIdentity(request, env);
-      const viewer = identity ? identity.login : null;
+      const viewer = identity ? identity.login : null; // SID：仅内部使用
+      const viewerPid = viewer ? await pidOf(env, viewer) : null;
       const tab = url.searchParams.get("tab") || "latest";
       const author = url.searchParams.get("author") || "";
       const limit = Math.min(Number(url.searchParams.get("limit") || 30) || 30, 60);
 
       let ids = [];
       if (author) {
-        ids = await kvGetJSON(env, `feed:user:${author}`, []);
+        /* author 传的是 handle（兼容旧链接里的邮箱） */
+        const authorSid = await sidOf(env, author);
+        ids = await kvGetJSON(env, `feed:user:${authorSid}`, []);
       } else if (tab === "following" && viewer) {
         const following = await kvGetJSON(env, `following:${viewer}`, []);
         const all = (await kvGetJSON(env, "feed:global", [])).slice(0, 120);
-        const recs = await Promise.all(all.map((id) => kvGetJSON(env, `post:${id}`, null)));
-        recs.forEach((p, i) => {
+        const recs = (await Promise.all(all.map((id) => kvGetJSON(env, `post:${id}`, null)))).filter(Boolean);
+        await normalizeAuthors(env, recs, "author");
+        recs.forEach((p) => {
           if (ids.length >= limit) return;
-          if (p && (following.includes(p.author) || p.author === viewer)) ids.push(all[i]);
+          if (following.includes(p.author) || p.author === viewerPid) ids.push(p.id);
         });
       } else {
         ids = await kvGetJSON(env, "feed:global", []);
       }
 
       const posts = await feedPosts(env, ids, viewer, limit);
-      return json(request, { posts, viewer });
+      return json(request, { posts, viewer: viewerPid });
     }
 
     /* ---------- 世界：发帖 ---------- */
@@ -1416,7 +1625,7 @@ export default {
       ]);
       await Promise.all([
         pushFeed(env, "feed:global", id),
-        pushFeed(env, `feed:user:${author.login}`, id),
+        pushFeed(env, `feed:user:${identity.login}`, id),
       ]);
       return json(request, { ok: true, post: { ...post, likeCount: 0, likedByMe: false, commentCount: 0 } });
     }
@@ -1433,12 +1642,16 @@ export default {
       if (!post) return json(request, { error: "帖子不存在或已删除" }, 404);
 
       if (action === "" && request.method === "DELETE") {
-        if (!identity || post.author !== identity.login) return json(request, { error: "只能删除自己的帖子" }, 403);
+        if (!identity) return json(request, { error: "只能删除自己的帖子" }, 403);
+        const viewerPid = await pidOf(env, identity.login);
+        if (post.author !== viewerPid && post.author !== identity.login) {
+          return json(request, { error: "只能删除自己的帖子" }, 403);
+        }
         await env.PROFILES.delete(`post:${id}`);
         await env.PROFILES.delete(`post:${id}:likes`);
         await env.PROFILES.delete(`post:${id}:comments`);
         await removeFromFeed(env, "feed:global", id);
-        await removeFromFeed(env, `feed:user:${post.author}`, id);
+        await removeFromFeed(env, `feed:user:${identity.login}`, id);
         return json(request, { ok: true });
       }
 
@@ -1454,6 +1667,7 @@ export default {
       if (action === "comments") {
         if (request.method === "GET") {
           const comments = await kvGetJSON(env, `post:${id}:comments`, []);
+          await normalizeAuthors(env, comments, "author");
           return json(request, { comments });
         }
         if (request.method === "POST") {
@@ -1490,51 +1704,53 @@ export default {
     /* ---------- 世界：用户公开主页 / 关注 ---------- */
     if (url.pathname.startsWith("/users/")) {
       if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
-      const parts = url.pathname.split("/").filter(Boolean); // users <login> [follow|following|followers]
-      const target = decodeURIComponent(parts[1] || "");
+      const parts = url.pathname.split("/").filter(Boolean); // users <pid> [follow|following|followers]
+      const rawTarget = decodeURIComponent(parts[1] || "");
       const action = parts[2] || "";
       const identity = await getIdentity(request, env);
-      const viewer = identity ? identity.login : null;
+      const viewer = identity ? identity.login : null; // SID
+      const viewerPid = viewer ? await pidOf(env, viewer) : null;
+      const targetSid = rawTarget ? await sidOf(env, rawTarget) : "";
+      if (!targetSid) return json(request, { error: "用户不存在" }, 404);
+      const targetPid = await pidOf(env, targetSid);
 
       if (action === "follow" && request.method === "POST") {
         if (!identity) return json(request, { error: "登录后才能关注" }, 401);
         const blocked = await blockedIfBanned(request, env, identity.login);
         if (blocked) return blocked;
-        if (viewer === target) return json(request, { error: "不能关注自己" }, 400);
-        const nowFollowing = await toggleInList(env, `following:${viewer}`, target);
-        await toggleInList(env, `followers:${target}`, viewer);
-        const followers = await kvGetJSON(env, `followers:${target}`, []);
+        if (viewer === targetSid) return json(request, { error: "不能关注自己" }, 400);
+        /* 关注关系按 SID 存键（内部），列表里存 PID（公开） */
+        const nowFollowing = await toggleInList(env, `following:${viewer}`, targetPid);
+        await toggleInList(env, `followers:${targetSid}`, viewerPid);
+        const followers = await kvGetJSON(env, `followers:${targetSid}`, []);
         return json(request, { ok: true, following: nowFollowing, followerCount: followers.length });
       }
 
       if (action === "following" || action === "followers") {
-        const list = await kvGetJSON(env, `${action}:${target}`, []);
+        const list = await kvGetJSON(env, `${action}:${targetSid}`, []);
         const users = [];
-        for (const login of list.slice(0, 100)) {
-          users.push(await authorOf(env, login));
+        for (const pid of list.slice(0, 100)) {
+          users.push(await publicUser(env, pid));
         }
         return json(request, { users });
       }
 
       if (action === "") {
-        const [author, followers, following, postIds, myFollowing, community, user, index, ban] = await Promise.all([
-          authorOf(env, target),
-          kvGetJSON(env, `followers:${target}`, []),
-          kvGetJSON(env, `following:${target}`, []),
-          kvGetJSON(env, `feed:user:${target}`, []),
+        const [followers, following, postIds, myFollowing, community, user, index, ban] = await Promise.all([
+          kvGetJSON(env, `followers:${targetSid}`, []),
+          kvGetJSON(env, `following:${targetSid}`, []),
+          kvGetJSON(env, `feed:user:${targetSid}`, []),
           viewer ? kvGetJSON(env, `following:${viewer}`, []) : Promise.resolve([]),
           readCommunity(env),
-          kvGetJSON(env, `user:${target}`, null),
+          kvGetJSON(env, `user:${targetSid}`, null),
           readProductIndex(env),
-          banOf(env, target),
+          banOf(env, targetSid),
         ]);
+        const author = await publicUser(env, targetPid);
         const posts = await feedPosts(env, postIds, viewer, 30);
-        const overrides = await readProductOverrides(
-          env,
-          mergeProducts(productsOf(community, target), claimedSlugsOf(user), index).map((p) => p.slug),
-        );
-        const products = mergeProducts(productsOf(community, target), claimedSlugsOf(user), index)
-          .map((p) => applyOverride(p, overrides));
+        const mine = mergeProducts(productsOf(community, targetPid), claimedSlugsOf(user), index);
+        const overrides = await readProductOverrides(env, mine.map((p) => p.slug));
+        const products = mine.map((p) => applyOverride(p, overrides));
         return json(request, {
           user: {
             ...author,
@@ -1549,12 +1765,100 @@ export default {
           followingCount: following.length,
           postCount: postIds.length,
           productCount: products.length,
-          isFollowing: myFollowing.includes(target),
-          isSelf: viewer === target,
+          isFollowing: myFollowing.includes(targetPid),
+          isSelf: viewer === targetSid,
           posts,
           products,
         });
       }
+    }
+
+    /* ---------- 运维：指定某账号的用户名（保留名可在此豁免） ---------- */
+    if (url.pathname === "/admin/set-handle" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      if (!adminKeyOk(request, env)) return json(request, { error: "需要管理口令", needKey: true }, 401);
+      let body = {};
+      try { body = await request.json(); } catch {}
+      const email = String(body.email || "").trim().toLowerCase();
+      const wanted = normalizeHandle(body.handle);
+      if (!EMAIL_RE.test(email)) return json(request, { error: "邮箱不正确" }, 400);
+      if (!HANDLE_RE.test(wanted)) {
+        return json(request, { error: "用户名需 3–20 位，字母开头，只能是小写字母、数字或下划线" }, 400);
+      }
+      const raw = await env.PROFILES.get(`user:${email}`);
+      if (!raw) return json(request, { error: "账号不存在" }, 404);
+      const owner = await env.PROFILES.get(`handle:${wanted}`);
+      if (owner && owner !== email) return json(request, { error: "该用户名已被占用" }, 409);
+      let user;
+      try { user = JSON.parse(raw); } catch { return json(request, { error: "用户数据损坏" }, 500); }
+      const prev = normalizeHandle(user.handle || "");
+      if (prev && prev !== wanted) await env.PROFILES.delete(`handle:${prev}`);
+      await env.PROFILES.put(`handle:${wanted}`, email);
+      user.handle = wanted;
+      await env.PROFILES.put(`user:${email}`, JSON.stringify(user));
+      await republishAuthor(env, email, wanted, prev);
+      return json(request, { ok: true, email, handle: wanted, previous: prev });
+    }
+
+    /* ---------- 一次性数据迁移：给存量账号补 handle，把公开标识里的邮箱换掉 ---------- */
+    if (url.pathname === "/admin/migrate-handles" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      if (!adminKeyOk(request, env)) return json(request, { error: "需要管理口令", needKey: true }, 401);
+
+      const userKeys = await listKeys(env, "user:", 500);
+      const raws = await kvGetMany(env, userKeys);
+      const handles = new Map(); // email → handle
+      const report = { users: [], posts: 0, comments: 0, follows: 0 };
+
+      for (let i = 0; i < userKeys.length; i += 1) {
+        if (!raws[i]) continue;
+        let u;
+        try { u = JSON.parse(raws[i]); } catch { continue; }
+        const email = u.email || userKeys[i].slice(5);
+        const before = u.handle || "";
+        const handle = await ensureUserHandle(env, email, u);
+        handles.set(email, handle);
+        report.users.push({ email, before, handle });
+      }
+
+      /* 帖子与评论里的作者标识 */
+      const ids = await kvGetJSON(env, "feed:global", []);
+      const postRaws = await kvGetMany(env, ids.map((id) => `post:${id}`));
+      for (let i = 0; i < postRaws.length; i += 1) {
+        if (!postRaws[i]) continue;
+        let post;
+        try { post = JSON.parse(postRaws[i]); } catch { continue; }
+        const next = handles.get(post.author);
+        if (next && next !== post.author) {
+          post.author = next;
+          await kvPutJSON(env, `post:${ids[i]}`, post);
+          report.posts += 1;
+        }
+        const comments = await kvGetJSON(env, `post:${ids[i]}:comments`, []);
+        let touched = false;
+        for (const c of comments) {
+          const h = handles.get(c.author);
+          if (h && h !== c.author) { c.author = h; touched = true; }
+        }
+        if (touched) {
+          await kvPutJSON(env, `post:${ids[i]}:comments`, comments);
+          report.comments += 1;
+        }
+      }
+
+      /* 关注/粉丝列表（键按 SID，值改成 PID） */
+      for (const [email, handle] of handles) {
+        for (const kind of ["following", "followers"]) {
+          const list = await kvGetJSON(env, `${kind}:${email}`, []);
+          if (!list.length) continue;
+          const mapped = list.map((v) => handles.get(v) || v);
+          if (JSON.stringify(mapped) !== JSON.stringify(list)) {
+            await kvPutJSON(env, `${kind}:${email}`, mapped);
+            report.follows += 1;
+          }
+        }
+      }
+      return json(request, { ok: true, ...report });
     }
 
     return json(request, { error: "not found" }, 404);

@@ -12,15 +12,18 @@ function base(): string {
 }
 
 /**
- * 官方账号：用于发布产品更新日志（SolHub 的每一次改动都会以它的名义在世界里同步）。
- * 登录名走邮箱形态，前端只展示 @ 前缀（@solhub），不暴露完整邮箱。
+ * 官方账号：用于发布产品更新日志（新品上架与每日推荐）。
+ * 公开标识就是 handle @solhub；历史帖子可能仍带邮箱形态，isOfficial 两种都认。
  */
-export const OFFICIAL_LOGIN = "solhub@solyoung.top";
+export const OFFICIAL_LOGIN = "solhub";
+const OFFICIAL_LEGACY = "solhub@solyoung.top";
 export const OFFICIAL_NAME = "SolHub 官方";
 export const OFFICIAL_WEBSITE = "https://solhub.solyoung.top";
 
 export function isOfficial(login: string | undefined | null): boolean {
-  return !!login && login.toLowerCase() === OFFICIAL_LOGIN.toLowerCase();
+  if (!login) return false;
+  const v = login.toLowerCase();
+  return v === OFFICIAL_LOGIN || v === OFFICIAL_LEGACY;
 }
 
 export interface WorldPost {

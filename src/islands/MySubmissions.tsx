@@ -112,7 +112,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
 
   /* 资料编辑 */
   const [editingProfile, setEditingProfile] = useState(false);
-  const [pf, setPf] = useState({ displayName: "", bio: "", location: "", website: "", avatar: "" });
+  const [pf, setPf] = useState({ displayName: "", bio: "", location: "", website: "", avatar: "", handle: "" });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
 
@@ -154,6 +154,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
           location: me.location || "",
           website: me.website || "",
           avatar: me.avatar || "",
+          handle: me.handle || me.login || "",
         });
         if (me.authType === "github") {
           try {
@@ -204,12 +205,20 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
       location: pf.location,
       website: ensureHttps(pf.website),
     };
+    /* 用户名：仅当改动过才提交，避免空值覆盖 */
+    const currentHandle = user?.handle || user?.login || "";
+    if (pf.handle.trim() && pf.handle.trim() !== currentHandle) payload.handle = pf.handle.trim();
     /* 只有当用户新选了头像时才提交 avatar 字段 */
     if (pf.avatar !== (user?.avatar || "")) payload.avatar = pf.avatar;
     const result = await saveProfile(payload);
     setProfileSaving(false);
     if (result.ok) {
-      setUser((u) => (u ? { ...u, ...(payload as Partial<AuthUser>) } : u));
+      setUser((u) => {
+        if (!u) return u;
+        const next = { ...u, ...(payload as Partial<AuthUser>) };
+        if (payload.handle) next.login = payload.handle;
+        return next;
+      });
       setEditingProfile(false);
     } else {
       setProfileError(result.error || "保存失败");
@@ -364,11 +373,16 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
               <h1 className="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
                 {user.displayName || (isGithub ? user.login : (en ? "Anonymous creator" : "匿名创作者"))}
               </h1>
-              <p className="mt-0.5 text-[13px] text-muted-foreground">
-                {isGithub ? `@${user.login}` : user.email}
-                {!isGithub && (
-                  <span className="ml-2 rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] uppercase">
-                    {en ? "Email account" : "邮箱账号"}
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
+                <a
+                  href={p(`/world/?u=${encodeURIComponent(user.handle || user.login)}`, locale)}
+                  className="font-medium text-accent hover:underline"
+                >
+                  @{user.handle || user.login}
+                </a>
+                {!isGithub && user.email && (
+                  <span className="text-[11px] text-muted-foreground/80">
+                    · {en ? "sign-in email (private)" : "登录邮箱（不公开）"} {user.email}
                   </span>
                 )}
               </p>
@@ -424,6 +438,27 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
             <p className="text-[11px] text-muted-foreground">
               {en ? "Square image recommended; auto-cropped to 256×256." : "建议用正方形图片，会自动居中裁剪为 256×256。"}
             </p>
+            <label className="block">
+              <span className="label">{en ? "Username" : "用户名"}</span>
+              <div className="mt-1 flex items-center gap-1">
+                <span className="text-sm text-muted-foreground">@</span>
+                <input
+                  value={pf.handle}
+                  onChange={(e) => setPf({ ...pf, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
+                  className="input w-full"
+                  maxLength={20}
+                  placeholder="yourname"
+                  disabled={isGithub}
+                />
+              </div>
+              <span className="mt-1 block text-[11px] text-muted-foreground">
+                {isGithub
+                  ? (en ? "GitHub accounts use the GitHub username." : "GitHub 账号使用 GitHub 用户名。")
+                  : (en
+                      ? "Your public page: /world/?u=username. 3–20 chars, letters/digits/underscore; changing it also renames your past posts."
+                      : "公开主页地址里的名字：/world/?u=用户名。3–20 位字母数字下划线；修改后历史帖子会一起改名。")}
+              </span>
+            </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <input value={pf.displayName} onChange={(e) => setPf({ ...pf, displayName: e.target.value })} className="input w-full" maxLength={40} placeholder={en ? "Display name" : "昵称"} />
               <input value={pf.location} onChange={(e) => setPf({ ...pf, location: e.target.value })} className="input w-full" maxLength={40} placeholder={en ? "City" : "所在城市"} />
