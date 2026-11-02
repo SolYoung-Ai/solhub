@@ -15,9 +15,10 @@ import {
   ShieldCheck,
   Trash2,
   User,
+  WifiOff,
 } from "lucide-react";
 import { p } from "@/lib/paths";
-import { avatarOf, fetchMe, logout, resizeImageToDataUrl, saveProfile, type AuthUser } from "@/lib/auth";
+import { avatarOf, fetchMeState, logout, resizeImageToDataUrl, saveProfile, type AuthUser } from "@/lib/auth";
 import { ensureHttps } from "@/lib/utils";
 import { fetchFollowList, fetchProfile, timeAgo, type FollowUser, type PublicProfile, type WorldPost } from "@/lib/world";
 import type { Locale } from "@/i18n";
@@ -110,6 +111,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [stale, setStale] = useState(false);
   const [issues, setIssues] = useState<GhIssue[]>([]);
   const [products, setProducts] = useState<CommunityProduct[]>([]);
 
@@ -145,42 +147,60 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     } catch { /* 忽略，产品区显示空态 */ }
   }, []);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const me = await fetchMe();
-        setUser(me);
-        if (!me) {
-          setLoading(false);
-          return;
-        }
-        setPf({
-          displayName: me.displayName || "",
-          bio: me.bio || "",
-          location: me.location || "",
-          website: me.website || "",
-          avatar: me.avatar || "",
-          handle: me.handle || me.login || "",
-          contact: me.contact || "",
-          emailPublic: !!me.emailPublic,
-        });
-        if (me.authType === "github") {
-          try {
-            const res = await fetch(`${base()}/my-issues`, { credentials: "include", cache: "no-store" });
-            if (res.ok) setIssues(await res.json());
-          } catch { /* 忽略 */ }
-        }
-        await loadProducts();
-        const prof = await fetchProfile(me.login);
-        if (prof) { setWorld(prof); setMyPosts(prof.posts); }
-        if (typeof window !== "undefined" && window.location.hash === "#posts") setTab("posts");
-      } catch {
+  /* 加载个人主页数据。
+     认证服务部署在境外边缘节点，跨境链路抖动会造成偶发超时/丢包，
+     这里把「取登录态」与后续请求拆开处理：
+       - 登录态取不到（网络失败）→ 置 loadFailed，不能误判成「未登录」；
+       - 取到之后，产品 / 帖子 / Issue 三路请求并行发起，
+         避免串行叠加把首屏拖到十几秒。 */
+  const load = useCallback(async () => {
+    try {
+      const { user: me, failed, stale } = await fetchMeState();
+      setStale(stale);
+      if (failed && !me) {
+        /* 既没连上、也没有本地缓存 → 无法判断登录态，交给重试入口 */
         setLoadFailed(true);
-      } finally {
-        setLoading(false);
+        setUser(null);
+        return;
       }
-    })();
+      setLoadFailed(false);
+      setUser(me);
+      if (!me) return;
+      setPf({
+        displayName: me.displayName || "",
+        bio: me.bio || "",
+        location: me.location || "",
+        website: me.website || "",
+        avatar: me.avatar || "",
+        handle: me.handle || me.login || "",
+        contact: me.contact || "",
+        emailPublic: !!me.emailPublic,
+      });
+      if (typeof window !== "undefined" && window.location.hash === "#posts") setTab("posts");
+      await Promise.all([
+        loadProducts(),
+        fetchProfile(me.login)
+          .then((prof) => {
+            if (prof) { setWorld(prof); setMyPosts(prof.posts); }
+          })
+          .catch(() => { /* 忽略，帖子区显示空态 */ }),
+        me.authType === "github"
+          ? fetch(`${base()}/my-issues`, { credentials: "include", cache: "no-store" })
+              .then((res) => (res.ok ? res.json() : null))
+              .then((data) => { if (data) setIssues(data); })
+              .catch(() => { /* 忽略 */ })
+          : Promise.resolve(),
+      ]);
+    } catch {
+      setLoadFailed(true);
+    } finally {
+      setLoading(false);
+    }
   }, [loadProducts]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   useEffect(() => {
     if (!user) return;
@@ -346,6 +366,31 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     );
   }
 
+  /* 网络异常：登录状态未知，别误导成「未登录」 */
+  if (loadFailed && !user) {
+    return (
+      <div className="py-20 text-center">
+        <WifiOff className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden="true" />
+        <p className="mt-4 text-sm text-muted-foreground">
+          {en
+            ? "Couldn't reach the auth service — the network link looks unstable."
+            : "连不上认证服务，当前网络链路不太稳定。"}
+        </p>
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <button
+            onClick={() => { setLoading(true); setLoadFailed(false); void load(); }}
+            className="btn btn-accent !h-10 px-5"
+          >
+            {en ? "Retry" : "重试"}
+          </button>
+          <a href={p("/login/?next=" + encodeURIComponent("/my-submissions/"), locale)} className="btn btn-outline !h-10 px-5">
+            {en ? "Log in / Sign up" : "登录 / 注册"}
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   /* 未登录：登录引导 */
   if (!user) {
     return (
@@ -383,6 +428,14 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
 
   return (
     <div className="pb-10">
+      {stale && (
+        <p className="mb-3 flex items-center gap-1.5 rounded-[8px] bg-secondary px-3 py-2 text-xs text-muted-foreground">
+          <WifiOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          {en
+            ? "Network is unstable right now — showing your last known data."
+            : "当前网络不稳定，以下为你上次同步的数据。"}
+        </p>
+      )}
       {/* ---------- X 风格个人主页头部 ---------- */}
       <div className="overflow-hidden rounded-[10px] border border-border bg-card">
         {/* 封面条 */}

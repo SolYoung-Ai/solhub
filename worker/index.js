@@ -494,55 +494,26 @@ function kvCacheRequest(key) {
   return new Request(KV_CACHE_HOST + encodeURIComponent(key));
 }
 
-/** 读读穿缓存；miss 返回 null */
+/* 2026-11-02: 读穿缓存（caches.default）已弃用。
+   实测 Workers Cache API 在边缘的读/写延迟极不稳定（偶发 18s+ 卡死），
+   导致 /me、登录等认证接口间歇超时、前端报「网络错误」。
+   改为直接读 KV（见 kvGetJSON）。这里保留空实现，避免改动大量调用点。 */
 async function cacheRead(env, key) {
-  try {
-    const hit = await caches.default.match(kvCacheRequest(key));
-    return hit ? await hit.text() : null;
-  } catch {
-    return null;
-  }
+  return null;
 }
-
-/** 写穿：让本机房后续读取立刻看到新值 */
 async function cacheWrite(env, key, raw) {
-  try {
-    await caches.default.put(
-      kvCacheRequest(key),
-      new Response(raw, { headers: { "cache-control": "max-age=31536000" } }),
-    );
-  } catch {
-    /* 缓存写失败不影响主流程（KV 里已落盘） */
-  }
+  /* no-op: 读穿缓存已移除 */
 }
-
-/** 删除读穿缓存（KV 键被删时同步清理） */
 async function cacheDrop(env, key) {
-  try {
-    await caches.default.delete(kvCacheRequest(key));
-  } catch {
-    /* ignore */
-  }
+  /* no-op: 读穿缓存已移除 */
 }
 
-/* Cloudflare KV 是最终一致的：边缘缓存默认 60s，
-   刚写完就读常常拿到旧值（表现就是「刚打开公开邮箱，页面仍显示不公开」）。
-   身份 / 资料这类要求实时性的读取传 fresh=true，先查读穿缓存，
-   未命中才落到 KV（并把结果灌进读穿缓存）。 */
+/* Cloudflare KV 是最终一致的，边缘缓存默认 60s。
+   2026-11-02: 原先在 KV 之上叠了一层 Workers Cache API 读穿缓存，
+   但该缓存边缘读/写延迟极不稳定（偶发 18s+ 卡死），是认证接口间歇超时的根因。
+   现改为直接读 KV 并加 cacheTtl:30 边缘缓存：稳定且足够一致（最坏 30s 最终一致）。 */
 async function kvGetJSON(env, key, fallback, fresh) {
-  if (fresh) {
-    const cached = await cacheRead(env, key);
-    if (cached !== null) {
-      try { return JSON.parse(cached); } catch { /* 落到 KV 重读 */ }
-    }
-    const raw = await env.PROFILES.get(key, { cacheTtl: 30 });
-    if (!raw) return fallback;
-    let val;
-    try { val = JSON.parse(raw); } catch { return fallback; }
-    await cacheWrite(env, key, raw);
-    return val;
-  }
-  const raw = await env.PROFILES.get(key);
+  const raw = await env.PROFILES.get(key, { cacheTtl: 30 });
   if (!raw) return fallback;
   try { return JSON.parse(raw); } catch { return fallback; }
 }
@@ -2061,8 +2032,9 @@ export default {
       if (!identity) return json(request, { authenticated: false }, 401);
       if (identity.type === "email") {
         const email = identity.user.email;
-        const rec = await kvGetJSON(env, `user:${email}`, null, true);
-        const handle = rec ? await ensureUserHandle(env, email, rec) : (identity.user.handle || handleFromEmail(email));
+        /* 会话记录已包含 handle（createSession 时写入），无需再读 user:* 来算 handle，
+           省掉一次慢 KV 读，/me 现在只做 1 次会话读，登录态拉取更快更稳。 */
+        const handle = identity.user.handle || handleFromEmail(email);
         const admin = isAdminLogin(env, email);
         return json(request, {
           authenticated: true,

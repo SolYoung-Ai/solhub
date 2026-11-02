@@ -3,6 +3,8 @@
  * 帖子、点赞、评论、关注全部走认证 Worker，数据存 KV，不写仓库。
  */
 
+import { request } from "@/lib/net";
+
 const API_BASE =
   (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
   "https://solhub-auth.solyoung.top";
@@ -117,7 +119,7 @@ export interface SearchResult {
 
 async function getJSON<T>(path: string, fallback: T): Promise<T> {
   try {
-    const res = await fetch(`${base()}${path}`, { credentials: "include", cache: "no-store" });
+    const res = await request(`${base()}${path}`, { cache: "no-store" }, { retries: 1 });
     if (!res.ok) return fallback;
     return (await res.json()) as T;
   } catch {
@@ -136,12 +138,12 @@ export async function fetchFeed(opts: { tab?: "latest" | "following"; author?: s
 
 export async function createPost(input: { text: string; linkUrl?: string }): Promise<{ ok: boolean; error?: string; post?: WorldPost }> {
   try {
-    const res = await fetch(`${base()}/world/posts`, {
+    /* 写操作不重试：网络抖动后重试可能重复发帖。只加超时，避免无限挂起。 */
+    const res = await request(`${base()}/world/posts`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    });
+    }, { retries: 0 });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `发布失败（${res.status}）` };
     return { ok: true, post: data.post };
@@ -152,10 +154,9 @@ export async function createPost(input: { text: string; linkUrl?: string }): Pro
 
 export async function deletePost(id: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await fetch(`${base()}/world/posts/${encodeURIComponent(id)}`, {
+    const res = await request(`${base()}/world/posts/${encodeURIComponent(id)}`, {
       method: "DELETE",
-      credentials: "include",
-    });
+    }, { retries: 0 });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `删除失败（${res.status}）` };
     return { ok: true };
@@ -166,10 +167,9 @@ export async function deletePost(id: string): Promise<{ ok: boolean; error?: str
 
 export async function toggleLike(id: string): Promise<{ ok: boolean; liked?: boolean; likeCount?: number; error?: string }> {
   try {
-    const res = await fetch(`${base()}/world/posts/${encodeURIComponent(id)}/like`, {
+    const res = await request(`${base()}/world/posts/${encodeURIComponent(id)}/like`, {
       method: "POST",
-      credentials: "include",
-    });
+    }, { retries: 0 });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error };
     return { ok: true, liked: data.liked, likeCount: data.likeCount };
@@ -185,12 +185,11 @@ export async function fetchComments(id: string): Promise<WorldComment[]> {
 
 export async function addComment(id: string, text: string): Promise<{ ok: boolean; error?: string; comment?: WorldComment }> {
   try {
-    const res = await fetch(`${base()}/world/posts/${encodeURIComponent(id)}/comments`, {
+    const res = await request(`${base()}/world/posts/${encodeURIComponent(id)}/comments`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
-    });
+    }, { retries: 0 });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `评论失败（${res.status}）` };
     return { ok: true, comment: data.comment };
@@ -201,7 +200,7 @@ export async function addComment(id: string, text: string): Promise<{ ok: boolea
 
 export async function fetchProfile(login: string): Promise<PublicProfile | null> {
   try {
-    const res = await fetch(`${base()}/users/${encodeURIComponent(login)}`, { credentials: "include", cache: "no-store" });
+    const res = await request(`${base()}/users/${encodeURIComponent(login)}`, { cache: "no-store" }, { retries: 1 });
     if (!res.ok) return null;
     return (await res.json()) as PublicProfile;
   } catch {
@@ -211,10 +210,9 @@ export async function fetchProfile(login: string): Promise<PublicProfile | null>
 
 export async function toggleFollow(login: string): Promise<{ ok: boolean; following?: boolean; followerCount?: number; error?: string }> {
   try {
-    const res = await fetch(`${base()}/users/${encodeURIComponent(login)}/follow`, {
+    const res = await request(`${base()}/users/${encodeURIComponent(login)}/follow`, {
       method: "POST",
-      credentials: "include",
-    });
+    }, { retries: 0 });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error };
     return { ok: true, following: data.following, followerCount: data.followerCount };
@@ -238,7 +236,7 @@ export async function searchWorld(query: string, limit = 20): Promise<SearchResu
   const params = new URLSearchParams({ q, limit: String(limit) });
   const empty: SearchResult = { users: [], posts: [] };
   try {
-    const res = await fetch(`${base()}/search?${params.toString()}`, { credentials: "include", cache: "no-store" });
+    const res = await request(`${base()}/search?${params.toString()}`, { cache: "no-store" }, { retries: 1 });
     if (!res.ok) return empty;
     const data = (await res.json()) as Partial<SearchResult>;
     return {

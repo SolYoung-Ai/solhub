@@ -343,7 +343,7 @@ function UserMenuItems({
         onClick={onNavigate}
         className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
       >
-        <UserCog className="h-3.5 w-3.5" /> {translate(dict, "nav.account")}
+        <UserCog className="h-3.5 w-3.5" /> {translate(getDict(locale), "nav.account")}
       </a>
       {user.isAdmin && (
         <a

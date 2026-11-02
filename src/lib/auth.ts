@@ -4,6 +4,12 @@
  * 会话凭据保存在 Worker 域下的 HttpOnly Cookie 中，前端不接触任何令牌。
  */
 
+/* ---------------- 网络韧性 ----------------
+   认证服务部署在境外边缘节点，跨境链路抖动会导致偶发超时/丢包。
+   统一的超时 + 退避重试逻辑见 @/lib/net。 */
+
+import { request, NET_ERROR } from "@/lib/net";
+
 const API_BASE =
   (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
   "https://solhub-auth.solyoung.top";
@@ -39,17 +45,72 @@ function base(): string {
   return API_BASE.replace(/\/$/, "");
 }
 
-/** 获取当前登录用户；未登录返回 null。 */
-export async function fetchMe(): Promise<AuthUser | null> {
-  if (typeof window === "undefined") return null;
+/* 登录态本地缓存：网络抖动导致拉取失败时回退使用，避免把「连不上」误判成「未登录」。
+   sessionStorage 按标签页隔离，关闭标签页即失效。 */
+const ME_CACHE_KEY = "solhub:me";
+
+function readCachedMe(): AuthUser | null {
   try {
-    const res = await fetch(`${base()}/me`, { credentials: "include", cache: "no-store" });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.user ?? null;
+    const raw = sessionStorage.getItem(ME_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as AuthUser) : null;
   } catch {
     return null;
   }
+}
+
+function writeCachedMe(user: AuthUser | null): void {
+  try {
+    if (user) sessionStorage.setItem(ME_CACHE_KEY, JSON.stringify(user));
+    else sessionStorage.removeItem(ME_CACHE_KEY);
+  } catch {
+    /* 隐私模式 / 配额不足时忽略 */
+  }
+}
+
+export interface AuthMeState {
+  /** 当前登录用户（可能是本地缓存回退值） */
+  user: AuthUser | null;
+  /** 网络或服务异常，本次没能确认登录态 */
+  failed: boolean;
+  /** true 表示 user 来自本地缓存（本次请求失败，数据可能不新鲜） */
+  stale: boolean;
+}
+
+/**
+ * 拉取当前登录用户。
+ * 返回值区分三种情况：
+ *  - user 非空                    → 已登录
+ *  - user 为 null 且 failed=false → 确定未登录（服务端返回 401）
+ *  - failed=true                  → 网络/服务异常（user 可能来自本地缓存）
+ */
+export async function fetchMeState(): Promise<AuthMeState> {
+  if (typeof window === "undefined") return { user: null, failed: false, stale: false };
+  try {
+    const res = await request(
+      `${base()}/me`,
+      { cache: "no-store" },
+      { timeoutMs: 10000, retries: 1 },
+    );
+    if (!res.ok) {
+      /* 401 = 确定未登录，顺手清掉旧缓存 */
+      writeCachedMe(null);
+      return { user: null, failed: false, stale: false };
+    }
+    const data = await res.json();
+    const user = (data?.user ?? null) as AuthUser | null;
+    writeCachedMe(user);
+    return { user, failed: false, stale: false };
+  } catch {
+    /* 网络失败：回退到上次已知的登录态 */
+    const cached = readCachedMe();
+    if (cached) return { user: cached, failed: true, stale: true };
+    return { user: null, failed: true, stale: false };
+  }
+}
+
+/** 获取当前登录用户；网络异常时回退到本地缓存（需要区分时用 fetchMeState）。 */
+export async function fetchMe(): Promise<AuthUser | null> {
+  return (await fetchMeState()).user;
 }
 
 export interface AuthResult {
@@ -67,9 +128,8 @@ export async function registerEmail(
   code?: string,
 ): Promise<AuthResult> {
   try {
-    const res = await fetch(`${base()}/auth/register`, {
+    const res = await request(`${base()}/auth/register`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, displayName: displayName || "", handle: handle || "", code: code || "" }),
     });
@@ -77,7 +137,7 @@ export async function registerEmail(
     if (!res.ok) return { ok: false, error: data.error || `注册失败（${res.status}）` };
     return { ok: true, user: data.user };
   } catch {
-    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+    return { ok: false, error: NET_ERROR };
   }
 }
 
@@ -93,9 +153,8 @@ export async function sendVerifyCode(
   purpose: VerifyPurpose,
 ): Promise<{ ok: boolean; error?: string; cooldown?: number }> {
   try {
-    const res = await fetch(`${base()}/auth/send-code`, {
+    const res = await request(`${base()}/auth/send-code`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, purpose }),
     });
@@ -103,16 +162,15 @@ export async function sendVerifyCode(
     if (!res.ok) return { ok: false, error: data.error || `验证码发送失败（${res.status}）` };
     return { ok: true, cooldown: data.cooldown || 60 };
   } catch {
-    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+    return { ok: false, error: NET_ERROR };
   }
 }
 
 /** 验证「当前邮箱」归属（已登录用户）。 */
 export async function verifyEmail(code: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await fetch(`${base()}/auth/verify-email`, {
+    const res = await request(`${base()}/auth/verify-email`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code }),
     });
@@ -120,7 +178,7 @@ export async function verifyEmail(code: string): Promise<{ ok: boolean; error?: 
     if (!res.ok) return { ok: false, error: data.error || `验证失败（${res.status}）` };
     return { ok: true };
   } catch {
-    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+    return { ok: false, error: NET_ERROR };
   }
 }
 
@@ -130,9 +188,8 @@ export async function changeEmail(
   code: string,
 ): Promise<{ ok: boolean; error?: string; email?: string }> {
   try {
-    const res = await fetch(`${base()}/auth/change-email`, {
+    const res = await request(`${base()}/auth/change-email`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ newEmail, code }),
     });
@@ -140,16 +197,15 @@ export async function changeEmail(
     if (!res.ok) return { ok: false, error: data.error || `更换失败（${res.status}）` };
     return { ok: true, email: data.email };
   } catch {
-    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+    return { ok: false, error: NET_ERROR };
   }
 }
 
 /** 找回密码：请求发送重置验证码（无论账号是否存在都返回同样结果）。 */
 export async function requestPasswordReset(email: string): Promise<{ ok: boolean; error?: string; message?: string }> {
   try {
-    const res = await fetch(`${base()}/auth/forgot-password`, {
+    const res = await request(`${base()}/auth/forgot-password`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
@@ -157,7 +213,7 @@ export async function requestPasswordReset(email: string): Promise<{ ok: boolean
     if (!res.ok) return { ok: false, error: data.error || `发送失败（${res.status}）` };
     return { ok: true, message: data.message };
   } catch {
-    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+    return { ok: false, error: NET_ERROR };
   }
 }
 
@@ -168,9 +224,8 @@ export async function resetPassword(
   newPassword: string,
 ): Promise<{ ok: boolean; error?: string; message?: string }> {
   try {
-    const res = await fetch(`${base()}/auth/reset-password`, {
+    const res = await request(`${base()}/auth/reset-password`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, code, newPassword }),
     });
@@ -178,7 +233,7 @@ export async function resetPassword(
     if (!res.ok) return { ok: false, error: data.error || `重置失败（${res.status}）` };
     return { ok: true, message: data.message };
   } catch {
-    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+    return { ok: false, error: NET_ERROR };
   }
 }
 
@@ -192,9 +247,8 @@ export async function changePassword(
   newPassword: string,
 ): Promise<{ ok: boolean; error?: string; message?: string }> {
   try {
-    const res = await fetch(`${base()}/auth/change-password`, {
+    const res = await request(`${base()}/auth/change-password`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ currentPassword, newPassword }),
     });
@@ -202,7 +256,7 @@ export async function changePassword(
     if (!res.ok) return { ok: false, error: data.error || `修改失败（${res.status}）` };
     return { ok: true, message: data.message };
   } catch {
-    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+    return { ok: false, error: NET_ERROR };
   }
 }
 
@@ -214,9 +268,8 @@ export async function deleteAccount(
   password: string,
 ): Promise<{ ok: boolean; error?: string; deletedPosts?: number }> {
   try {
-    const res = await fetch(`${base()}/auth/delete-account`, {
+    const res = await request(`${base()}/auth/delete-account`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password }),
     });
@@ -224,16 +277,15 @@ export async function deleteAccount(
     if (!res.ok) return { ok: false, error: data.error || `注销失败（${res.status}）` };
     return { ok: true, deletedPosts: data.deletedPosts || 0 };
   } catch {
-    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+    return { ok: false, error: NET_ERROR };
   }
 }
 
 /** 邮箱 + 密码登录。 */
 export async function loginEmail(email: string, password: string): Promise<AuthResult> {
   try {
-    const res = await fetch(`${base()}/auth/login`, {
+    const res = await request(`${base()}/auth/login`, {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
@@ -241,14 +293,14 @@ export async function loginEmail(email: string, password: string): Promise<AuthR
     if (!res.ok) return { ok: false, error: data.error || `登录失败（${res.status}）` };
     return { ok: true, user: data.user };
   } catch {
-    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+    return { ok: false, error: NET_ERROR };
   }
 }
 
 /** 退出登录（清除会话 Cookie）。 */
 export async function logout(): Promise<void> {
   try {
-    await fetch(`${base()}/auth/logout`, { method: "POST", credentials: "include" });
+    await request(`${base()}/auth/logout`, { method: "POST" }, { timeoutMs: 8000, retries: 0 });
   } catch {
     /* 忽略网络错误 */
   }
@@ -257,9 +309,8 @@ export async function logout(): Promise<void> {
 /** 保存个人资料（昵称 / 简介 / 城市 / 网站 / 联系方式 / 邮箱公开开关 / 头像）。 */
 export async function saveProfile(fields: Partial<Pick<AuthUser, "displayName" | "bio" | "location" | "website" | "avatar" | "handle" | "contact" | "emailPublic">>): Promise<{ ok: boolean; error?: string; user?: Partial<AuthUser> }> {
   try {
-    const res = await fetch(`${base()}/profile`, {
+    const res = await request(`${base()}/profile`, {
       method: "PUT",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(fields),
     });
@@ -267,7 +318,7 @@ export async function saveProfile(fields: Partial<Pick<AuthUser, "displayName" |
     if (!res.ok) return { ok: false, error: data.error || `保存失败（${res.status}）` };
     return { ok: true, user: data };
   } catch {
-    return { ok: false, error: "网络错误：无法连接认证服务，请稍后重试。" };
+    return { ok: false, error: NET_ERROR };
   }
 }
 

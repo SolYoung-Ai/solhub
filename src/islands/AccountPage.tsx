@@ -1,7 +1,7 @@
 import { Component, useEffect, useState } from "react";
 import { Loader2, LogIn, Pencil, ShieldCheck, User } from "lucide-react";
 import AccountPanel from "@/components/AccountPanel";
-import { avatarOf, fetchMe, type AuthUser } from "@/lib/auth";
+import { avatarOf, fetchMeState, type AuthUser } from "@/lib/auth";
 import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 
@@ -45,7 +45,9 @@ function AccountPage({ locale = "zh" }: { locale?: Locale }) {
   useEffect(() => {
     void (async () => {
       try {
-        const me = await fetchMe();
+        const { user: me, failed } = await fetchMeState();
+        /* 网络失败 ≠ 未登录：单独标记，页面上给出可重试的提示 */
+        if (failed) setLoadFailed(true);
         setUser(me);
       } catch {
         setLoadFailed(true);

@@ -84,7 +84,7 @@ export default function HeroSearch() {
                     (i === active ? "bg-secondary" : "")
                   }
                 >
-                  <span className={"h-2 w-2 shrink-0 rounded-full " + (r.kind === "tool" ? "bg-accent" : "bg-foreground/40")} />
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-foreground/40" />
                   <span className="min-w-0 flex-1 truncate text-foreground">{r.name}</span>
                   <span className="shrink-0 text-[10px] uppercase text-muted-foreground">{r.kind}</span>
                 </button>
