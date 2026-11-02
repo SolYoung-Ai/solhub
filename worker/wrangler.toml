@@ -16,8 +16,12 @@ workers_dev = true
 ADMIN_EMAILS = "solyoungwork@gmail.com"
 
 # 官方账号自动推荐：每天两次（UTC 02:00 / 12:00 = 北京时间 10:00 / 20:00）
+# 2026-11-02 起认证服务已整体迁到 CloudBase，这个定时任务由 CloudBase 的
+# Event 函数 solhub-cron 承担（HTTP 函数不支持 timer 触发器）。
+# Worker 仅作为回滚用的备用 API 保留，不再跑 cron —— 否则它会在 Cloudflare KV
+# 里写出一批永远不会展示的推荐帖，还白烧 KV 的写入额度。
 [triggers]
-crons = ["0 2 * * *", "0 12 * * *"]
+crons = []
 
 [[kv_namespaces]]
 binding = "PROFILES"
