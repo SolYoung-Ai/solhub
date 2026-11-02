@@ -23,6 +23,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { execFileSync } from "node:child_process";
 
 /* @cloudbase/node-sdk 装在云函数目录里，这里从那个位置解析，
    避免在仓库根目录再装一份（同样的依赖装两遍只会让依赖树更难维护）。 */
@@ -37,17 +38,49 @@ const dryRun = process.argv.includes("--dry-run");
 
 /* ---------------------------------------------------------- 读 wrangler token */
 
-function readWranglerToken() {
+const WRANGLER_BIN =
+  "/Users/songyang/.npm/_npx/0eedb5afd4158ff3/node_modules/wrangler/bin/wrangler.js";
+
+function wranglerConfigPath() {
   const candidates = [
     path.join(os.homedir(), ".config", ".wrangler", "config", "default.toml"),
     path.join(os.homedir(), "Library", "Preferences", ".wrangler", "config", "default.toml"),
   ];
-  for (const file of candidates) {
-    if (!fs.existsSync(file)) continue;
-    const m = /oauth_token\s*=\s*"([^"]+)"/.exec(fs.readFileSync(file, "utf8"));
-    if (m) return m[1];
+  return candidates.find((f) => fs.existsSync(f)) || null;
+}
+
+function readWranglerToken() {
+  const file = wranglerConfigPath();
+  if (!file) throw new Error("找不到 wrangler 配置，请先运行一次 `wrangler login`");
+  const m = /oauth_token\s*=\s*"([^"]+)"/.exec(fs.readFileSync(file, "utf8"));
+  if (!m) throw new Error("wrangler 配置里没有 oauth_token");
+  return m[1];
+}
+
+/**
+ * 用 wrangler 自己列一次键。
+ *
+ * 为什么不是直接调 REST API：wrangler 的 oauth_token 是短期有效（几十分钟），
+ * 过期后 REST API 会返回 401。wrangler 在跑命令时会自动用 refresh_token 换新的
+ * 并写回配置 —— 让它跑一次就顺便把 token 刷新了，比自己实现一遍 OAuth 刷新稳。
+ */
+function listKeysViaWrangler() {
+  const out = execFileSync(
+    process.execPath,
+    [WRANGLER_BIN, "kv", "key", "list", "--binding", "PROFILES"],
+    { cwd: path.resolve("worker"), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+  );
+  return JSON.parse(out);
+}
+
+/** 拿一份一定没过期的 token：先读配置，401 了就让 wrangler 刷一次再读 */
+function freshToken() {
+  try {
+    listKeysViaWrangler(); // 顺带刷新 token
+  } catch {
+    /* wrangler 不可用时不影响主流程，下面还有 REST 兜底 */
   }
-  throw new Error("找不到 wrangler 的 oauth_token，请先运行一次 `wrangler login`");
+  return readWranglerToken();
 }
 
 /* ------------------------------------------------------------ 读本地 API Key */
@@ -95,12 +128,19 @@ async function getValue(token, key) {
 
 /* ------------------------------------------------------------------ 主流程 */
 
-const token = readWranglerToken();
+const token = freshToken();
 const local = readEnvFile(path.resolve("cloudbase/.env.local"));
 const app = tcb.init({ env: local.TCB_ENV, accessKey: local.CLOUDBASE_APIKEY });
 const db = app.rdb();
 
-const keys = await listKeys(token);
+let keys;
+try {
+  keys = await listKeys(token);
+} catch (err) {
+  if (!/401/.test(String(err.message))) throw err;
+  console.log("[migrate] token 已过期，刷新后重试");
+  keys = await listKeys(freshToken());
+}
 console.log(`[migrate] Cloudflare KV 共 ${keys.length} 个键`);
 
 const now = Date.now();
