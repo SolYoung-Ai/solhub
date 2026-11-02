@@ -10,7 +10,73 @@
 
 ---
 
+## 〇、架构变更记录 · 2026-11-02 迁到 CloudBase（上海）
+
+### 为什么迁
+
+线上用户反馈「个人主页加载很慢而且登录不上」。分项计时把根因定位得很清楚：
+DNS 0.003s、TCP 0.25s、TLS 0.58s 都正常，**卡在 TTFB 3.8~13.2 秒**，偶尔 TCP SYN 直接丢包；
+`cf-ray` 显示 Cloudflare 免费版把国内用户调度到了 **LAX** 机房（免费版没有中国 PoP）。
+代码层怎么优化都救不回来——一个零逻辑的根路由也要 1.5~6.7 秒。
+
+于是把认证服务整体搬到**腾讯云 CloudBase（上海地域）**。实测接口响应 **0.13 秒**。
+
+### 变更后的架构
+
+| 层 | 技术 | 托管 | 说明 |
+|---|---|---|---|
+| 页面 | Astro SSG + React Islands | GitHub Pages | 不变 |
+| 账号 / 帖子 / 评论 / 关注 | CloudBase HTTP Function | `solyoung-d4gpp1f7s4e075f6d-1499756427.ap-shanghai.app.tcloudbase.com/api` | 原 Cloudflare Worker，机房从 LAX 变成上海 |
+| 数据 | CloudBase PostgreSQL `public.kv` | 腾讯云 PG（上海） | 原 Cloudflare KV；**强一致**，彻底消除 30~60 秒最终一致窗口；写入不再有 1,000 次/天的配额 |
+| 定时任务（每日官方推荐） | CloudBase Event Function `solhub-cron` | 腾讯云 SCF | 原 Worker 的 cron 触发器（HTTP 函数不支持 timer 触发器） |
+| 目录数据 | `src/data/*.json` 构建期产物 → PG | `catalog:community:v1` / `catalog:index:v1` | 灌入脚本换成 `scripts/seed-catalog-pg.mjs` |
+
+### 代码怎么做到「一份逻辑，两处运行」
+
+`worker/index.js` 仍是**业务逻辑唯一真源**。`scripts/sync-cloudbase-fn.mjs` 把它转成 CommonJS
+（`export default {` → `module.exports = {`）生成 `core.cjs`，分别放进两个云函数目录。
+云函数侧只有薄薄的适配层：
+
+- `cloudbase/functions/solhub-auth/`（HTTP Function）：`index.js` 把 Node `http` 请求翻译成
+  Workers 的 `fetch(request, env, ctx)`，再把 `Response` 翻译回去；监听 9000 端口。
+- `cloudbase/functions/solhub-cron/`（Event Function）：`index.js` 只做定时触发 → `scheduled()`。
+- `kv.cjs`：Workers KV 接口（get/put/delete/list）→ PostgreSQL 的 `public.kv` 表。
+  `expirationTtl` 映射到 `expires_at` 列，读时过滤过期行。**KV 的最终一致性问题在这里消失**。
+- `caches.cjs`：Workers Cache API（限流计数用）→ 进程内 Map。原来的 Cache API 边缘读写延迟
+  极不稳定（曾出现 18 秒+ 卡死，直接导致接口间歇超时），换成进程内 Map 后延迟是微秒级，
+  限流反而更准（同一实例内计数一致）。
+
+### 新增的运维要点
+
+- **CORS 归属**：CloudBase 网关的「跨域设置」若开启，会按环境安全域名白名单自动补
+  `Access-Control-Allow-Origin`；本环境是**体验版套餐，加不了自定义安全域名**，
+  所以路由上关掉跨域校验（`enableSafeDomain=false`），由函数自己发 CORS 头
+  （`CORS_MODE=self`，白名单逻辑沿用 Worker 里原有的 `corsFor()`）。
+  **注意**：如果函数和网关同时发 ACAO，响应头会变成 `<origin>,*`，浏览器直接拒绝 ——
+  表现是「服务挂了」，不是「CORS 配错了」。
+- **会话 Cookie 现在是跨站 Cookie**：Cookie 由接口域名（`app.tcloudbase.com`）设置，
+  页面在 `solhub.solyoung.top`，两者不同站。Cookie 已带 `SameSite=None; Secure`，浏览器会带上；
+  但如果浏览器/插件开了「拦截三方 Cookie」，登录态会丢失 —— 遇到这种反馈先查这里。
+- **限流计数在进程内**：云函数实例被回收后计数会清零。限流本就是粗粒度防线，
+  邮件发码的硬防线仍在阿里云控制台的「日发送量上限」。
+- **PG 表 `public.kv`**：只有 `service_role`（云函数里的 API Key）能读写，
+  `anon` / `authenticated` 无任何授权且 RLS 开启 → 浏览器直连一律被拒。
+- **迁移脚本**：`scripts/migrate-kv-to-pg.mjs`（CF KV → PG，已跑过一次，36 个键）。
+  切换前需要再跑一次以补齐期间的新数据。
+
+### 待用户侧确认
+
+- CloudBase 环境是**体验版**（`baas_trial`，2027-04-04 到期）。到期前需要升级套餐，
+  否则服务会停。升级后可加自定义安全域名，把 CORS 交回网关统一处理。
+- GitHub OAuth 的回调地址 `WORKER_URL + /callback` 已改成新域名，
+  需要在 GitHub OAuth App 的回调白名单里同步更新，否则 GitHub 登录会失败。
+
+---
+
 ## 一、架构现状
+
+> ⚠️ 本节记录的是 **2026-11-02 迁移前** 的架构（Cloudflare Worker + Workers KV）。
+> 当前架构见上文「〇、架构变更记录」。
 
 | 层 | 技术 | 托管 | 额度影响 |
 |---|---|---|---|

@@ -9,10 +9,7 @@
    统一的超时 + 退避重试逻辑见 @/lib/net。 */
 
 import { request, NET_ERROR } from "@/lib/net";
-
-const API_BASE =
-  (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
-  "https://solhub-auth.solyoung.top";
+import { base } from "@/lib/api-base";
 
 export interface AuthUser {
   /** 公开标识：邮箱用户为 handle（如 solyoung），GitHub 用户为用户名 */
@@ -37,12 +34,8 @@ export interface AuthUser {
   authType?: "email" | "github";
   /** 黄V 认证 */
   verified?: boolean;
-  /** 管理员（由 Worker 白名单判定） */
+  /** 管理员（由后端白名单判定） */
   isAdmin?: boolean;
-}
-
-function base(): string {
-  return API_BASE.replace(/\/$/, "");
 }
 
 /* 登录态本地缓存：网络抖动导致拉取失败时回退使用，避免把「连不上」误判成「未登录」。

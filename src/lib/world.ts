@@ -4,14 +4,7 @@
  */
 
 import { request } from "@/lib/net";
-
-const API_BASE =
-  (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
-  "https://solhub-auth.solyoung.top";
-
-function base(): string {
-  return API_BASE.replace(/\/$/, "");
-}
+import { base } from "@/lib/api-base";
 
 /**
  * 官方账号：用于发布产品更新日志（新品上架与每日推荐）。

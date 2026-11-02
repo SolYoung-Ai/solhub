@@ -15,6 +15,7 @@ import { productCategories } from "@/data/product-categories";
 import { productCategoryNameLocalized } from "@/i18n/data";
 import { submissionConfig } from "@/data/site";
 import { p } from "@/lib/paths";
+import { base } from "@/lib/api-base";
 import {
   submitSubmission,
   exportSubmissionJson,
@@ -170,10 +171,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     if (me) {
       setStatus("submitting");
       try {
-        const apiBase =
-          (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
-          "https://solhub-auth.solyoung.top";
-        const res = await request(`${apiBase.replace(/\/$/, "")}/publish`, {
+        const res = await request(`${base()}/publish`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

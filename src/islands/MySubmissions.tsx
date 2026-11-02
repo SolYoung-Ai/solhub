@@ -22,15 +22,8 @@ import { request } from "@/lib/net";
 import { avatarOf, fetchMeState, logout, resizeImageToDataUrl, saveProfile, type AuthUser } from "@/lib/auth";
 import { ensureHttps } from "@/lib/utils";
 import { fetchFollowList, fetchProfile, timeAgo, type FollowUser, type PublicProfile, type WorldPost } from "@/lib/world";
+import { base } from "@/lib/api-base";
 import type { Locale } from "@/i18n";
-
-const apiBase =
-  (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
-  "https://solhub-auth.solyoung.top";
-
-function base(): string {
-  return apiBase.replace(/\/$/, "");
-}
 
 interface GhIssue {
   number: number;

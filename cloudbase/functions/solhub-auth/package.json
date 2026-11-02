@@ -1,0 +1,11 @@
+{
+  "name": "solhub-auth",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SolHub 认证服务（CloudBase HTTP Function）",
+  "main": "index.js",
+  "license": "ISC",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.18.7"
+  }
+}

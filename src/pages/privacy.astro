@@ -93,11 +93,11 @@ const copy = en
       },
       where: {
         title: "Where data lives",
-        intro: "Three providers. Cloudflare and GitHub are outside mainland China, so some of your data may be stored outside your country; the email provider only ever sees the address and message needed to deliver a code.",
+        intro: "Four providers. Your account data is stored inside mainland China (Tencent CloudBase, Shanghai); the site files and the email provider sit outside or handle only what a verification code needs.",
         items: [
           {
             k: "Accounts, profiles, posts, comments, likes, follows",
-            v: "Cloudflare Workers KV, read and written through the API host solhub-auth.solyoung.top.",
+            v: "Tencent CloudBase PostgreSQL (Shanghai region), read and written through the API host solyoung-d4gpp1f7s4e075f6d-1499756427.ap-shanghai.app.tcloudbase.com.",
           },
           {
             k: "Product submissions",
@@ -105,7 +105,7 @@ const copy = en
           },
           {
             k: "The pages themselves",
-            v: "Static hosting on GitHub Pages. As infrastructure providers, Cloudflare and GitHub may keep standard access logs (IP, user agent, timestamp).",
+            v: "Static hosting on GitHub Pages. As infrastructure providers, GitHub may keep standard access logs (IP, user agent, timestamp).",
           },
           {
             k: "Verification & notification emails",
@@ -119,9 +119,12 @@ const copy = en
       },
       local: {
         title: "Cookies & local storage",
-        intro: "One first-party cookie, plus a few local keys that never leave your browser.",
+        intro: "One cookie set by our own API host, plus a few local keys that never leave your browser.",
         items: [
-          { k: "solhub_session", v: "Cookie, 30 days. Your login session. HttpOnly, so page scripts cannot read it." },
+          {
+            k: "solhub_session",
+            v: "Cookie, 30 days. Your login session. HttpOnly, so page scripts cannot read it. It is set by the API host (CloudBase) rather than the page host, with SameSite=None so the browser still sends it with cross-site requests.",
+          },
           {
             k: "solhub:theme / solhub:lang / solhub:viewport",
             v: "localStorage. Dark mode, language and desktop/mobile preview preferences.",
@@ -136,7 +139,7 @@ const copy = en
           },
         ],
         footnote:
-          "No third-party cookies, no advertising identifiers, no cross-site pixels. Our only third-party request is the font stylesheet.",
+          "No advertising identifiers, no cross-site pixels. The only third-party requests are the font stylesheet and calls to our own API host.",
       },
       public: {
         title: "What others can see",
@@ -259,11 +262,11 @@ const copy = en
       },
       where: {
         title: "数据存在哪里",
-        intro: "三家服务商。Cloudflare 与 GitHub 部署在境外，因此部分数据可能存储在中国大陆以外；邮件服务商只接触投递验证码所必需的邮箱地址与邮件内容。",
+        intro: "四家服务商。账号数据存储在中国大陆境内（腾讯云 CloudBase，上海地域）；站点文件托管在境外，邮件服务商只接触投递验证码所必需的内容。",
         items: [
           {
             k: "账号、资料、帖子、评论、点赞、关注",
-            v: "Cloudflare Workers KV，通过接口域名 solhub-auth.solyoung.top 读写。",
+            v: "腾讯云 CloudBase PostgreSQL（上海地域），通过接口域名 solyoung-d4gpp1f7s4e075f6d-1499756427.ap-shanghai.app.tcloudbase.com 读写。",
           },
           {
             k: "产品提交",
@@ -271,7 +274,7 @@ const copy = en
           },
           {
             k: "页面本身",
-            v: "GitHub Pages 静态托管。Cloudflare 与 GitHub 作为基础设施服务商，可能保留常规访问日志（IP、浏览器标识、时间）。",
+            v: "GitHub Pages 静态托管。GitHub 作为基础设施服务商，可能保留常规访问日志（IP、浏览器标识、时间）。",
           },
           {
             k: "验证与通知邮件",
@@ -285,9 +288,12 @@ const copy = en
       },
       local: {
         title: "Cookie 与本地存储",
-        intro: "一枚本站 Cookie，加上几个只留在你浏览器里的键。",
+        intro: "一枚由本站接口域名设置的 Cookie，加上几个只留在你浏览器里的键。",
         items: [
-          { k: "solhub_session", v: "Cookie，30 天。登录态。HttpOnly，页面脚本读不到。" },
+          {
+            k: "solhub_session",
+            v: "Cookie，30 天。登录态。HttpOnly，页面脚本读不到。它由接口域名（CloudBase）设置而非页面域名，带 SameSite=None 以便浏览器在跨站请求时仍会带上它。",
+          },
           {
             k: "solhub:theme / solhub:lang / solhub:viewport",
             v: "localStorage。深色模式、语言、桌面/手机预览偏好。",
@@ -301,7 +307,8 @@ const copy = en
             v: "sessionStorage，仅管理员。管理后台口令，关掉标签页即失效。",
           },
         ],
-        footnote: "没有第三方 Cookie，没有广告标识符，没有跨站像素。唯一的第三方请求是字体样式表。",
+        footnote:
+          "没有广告标识符，没有跨站像素。第三方请求只有字体样式表，以及发往本站自有接口域名的接口调用。",
       },
       public: {
         title: "哪些内容别人能看到",

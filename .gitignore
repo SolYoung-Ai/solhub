@@ -21,3 +21,6 @@ npm-debug.log*
 
 # wrangler local state
 worker/.wrangler/
+
+# CloudBase 云函数：由 scripts/sync-cloudbase-fn.mjs 从 worker/index.js 生成
+cloudbase/functions/*/core.cjs

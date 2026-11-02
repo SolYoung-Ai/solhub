@@ -4,14 +4,7 @@
  */
 
 import { request } from "@/lib/net";
-
-const API_BASE =
-  (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
-  "https://solhub-auth.solyoung.top";
-
-function base(): string {
-  return API_BASE.replace(/\/$/, "");
-}
+import { base } from "@/lib/api-base";
 
 export type AdminStatus = "unauthorized" | "forbidden" | "locked" | "ok" | "error";
 

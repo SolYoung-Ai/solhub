@@ -13,7 +13,9 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import crypto from "node:crypto";
 
-const API = process.env.SOLHUB_API || "https://solhub-auth.solyoung.top";
+const API =
+  process.env.SOLHUB_API ||
+  "https://solyoung-d4gpp1f7s4e075f6d-1499756427.ap-shanghai.app.tcloudbase.com/api";
 const CONFIG_PATH = path.resolve(process.cwd(), ".env.changelog");
 const AVATAR_SRC = path.resolve(process.cwd(), "scripts/official-avatar.png");
 
