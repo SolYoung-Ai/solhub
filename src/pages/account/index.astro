@@ -1,0 +1,34 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import AccountPage from "@/islands/AccountPage.tsx";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+const locale = Astro.props.locale ?? "zh";
+---
+
+<BaseLayout
+  title={locale === "en" ? "Account · SolHub" : "账号信息 · SolHub"}
+  description={locale === "en" ? "Manage your account: sign-in email, password and account deletion." : "管理你的账号：登录邮箱、登录密码与账号注销。"}
+  route="/account/"
+  locale={locale}
+>
+  <div class="container-page py-10">
+    <div class="mb-8">
+      <p class="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
+        {locale === "en" ? "Account" : "账号"}
+      </p>
+      <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+        {locale === "en" ? "Account info" : "账号信息"}
+      </h1>
+      <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
+        {locale === "en"
+          ? "Manage your sign-in email, password and account deletion. Your email is never shown publicly unless you turn it on."
+          : "管理登录邮箱、登录密码与账号注销。邮箱默认不公开，只有你主动开启才会展示在主页上。"}
+      </p>
+    </div>
+    <AccountPage client:load locale={locale} />
+  </div>
+</BaseLayout>

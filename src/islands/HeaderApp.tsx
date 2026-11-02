@@ -339,11 +339,11 @@ function UserMenuItems({
         <UserRound className="h-3.5 w-3.5" /> {en ? "My account" : "个人中心"}
       </a>
       <a
-        href={p("/my-submissions/#account", locale)}
+        href={p("/account/", locale)}
         onClick={onNavigate}
         className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
       >
-        <UserCog className="h-3.5 w-3.5" /> {en ? "Account info" : "账号信息"}
+        <UserCog className="h-3.5 w-3.5" /> {translate(dict, "nav.account")}
       </a>
       {user.isAdmin && (
         <a

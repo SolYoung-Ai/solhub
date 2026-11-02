@@ -16,7 +16,6 @@ import {
   Trash2,
   User,
 } from "lucide-react";
-import AccountPanel from "@/components/AccountPanel";
 import { p } from "@/lib/paths";
 import { avatarOf, fetchMe, logout, resizeImageToDataUrl, saveProfile, type AuthUser } from "@/lib/auth";
 import { ensureHttps } from "@/lib/utils";
@@ -183,20 +182,6 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     })();
   }, [loadProducts]);
 
-  /* 从顶部菜单跳到「账号信息」时，等区块渲染出来再滚过去（客户端渲染，锚点不会自动定位）。
-     同时监听 hashchange：已经在个人主页上时再点一次「账号信息」也能定位。 */
-  useEffect(() => {
-    if (loading || !user) return;
-    const scrollToAccount = () => {
-      if (typeof window === "undefined" || window.location.hash !== "#account") return;
-      const el = document.getElementById("account");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    };
-    scrollToAccount();
-    window.addEventListener("hashchange", scrollToAccount);
-    return () => window.removeEventListener("hashchange", scrollToAccount);
-  }, [loading, user]);
-
   useEffect(() => {
     if (!user) return;
     if (tab === "following" || tab === "followers") {
@@ -260,7 +245,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     if (!user || publicBusy) return;
     const next = !user.emailPublic;
     if (next && !user.emailVerified) {
-      setPublicError(en ? "Verify your email first (see Email security below)." : "请先完成邮箱验证（见下方「邮箱安全」）。");
+      setPublicError(en ? "Verify your email first (see Account info)." : "请先完成邮箱验证（在「账号信息」页）。");
       return;
     }
     setPublicBusy(true);
@@ -594,8 +579,8 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                           ? "Off by default. When on, the email appears on your profile page only — never in search results, posts or comments."
                           : "默认关闭。开启后邮箱只出现在你的主页上，不会出现在搜索结果、帖子或评论里。")
                       : (en
-                          ? "Verify your email first (see Email security below), then you can publish it with a Verified badge."
-                          : "需要先完成邮箱验证（见下方「邮箱安全」），验证后即可公开，并显示「已验证」标识。")}
+                          ? "Verify your email first (see Account info), then you can publish it with a Verified badge."
+                          : "需要先完成邮箱验证（在「账号信息」页），验证后即可公开，并显示「已验证」标识。")}
                   </span>
                 </span>
               </label>
@@ -615,23 +600,9 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
           </div>
         )}
 
-        {/* 账号相关操作（邮箱安全 / 改密码 / 注销账号）统一放在下面的「账号信息」区块，
-            这里只保留公开资料本身，资料区与账号区互不干扰。 */}
+        {/* 公开资料卡（名片）：编辑、公开邮箱开关等都在这里；
+            账号安全（邮箱安全 / 改密码 / 注销）已独立到 /account/ 页面。 */}
       </div>
-
-      {/* ---------- 账号信息：验证/更换邮箱 · 修改密码 · 注销账号 ---------- */}
-      {!isGithub && user.email && (
-        <div className="mt-6">
-          <AccountPanel
-            email={user.email}
-            verified={!!user.emailVerified}
-            locale={locale}
-            onEmailChanged={(next) =>
-              setUser((u) => (u ? { ...u, email: next, emailVerified: true } : u))
-            }
-          />
-        </div>
-      )}
 
       {/* ---------- 内容 Tab：产品 / 帖子 / 关注 / 粉丝 ---------- */}
       <div className="mt-8 flex items-center gap-1 overflow-x-auto border-b border-border">
