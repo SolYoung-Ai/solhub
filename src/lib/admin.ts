@@ -3,6 +3,8 @@
  * 所有接口都在 Worker 侧用 ADMIN_EMAILS 白名单校验，前端只是壳。
  */
 
+import { request } from "@/lib/net";
+
 const API_BASE =
   (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
   "https://solhub-auth.solyoung.top";
@@ -47,12 +49,11 @@ async function call<T>(path: string, init?: RequestInit): Promise<AdminResult<T>
   const headers = new Headers(init?.headers);
   if (key && !headers.has("X-Admin-Key")) headers.set("X-Admin-Key", key);
   try {
-    const res = await fetch(`${base()}${path}`, {
-      credentials: "include",
+    const res = await request(`${base()}${path}`, {
       cache: "no-store",
       ...init,
       headers,
-    });
+    }, { retries: 1 });
     const data = await res.json().catch(() => ({}));
     if (res.status === 401) {
       if (data.needKey) return { status: "locked", error: data.error || "需要管理口令" };

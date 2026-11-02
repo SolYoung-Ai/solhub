@@ -18,6 +18,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { p } from "@/lib/paths";
+import { request } from "@/lib/net";
 import { avatarOf, fetchMeState, logout, resizeImageToDataUrl, saveProfile, type AuthUser } from "@/lib/auth";
 import { ensureHttps } from "@/lib/utils";
 import { fetchFollowList, fetchProfile, timeAgo, type FollowUser, type PublicProfile, type WorldPost } from "@/lib/world";
@@ -139,7 +140,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
 
   const loadProducts = useCallback(async () => {
     try {
-      const res = await fetch(`${base()}/my-products`, { credentials: "include", cache: "no-store" });
+      const res = await request(`${base()}/my-products`, { cache: "no-store" }, { retries: 1 });
       if (res.ok) {
         const data = await res.json();
         setProducts(Array.isArray(data?.products) ? data.products : []);
@@ -185,7 +186,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
           })
           .catch(() => { /* 忽略，帖子区显示空态 */ }),
         me.authType === "github"
-          ? fetch(`${base()}/my-issues`, { credentials: "include", cache: "no-store" })
+          ? request(`${base()}/my-issues`, { cache: "no-store" }, { retries: 1 })
               .then((res) => (res.ok ? res.json() : null))
               .then((data) => { if (data) setIssues(data); })
               .catch(() => { /* 忽略 */ })
@@ -303,9 +304,8 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     setSavingSlug(slug);
     setActionError(null);
     try {
-      const res = await fetch(`${base()}/my-products/${encodeURIComponent(slug)}`, {
+      const res = await request(`${base()}/my-products/${encodeURIComponent(slug)}`, {
         method: "PUT",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editForm.name.trim(),
@@ -340,10 +340,9 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     setSavingSlug(slug);
     setActionError(null);
     try {
-      const res = await fetch(`${base()}/my-products/${encodeURIComponent(slug)}`, {
+      const res = await request(`${base()}/my-products/${encodeURIComponent(slug)}`, {
         method: "DELETE",
-        credentials: "include",
-      });
+      }, { retries: 0 });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setActionError(data.error || `删除失败（${res.status}）`);

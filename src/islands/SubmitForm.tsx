@@ -27,6 +27,7 @@ import {
   type CloudbaseSubmissionPayload,
 } from "@/lib/cloudbase";
 import { isValidHttpUrl } from "@/lib/utils";
+import { request } from "@/lib/net";
 import { fetchMe, type AuthUser } from "@/lib/auth";
 import { Message } from "@/components/tool-ui";
 import type { Submission } from "@/data/types";
@@ -172,9 +173,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
         const apiBase =
           (import.meta.env.PUBLIC_SOLHUB_API as string | undefined) ||
           "https://solhub-auth.solyoung.top";
-        const res = await fetch(`${apiBase.replace(/\/$/, "")}/publish`, {
+        const res = await request(`${apiBase.replace(/\/$/, "")}/publish`, {
           method: "POST",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: payload.name,
@@ -186,7 +186,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
             iconUrl: payload.icon_url,
             developerName: payload.developer,
           }),
-        });
+        }, { retries: 0 });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setStatus("error");
