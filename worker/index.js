@@ -94,6 +94,22 @@ function readCookie(request, name) {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+/* 移动端（iOS Safari）的 ITP 会拦截跨站 Cookie，导致 solhub_session 存不下来、
+   连带着 /me 这类带凭证的请求直接被浏览器掐掉（表现为「连不上认证服务」）。
+   解决办法：邮箱登录额外回传一个会话令牌，前端用 X-Solhub-Session 头携带，
+   走的是「跨域请求 + 自定义头」而不是第三方 Cookie，ITP 不会拦。 */
+function readBearerSession(request) {
+  return (request.headers.get("X-Solhub-Session") || "").trim();
+}
+
+/* GitHub 登录同理：移动端拿不到 solhub_token 这个跨站 Cookie，
+   改用标准的 Authorization: Bearer 头把 GitHub access token 带回来。 */
+function readBearerGithub(request) {
+  const h = request.headers.get("Authorization") || "";
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1].trim() : "";
+}
+
 /* ---------------- 密码与令牌（WebCrypto） ---------------- */
 
 function toB64(buf) {
@@ -384,11 +400,14 @@ async function createSession(request, env, email, credOverride) {
   await env.PROFILES.put(`session:${id}`, JSON.stringify(session), {
     expirationTtl: SESSION_TTL,
   });
-  return `${SESSION_COOKIE}=${encodeURIComponent(id)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${SESSION_TTL}`;
+  return {
+    cookie: `${SESSION_COOKIE}=${encodeURIComponent(id)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${SESSION_TTL}`,
+    token: id,
+  };
 }
 
 async function getSessionUser(request, env) {
-  const id = readCookie(request, SESSION_COOKIE);
+  const id = readCookie(request, SESSION_COOKIE) || readBearerSession(request);
   if (!id) return null;
   const raw = await env.PROFILES.get(`session:${id}`);
   if (!raw) return null;
@@ -458,7 +477,7 @@ async function getSessionUser(request, env) {
 /* ---------------- 身份统一（邮箱 or GitHub） ---------------- */
 
 async function getGitHubIdentity(request) {
-  const token = readCookie(request, "solhub_token");
+  const token = readCookie(request, "solhub_token") || readBearerGithub(request);
   if (!token) return null;
   const res = await fetch(`${API}/user`, {
     headers: { Authorization: `Bearer ${token}`, "User-Agent": "SolHub" },
@@ -1730,8 +1749,8 @@ export default {
       const prev = await readCredential(env, current);
       const ver = ((prev && prev.ver) || 0) + 1;
       await writeCredential(env, current, salt, passHash, ver);
-      const cookie = await createSession(request, env, current, { salt, hash: passHash, ver });
-      return json(request, { ok: true, message: "密码已重置，请用新密码登录" }, 200, cookie);
+      const { cookie, token } = await createSession(request, env, current, { salt, hash: passHash, ver });
+      return json(request, { ok: true, message: "密码已重置，请用新密码登录", token }, 200, cookie);
     }
 
     /* 修改密码（登录态）：校验当前密码 → 换新盐/哈希 → pwdVersion +1 让其它设备会话失效 → 给当前设备发新会话 */
@@ -1767,8 +1786,8 @@ export default {
          会把头像、简介等后写进去的字段覆盖掉。 */
       const ver = (cred.ver || 0) + 1;
       await writeCredential(env, email, salt, passHash, ver);
-      const cookie = await createSession(request, env, email, { salt, hash: passHash, ver });
-      return json(request, { ok: true, message: "密码已修改，其它设备需要重新登录" }, 200, cookie);
+      const { cookie, token } = await createSession(request, env, email, { salt, hash: passHash, ver });
+      return json(request, { ok: true, message: "密码已修改，其它设备需要重新登录", token }, 200, cookie);
     }
 
     /* 注销账号（自助）：校验密码 → 清掉账号、资料、帖子、关注关系与社区提交 */
@@ -1922,8 +1941,8 @@ export default {
       /* 密码凭据单独存一个键：改密码时只写它，不会把资料字段覆盖掉 */
       await writeCredential(env, email, salt, passHash, 0);
       await rateLimitHit(regKey, 3600);
-      const cookie = await createSession(request, env, email, { salt, hash: passHash, ver: 0 });
-      return json(request, { ok: true, user: { login: handle, handle, email, displayName, emailVerified } }, 200, cookie);
+      const { cookie, token } = await createSession(request, env, email, { salt, hash: passHash, ver: 0 });
+      return json(request, { ok: true, token, user: { login: handle, handle, email, displayName, emailVerified } }, 200, cookie);
     }
 
     /* ---------- 邮箱登录 ---------- */
@@ -1972,9 +1991,9 @@ export default {
         return json(request, { error: ban.reason ? `账号已被封禁：${ban.reason}` : "账号已被封禁，如有疑问请联系管理员。" }, 403);
       }
       await rateLimitClear(acctKey);
-      const cookie = await createSession(request, env, email);
+      const { cookie, token } = await createSession(request, env, email);
       await ensureUserHandle(env, email, user);
-      return json(request, { ok: true, user: { login: user.handle || handleFromEmail(email), handle: user.handle || "", email, displayName: user.displayName || "" } }, 200, cookie);
+      return json(request, { ok: true, token, user: { login: user.handle || handleFromEmail(email), handle: user.handle || "", email, displayName: user.displayName || "" } }, 200, cookie);
     }
 
     /* ---------- 退出登录 ---------- */
@@ -2023,7 +2042,9 @@ export default {
         } catch { /* 拿不到资料也不影响登录 */ }
       }
       const cookie = `solhub_token=${encodeURIComponent(tokenData.access_token)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=2592000`;
-      return redirect(request, `${SITE_BASE}/my-submissions/`, { "Set-Cookie": cookie });
+      /* 移动端拿不到跨站 Cookie（ITP 拦截），所以把 GitHub access token 放进 URL
+         片段回传给站点，前端从 location.hash 里读出来当 Bearer 用（片段不会发给服务器）。 */
+      return redirect(request, `${SITE_BASE}/my-submissions/#gh_token=${encodeURIComponent(tokenData.access_token)}`, { "Set-Cookie": cookie });
     }
 
     /* ---------- 当前用户 ---------- */

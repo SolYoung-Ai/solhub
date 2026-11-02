@@ -16,6 +16,8 @@
  * 业务结果，直接交给调用方处理，不做无谓重试。
  */
 
+import { getAuthToken } from "@/lib/session";
+
 const DEFAULT_TIMEOUT_MS = 12000;
 const DEFAULT_RETRIES = 2;
 
@@ -30,7 +32,9 @@ export interface RequestOptions {
   retries?: number;
 }
 
-/** 带超时与退避重试的 fetch。网络异常会重试；HTTP 错误码原样返回。 */
+/** 带超时与退避重试的 fetch。网络异常会重试；HTTP 错误码原样返回。
+ *  若本地持有会话令牌（移动端 iOS Safari 因 ITP 拿不到跨站 Cookie），
+ *  则改用 Bearer 头携带令牌并关闭 credentials，避免被浏览器拦截。 */
 export async function request(
   url: string,
   init: RequestInit = {},
@@ -38,14 +42,33 @@ export async function request(
 ): Promise<Response> {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const retries = opts.retries ?? DEFAULT_RETRIES;
+
+  let credentials: RequestCredentials = "include";
+  const headers: Record<string, string> = {};
+  try {
+    const t = getAuthToken();
+    if (t) {
+      credentials = "omit";
+      if (t.type === "email") headers["X-Solhub-Session"] = t.token;
+      else if (t.type === "github") headers["Authorization"] = `Bearer ${t.token}`;
+    }
+  } catch {
+    /* sessionStorage 不可用时退回 Cookie 路径 */
+  }
+
+  const finalInit: RequestInit = {
+    ...init,
+    credentials,
+    headers: { ...(init.headers as Record<string, string> | undefined), ...headers },
+  };
+
   let lastError: unknown = null;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(url, {
-        credentials: "include",
-        ...init,
+        ...finalInit,
         signal: controller.signal,
       });
       clearTimeout(timer);

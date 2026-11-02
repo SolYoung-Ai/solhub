@@ -95,6 +95,23 @@ const orgJsonLd = {
     <script is:inline>
       (function () {
         try {
+          // 0) GitHub 登录回传的令牌（移动端 iOS Safari 拦截跨站 Cookie，改用 URL 片段带回来）
+          var hash = window.location.hash || "";
+          var m = hash.match(/[#&]gh_token=([^&]+)/);
+          if (m) {
+            try {
+              sessionStorage.setItem(
+                "solhub:auth",
+                JSON.stringify({ type: "github", token: decodeURIComponent(m[1]) }),
+              );
+            } catch (e) { /* 忽略存储不可用 */ }
+            // 清掉片段，避免刷新/分享时泄露令牌
+            var clean = window.location.pathname + window.location.search;
+            if (window.history && window.history.replaceState) {
+              window.history.replaceState(null, "", clean);
+            }
+          }
+
           // 1) 主题：dark class + 过渡
           var savedTheme = localStorage.getItem("solhub:theme");
           var theme = savedTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");

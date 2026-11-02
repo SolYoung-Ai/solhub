@@ -10,6 +10,7 @@
 
 import { request, NET_ERROR } from "@/lib/net";
 import { base } from "@/lib/api-base";
+import { setAuthToken, clearAuthToken, getAuthToken } from "@/lib/session";
 
 export interface AuthUser {
   /** 公开标识：邮箱用户为 handle（如 solyoung），GitHub 用户为用户名 */
@@ -78,15 +79,24 @@ export interface AuthMeState {
  */
 export async function fetchMeState(): Promise<AuthMeState> {
   if (typeof window === "undefined") return { user: null, failed: false, stale: false };
+  /* 没有本地令牌时（移动端 iOS Safari 因 ITP 拿不到跨站 Cookie），
+     /me 这种带凭证的跨站请求会被浏览器直接掐掉并抛错。
+     此时用户本来就没登录态可丢，直接当「未登录」处理，
+     免得误导成「连不上认证服务」。有令牌却失败才是真的网络问题。 */
+  const hasToken = !!getAuthToken();
+  const opts = hasToken
+    ? { timeoutMs: 10000, retries: 1 }
+    : { timeoutMs: 6000, retries: 0 };
   try {
     const res = await request(
       `${base()}/me`,
       { cache: "no-store" },
-      { timeoutMs: 10000, retries: 1 },
+      opts,
     );
     if (!res.ok) {
       /* 401 = 确定未登录，顺手清掉旧缓存 */
       writeCachedMe(null);
+      clearAuthToken();
       return { user: null, failed: false, stale: false };
     }
     const data = await res.json();
@@ -94,6 +104,10 @@ export async function fetchMeState(): Promise<AuthMeState> {
     writeCachedMe(user);
     return { user, failed: false, stale: false };
   } catch {
+    if (!hasToken) {
+      /* 没令牌还失败：多半是移动端 ITP 拦截了跨站凭证请求，按未登录处理 */
+      return { user: null, failed: false, stale: false };
+    }
     /* 网络失败：回退到上次已知的登录态 */
     const cached = readCachedMe();
     if (cached) return { user: cached, failed: true, stale: true };
@@ -128,6 +142,7 @@ export async function registerEmail(
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `注册失败（${res.status}）` };
+    if (data.token) setAuthToken({ type: "email", token: data.token });
     return { ok: true, user: data.user };
   } catch {
     return { ok: false, error: NET_ERROR };
@@ -224,6 +239,7 @@ export async function resetPassword(
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `重置失败（${res.status}）` };
+    if (data.token) setAuthToken({ type: "email", token: data.token });
     return { ok: true, message: data.message };
   } catch {
     return { ok: false, error: NET_ERROR };
@@ -247,6 +263,7 @@ export async function changePassword(
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `修改失败（${res.status}）` };
+    if (data.token) setAuthToken({ type: "email", token: data.token });
     return { ok: true, message: data.message };
   } catch {
     return { ok: false, error: NET_ERROR };
@@ -284,18 +301,21 @@ export async function loginEmail(email: string, password: string): Promise<AuthR
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `登录失败（${res.status}）` };
+    if (data.token) setAuthToken({ type: "email", token: data.token });
     return { ok: true, user: data.user };
   } catch {
     return { ok: false, error: NET_ERROR };
   }
 }
 
-/** 退出登录（清除会话 Cookie）。 */
+/** 退出登录（清除会话 Cookie 与本地令牌）。 */
 export async function logout(): Promise<void> {
   try {
     await request(`${base()}/auth/logout`, { method: "POST" }, { timeoutMs: 8000, retries: 0 });
   } catch {
     /* 忽略网络错误 */
+  } finally {
+    clearAuthToken();
   }
 }
 
