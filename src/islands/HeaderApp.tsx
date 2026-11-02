@@ -14,7 +14,6 @@ import {
   Trophy,
   UserCog,
   UserRound,
-  Wrench,
   X,
 } from "lucide-react";
 import type { SearchIndexEntry } from "@/data/types";
@@ -60,13 +59,13 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
     return () => window.removeEventListener("click", close);
   }, [userMenuOpen]);
 
-  const NAV: { label: string; path: string; icon: typeof Compass; match: (r: string) => boolean }[] = [
+  const NAV: { label: string; path: string; icon: typeof Compass; match: (r: string) => boolean; bottom?: boolean }[] = [
     { label: translate(dict, "nav.discover"), path: "/", icon: Compass, match: (r) => r === "/" },
     { label: translate(dict, "nav.launches"), path: "/launches/", icon: Trophy, match: (r) => r.startsWith("/launches/") },
     { label: translate(dict, "nav.world"), path: "/world/", icon: Globe, match: (r) => r.startsWith("/world/") },
-    { label: translate(dict, "nav.tools"), path: "/tools/", icon: Wrench, match: (r) => r.startsWith("/tools/") },
+    // 关于：保留在桌面左侧栏；手机端底部标签栏空间有限，移出（页面仍在，可从页脚/隐私页到达）
+    { label: translate(dict, "nav.about"), path: "/about/", icon: Info, match: (r) => r.startsWith("/about/"), bottom: false },
     { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, match: (r) => r.startsWith("/my-submissions/") },
-    { label: translate(dict, "nav.about"), path: "/about/", icon: Info, match: (r) => r.startsWith("/about/") },
   ];
 
   useEffect(() => {
@@ -275,7 +274,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         aria-label={en ? "Main navigation" : "主导航"}
       >
-        {NAV.map((item) => {
+        {NAV.filter((item) => item.bottom !== false).map((item) => {
           const on = item.match(currentRoute);
           const Icon = item.icon;
           return (
@@ -443,7 +442,7 @@ function SearchDialog({
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, Math.max(results.length - 1, 0))); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-    else if (e.key === "Enter") { e.preventDefault(); const t = results[active]; if (t) window.location.href = t.kind === "tool" ? p(`/tools/${t.slug}/`, locale) : p(`/products/${t.slug}/`, locale); }
+    else if (e.key === "Enter") { e.preventDefault(); const t = results[active]; if (t) window.location.href = p(`/products/${t.slug}/`, locale); }
   };
 
   return (
@@ -475,7 +474,7 @@ function SearchDialog({
             {results.map((r, i) => (
               <a
                 key={r.slug}
-                href={r.kind === "tool" ? p(`/tools/${r.slug}/`, locale) : p(`/products/${r.slug}/`, locale)}
+                href={p(`/products/${r.slug}/`, locale)}
                 onMouseEnter={() => setActive(i)}
                 className={cx("mx-1.5 flex items-center justify-between gap-3 rounded-[6px] px-2.5 py-2", active === i ? "bg-secondary" : "hover:bg-secondary/50")}
               >

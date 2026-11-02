@@ -1,6 +1,6 @@
 /**
  * SolHub 统一数据模型
- * 所有页面（首页 / 榜单 / 工具 / 搜索 / 详情）都从统一数据源读取。
+ * 所有页面（首页 / 榜单 / 搜索 / 详情）都从统一数据源读取。
  */
 
 export type VerificationStatus = "verified" | "pending" | "unverified";
@@ -39,29 +39,6 @@ export interface Product {
   rankPosition?: number;
   /** 是否为演示数据。演示数据不会获得虚假核验状态。 */
   isDemo: boolean;
-}
-
-export interface Tool {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  /** 英文版描述 */
-  descriptionEn?: string;
-  category: string;
-  tags: string[];
-  /** Lucide 图标名 */
-  icon: string;
-  /** 对应 src/islands/tools/ 下的组件 key */
-  component: string;
-  /** 是否真正实现（注册表里不允许有只有卡片没有逻辑的工具） */
-  isImplemented: boolean;
-  relatedToolIds: string[];
-  keywords: string[];
-  /** 限制 / 隐私说明（用于工具详情页） */
-  note?: string;
-  /** 英文版限制 / 隐私说明 */
-  noteEn?: string;
 }
 
 export interface Category {
@@ -115,7 +92,7 @@ export interface CloudBaseSubmission {
 }
 
 export interface SearchIndexEntry {
-  kind: "product" | "tool";
+  kind: "product";
   slug: string;
   name: string;
   description: string;

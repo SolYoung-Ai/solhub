@@ -1,7 +1,6 @@
 ---
 import { siteConfig } from "@/data/site";
 import { products } from "@/data/products";
-import { tools } from "@/data/tools";
 import { buildSearchIndex } from "@/lib/search";
 import { p, stripBase, absoluteUrl, baseUrl } from "@/lib/paths";
 import { getDict } from "@/i18n";
@@ -38,7 +37,7 @@ const pageTitle =
     ? title
     : `${title} · ${siteConfig.name}`;
 const canonical = absoluteUrl(route, locale);
-const searchIndex = buildSearchIndex(products, tools, locale);
+const searchIndex = buildSearchIndex(products, locale);
 const currentRoute = stripBase(Astro.url.pathname);
 
 const orgJsonLd = {

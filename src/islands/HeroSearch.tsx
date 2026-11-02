@@ -5,7 +5,6 @@ import { getDict, translate } from "@/i18n";
 import { searchIndex, buildSearchIndex, type SearchIndexEntry } from "@/lib/search";
 import { p } from "@/lib/paths";
 import { products } from "@/data/products";
-import { tools } from "@/data/tools";
 
 /** 首页 Hero 搜索条：直接输入出下拉结果 */
 export default function HeroSearch() {
@@ -18,7 +17,7 @@ export default function HeroSearch() {
      用 effect 而非初始值，避免 SSR 与首帧水合不一致。 */
   const [narrow, setNarrow] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
-  const index = useMemo(() => buildSearchIndex(products, tools, locale), [locale]);
+  const index = useMemo(() => buildSearchIndex(products, locale), [locale]);
   const results = query.trim() ? searchIndex(query, index, locale) : [];
 
   useEffect(() => {
@@ -38,7 +37,7 @@ export default function HeroSearch() {
   }, []);
 
   const go = (r: SearchIndexEntry) => {
-    window.location.href = r.kind === "tool" ? p(`/tools/${r.slug}/`, locale) : p(`/products/${r.slug}/`, locale);
+    window.location.href = p(`/products/${r.slug}/`, locale);
   };
 
   return (
