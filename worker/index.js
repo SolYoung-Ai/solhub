@@ -1998,7 +1998,7 @@ export default {
 
     /* ---------- 退出登录 ---------- */
     if (url.pathname === "/auth/logout" && request.method === "POST") {
-      const id = readCookie(request, SESSION_COOKIE);
+      const id = readCookie(request, SESSION_COOKIE) || readBearerSession(request);
       if (id && env.PROFILES) await env.PROFILES.delete(`session:${id}`);
       const clear = `${SESSION_COOKIE}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
       return json(request, { ok: true }, 200, clear);

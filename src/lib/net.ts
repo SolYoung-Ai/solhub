@@ -30,6 +30,9 @@ export interface RequestOptions {
   timeoutMs?: number;
   /** 网络异常时的重试次数（总尝试次数 = retries + 1） */
   retries?: number;
+  /** 强制不带 Cookie 发送（credentials: omit）。用于登录/注册等「建立会话」的请求：
+   *  移动端 iOS Safari 的 ITP 会拦截跨站凭证请求，而这些请求本来就靠响应里的令牌工作，不需要 Cookie。 */
+  omitCredentials?: boolean;
 }
 
 /** 带超时与退避重试的 fetch。网络异常会重试；HTTP 错误码原样返回。
@@ -43,7 +46,7 @@ export async function request(
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const retries = opts.retries ?? DEFAULT_RETRIES;
 
-  let credentials: RequestCredentials = "include";
+  let credentials: RequestCredentials = opts.omitCredentials ? "omit" : "include";
   const headers: Record<string, string> = {};
   try {
     const t = getAuthToken();

@@ -139,7 +139,7 @@ export async function registerEmail(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, displayName: displayName || "", handle: handle || "", code: code || "" }),
-    });
+    }, { omitCredentials: true });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `注册失败（${res.status}）` };
     if (data.token) setAuthToken({ type: "email", token: data.token });
@@ -165,7 +165,7 @@ export async function sendVerifyCode(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, purpose }),
-    });
+    }, { omitCredentials: true });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `验证码发送失败（${res.status}）` };
     return { ok: true, cooldown: data.cooldown || 60 };
@@ -216,7 +216,7 @@ export async function requestPasswordReset(email: string): Promise<{ ok: boolean
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
-    });
+    }, { omitCredentials: true });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `发送失败（${res.status}）` };
     return { ok: true, message: data.message };
@@ -236,7 +236,7 @@ export async function resetPassword(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, code, newPassword }),
-    });
+    }, { omitCredentials: true });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `重置失败（${res.status}）` };
     if (data.token) setAuthToken({ type: "email", token: data.token });
@@ -298,7 +298,7 @@ export async function loginEmail(email: string, password: string): Promise<AuthR
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
-    });
+    }, { omitCredentials: true });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `登录失败（${res.status}）` };
     if (data.token) setAuthToken({ type: "email", token: data.token });
