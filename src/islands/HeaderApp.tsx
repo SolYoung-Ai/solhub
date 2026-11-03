@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   Compass,
   Globe,
-  Info,
   Languages,
   LogOut,
   Moon,
@@ -63,8 +62,6 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
     { label: translate(dict, "nav.discover"), path: "/", icon: Compass, match: (r) => r === "/" },
     { label: translate(dict, "nav.launches"), path: "/launches/", icon: Trophy, match: (r) => r.startsWith("/launches/") },
     { label: translate(dict, "nav.world"), path: "/world/", icon: Globe, match: (r) => r.startsWith("/world/") },
-    // 关于：保留在桌面左侧栏；手机端底部标签栏空间有限，移出（页面仍在，可从页脚/隐私页到达）
-    { label: translate(dict, "nav.about"), path: "/about/", icon: Info, match: (r) => r.startsWith("/about/"), bottom: false },
     { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, match: (r) => r.startsWith("/my-submissions/") },
   ];
 
