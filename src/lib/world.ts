@@ -85,6 +85,9 @@ export interface PublicProfile {
   isFollowing: boolean;
   isSelf: boolean;
   posts: WorldPost[];
+  /** 主页帖子也有分页：首屏 20 条，之后按 postsNextOffset 续拉 */
+  postsHasMore?: boolean;
+  postsNextOffset?: number;
   products: WorldProduct[];
 }
 
@@ -120,13 +123,31 @@ async function getJSON<T>(path: string, fallback: T): Promise<T> {
   }
 }
 
-export async function fetchFeed(opts: { tab?: "latest" | "following"; author?: string; limit?: number } = {}): Promise<WorldPost[]> {
+export interface FeedPage {
+  posts: WorldPost[];
+  /** 还有更早的帖子可以继续翻 */
+  hasMore: boolean;
+  /** 下一页要带的 offset（服务端按 feed 下标算，翻页不会重复/漏条） */
+  nextOffset: number;
+}
+
+export async function fetchFeed(
+  opts: { tab?: "latest" | "following"; author?: string; limit?: number; offset?: number } = {},
+): Promise<FeedPage> {
   const q = new URLSearchParams();
   if (opts.tab) q.set("tab", opts.tab);
   if (opts.author) q.set("author", opts.author);
   if (opts.limit) q.set("limit", String(opts.limit));
-  const data = await getJSON<{ posts: WorldPost[] }>(`/world?${q.toString()}`, { posts: [] });
-  return Array.isArray(data.posts) ? data.posts : [];
+  if (opts.offset) q.set("offset", String(opts.offset));
+  /* 兼容旧版接口（只回数组、没有分页字段）：前端与云函数不是同时上线的，
+     两边都在线期间不能因为格式不一致把信息流清空。 */
+  const data = await getJSON<Partial<FeedPage> | WorldPost[]>(`/world?${q.toString()}`, {});
+  if (Array.isArray(data)) return { posts: data, hasMore: false, nextOffset: data.length };
+  return {
+    posts: Array.isArray(data.posts) ? data.posts : [],
+    hasMore: !!data.hasMore,
+    nextOffset: Number(data.nextOffset) || 0,
+  };
 }
 
 export async function createPost(input: { text: string; linkUrl?: string }): Promise<{ ok: boolean; error?: string; post?: WorldPost }> {

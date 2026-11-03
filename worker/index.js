@@ -1256,20 +1256,46 @@ async function hydratePost(env, id, viewer) {
   };
 }
 
-async function feedPosts(env, ids, viewer, limit, imgBase) {
-  const slice = ids.slice(0, Math.min(ids.length, limit * 2));
-  const posts = (await Promise.all(slice.map((id) => hydratePost(env, id, viewer)))).filter(Boolean);
-  if (!posts.length) return [];
-  /* 隐藏被封禁作者的内容（封禁键同时写了邮箱与 handle 两份，历史数据也能命中） */
-  const authors = [...new Set(posts.map((p) => p.author))];
-  const bans = await kvGetMany(env, authors.map((a) => `ban:${a}`));
-  const banned = new Set(authors.filter((a, i) => bans[i]));
-  const visible = (banned.size ? posts.filter((p) => !banned.has(p.author)) : posts).slice(0, limit);
+/**
+ * 取一页信息流。offset 是 feed 数组下标（不是「已返回条数」），
+ * nextOffset 会定位到「本页展示的最后一条」的下一位：
+ * 被封禁作者被过滤掉时既不会重复，也不会把中间没展示的帖子跳过。
+ * 碰到整批都被过滤的极端情况，最多再往下摸两批把这一页填满。
+ */
+async function feedPage(env, ids, viewer, limit, imgBase, offset = 0) {
+  const start = Math.max(0, Math.min(Number(offset) || 0, ids.length));
+  let cursor = start;
+  let visible = [];
+  for (let round = 0; round < 3 && cursor < ids.length; round += 1) {
+    const batch = ids.slice(cursor, cursor + limit * 2);
+    cursor += batch.length;
+    const posts = (await Promise.all(batch.map((id) => hydratePost(env, id, viewer)))).filter(Boolean);
+    if (posts.length) {
+      /* 隐藏被封禁作者的内容（封禁键同时写了邮箱与 handle 两份，历史数据也能命中） */
+      const authors = [...new Set(posts.map((p) => p.author))];
+      const bans = await kvGetMany(env, authors.map((a) => `ban:${a}`));
+      const banned = new Set(authors.filter((a, i) => bans[i]));
+      visible = visible.concat(banned.size ? posts.filter((p) => !banned.has(p.author)) : posts);
+    }
+    if (visible.length >= limit) break;
+  }
+
+  const shown = visible.slice(0, limit);
   /* 对外统一用 handle 作为作者标识 */
-  await normalizeAuthors(env, visible, "author");
+  await normalizeAuthors(env, shown, "author");
   /* 头像改成短链接（见 avatarUrl 注释） */
-  for (const p of visible) p.authorAvatar = avatarUrl(imgBase, p.author, p.authorAvatar);
-  return visible;
+  for (const p of shown) p.authorAvatar = avatarUrl(imgBase, p.author, p.authorAvatar);
+
+  let nextOffset = cursor;
+  if (shown.length) {
+    const last = ids.indexOf(shown[shown.length - 1].id, start);
+    if (last >= 0) nextOffset = last + 1;
+  }
+  return { posts: shown, nextOffset, hasMore: nextOffset < ids.length };
+}
+
+async function feedPosts(env, ids, viewer, limit, imgBase) {
+  return (await feedPage(env, ids, viewer, limit, imgBase, 0)).posts;
 }
 
 async function pushFeed(env, key, id) {
@@ -2850,7 +2876,8 @@ export default {
       const viewerPid = viewer ? await pidOf(env, viewer) : null;
       const tab = url.searchParams.get("tab") || "latest";
       const author = url.searchParams.get("author") || "";
-      const limit = Math.min(Number(url.searchParams.get("limit") || 30) || 30, 60);
+      const limit = Math.min(Number(url.searchParams.get("limit") || 30) || 30, 50);
+      const offset = Math.max(0, Number(url.searchParams.get("offset") || 0) || 0);
 
       let ids = [];
       if (author) {
@@ -2862,16 +2889,23 @@ export default {
         const all = (await kvGetJSON(env, "feed:global", [])).slice(0, 120);
         const recs = (await Promise.all(all.map((id) => kvGetJSON(env, `post:${id}`, null)))).filter(Boolean);
         await normalizeAuthors(env, recs, "author");
+        /* 「关注」页先攒够 60 条候选，这样它也能翻页，不只是第一屏 30 条 */
+        const want = Math.max(limit, 60);
         recs.forEach((p) => {
-          if (ids.length >= limit) return;
+          if (ids.length >= want) return;
           if (following.includes(p.author) || p.author === viewerPid) ids.push(p.id);
         });
       } else {
         ids = await kvGetJSON(env, "feed:global", []);
       }
 
-      const posts = await feedPosts(env, ids, viewer, limit, imgBase);
-      return json(request, { posts, viewer: viewerPid });
+      const page = await feedPage(env, ids, viewer, limit, imgBase, offset);
+      return json(request, {
+        posts: page.posts,
+        viewer: viewerPid,
+        hasMore: page.hasMore,
+        nextOffset: page.nextOffset,
+      });
     }
 
     /* ---------- 世界：发帖 ---------- */
@@ -3064,7 +3098,8 @@ export default {
           banOf(env, targetSid),
         ]);
         const author = await publicUser(env, targetPid);
-        const posts = await feedPosts(env, postIds, viewer, 30, imgBase);
+        const page = await feedPage(env, postIds, viewer, 20, imgBase, 0);
+        const posts = page.posts;
         const mine = mergeProducts(productsOf(community, targetPid), allClaimedSlugs(index, targetPid, user), index);
         const overrides = await readProductOverrides(env, mine.map((p) => p.slug));
         const products = mine.map((p) => applyOverride(p, overrides));
@@ -3090,6 +3125,9 @@ export default {
           isFollowing: myFollowing.includes(targetPid),
           isSelf: viewer === targetSid,
           posts,
+          /* 主页也分页：postCount 可能远超首屏 20 条，前端按 offset 续拉 */
+          postsHasMore: page.hasMore,
+          postsNextOffset: page.nextOffset,
           products,
         });
       }

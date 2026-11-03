@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
   CalendarDays,
@@ -107,6 +108,9 @@ function Avatar({
   );
 }
 
+/** 信息流一页多少条（服务端上限 50） */
+const FEED_PAGE = 20;
+
 export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
   const en = locale === "en";
   const [me, setMe] = useState<AuthUser | null>(null);
@@ -115,6 +119,10 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
   const [posts, setPosts] = useState<WorldPost[]>([]);
   const [tab, setTab] = useState<"latest" | "following">("latest");
   const [loading, setLoading] = useState(true);
+  /* 分页：/world 一页 20 条，滚到底再按 offset 续拉，避免只看到最新一屏 */
+  const [hasMore, setHasMore] = useState(false);
+  const [nextOffset, setNextOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [text, setText] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [showLink, setShowLink] = useState(false);
@@ -171,7 +179,11 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
     const res = await fetchProfile(login);
     setUserProfile(res);
     setProfileMissing(!res);
-    if (res) setPosts(res.posts);
+    if (res) {
+      setPosts(res.posts);
+      setHasMore(!!res.postsHasMore);
+      setNextOffset(res.postsNextOffset || 0);
+    }
   }, []);
 
   useEffect(() => {
@@ -181,10 +193,32 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
 
   const load = useCallback(async (which: "latest" | "following") => {
     setLoading(true);
-    const list = await fetchFeed({ tab: which, limit: 60 });
-    setPosts(list);
+    setLoadingMore(false);
+    const page = await fetchFeed({ tab: which, limit: FEED_PAGE });
+    setPosts(page.posts);
+    setHasMore(page.hasMore);
+    setNextOffset(page.nextOffset);
     setLoading(false);
   }, []);
+
+  /* 往下翻一页：offset 由服务端算好带回来，追加而不是替换。
+     主页视图走 /world?author=，时间线走 /world?tab=。 */
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const page = await fetchFeed(
+      viewUser
+        ? { author: viewUser, limit: FEED_PAGE, offset: nextOffset }
+        : { tab, limit: FEED_PAGE, offset: nextOffset },
+    );
+    setPosts((prev) => {
+      const seen = new Set(prev.map((x) => x.id));
+      return [...prev, ...page.posts.filter((p) => !seen.has(p.id))];
+    });
+    setHasMore(page.hasMore);
+    setNextOffset(page.nextOffset);
+    setLoadingMore(false);
+  }, [hasMore, loadingMore, nextOffset, tab, viewUser]);
 
   useEffect(() => {
     void fetchMe().then((u) => { setMe(u); setMeReady(true); });
@@ -917,6 +951,30 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {/* 翻页：时间线与用户主页都支持。搜索结果本身有 20 条上限，不需要翻。 */}
+      {!loading && !searchPending && !searching && hasMore && (
+        <div className="border-t border-border px-4 py-4">
+          <button
+            type="button"
+            onClick={() => void loadMore()}
+            disabled={loadingMore}
+            className="flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-border bg-card text-[13px] font-medium text-foreground/80 transition-colors hover:border-accent/40 hover:text-accent disabled:opacity-60"
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                {en ? "Loading…" : "加载中…"}
+              </>
+            ) : (
+              <>
+                {en ? "Load older posts" : "加载更早的帖子"}
+                <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+              </>
+            )}
+          </button>
+        </div>
       )}
       </div>
 
