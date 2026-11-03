@@ -9,6 +9,7 @@ import { p } from "@/lib/paths";
 import ProductCard from "@/components/ProductCard.astro";
 import SectionHeading from "@/components/SectionHeading.astro";
 import HeroSearch from "@/islands/HeroSearch.tsx";
+import Typewriter from "@/islands/Typewriter.tsx";
 import LaunchesExplorer from "@/islands/LaunchesExplorer.tsx";
 import type { Locale } from "@/i18n";
 import { categoryDescription } from "@/i18n/data";
@@ -46,13 +47,32 @@ const metaDesc = en
       <p class="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-accent sm:mb-4 sm:text-[11px]">
         SolHub · Discover · Build · Share
       </p>
-      <p class="mx-auto mt-2 max-w-2xl text-[15px] leading-7 text-muted-foreground sm:text-base">
-        {en ? (
-          <>Explore products indie developers are building, use simple, practical, free online tools,<br class="hidden sm:block" />and ship every good idea faster.</>
-        ) : (
-          <>探索独立开发者正在创造的产品，使用简单、实用、免费的在线工具，<br class="hidden sm:block" />让每一个好想法更快落地。</>
-        )}
+      <p
+        class={`mx-auto mt-2 max-w-2xl text-[15px] leading-7 text-muted-foreground sm:text-base ${
+          en ? "min-h-[5.25rem] sm:min-h-[3.5rem]" : "min-h-[3.5rem]"
+        }`}
+      >
+        {/* 文案逐字「打」出来；min-h 预留两行高度，避免打字过程中把下方搜索框顶来顶去 */}
+        <Typewriter
+          client:load
+          lines={
+            en
+              ? [
+                  "Explore products indie developers are building, use simple, practical, free online tools, ",
+                  "and ship every good idea faster.",
+                ]
+              : ["探索独立开发者正在创造的产品，使用简单、实用、免费的在线工具，", "让每一个好想法更快落地。"]
+          }
+          speed={38}
+          startDelay={340}
+        />
       </p>
+      {/* 无 JS 时把 sr-only 的完整文案放出来（此时不会打字） */}
+      <noscript>
+        <style is:inline>
+          .tw-sr{position:static;width:auto;height:auto;margin:0;padding:0;overflow:visible;clip:auto;clip-path:none;white-space:normal;border:0}
+        </style>
+      </noscript>
 
       <div class="mx-auto mt-8 max-w-xl">
         <HeroSearch client:load />

@@ -331,3 +331,35 @@ html.viewport-mobile .app-tabbar {
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
 }
+
+/* ============================================================
+   打字机动效（首页 hero 文案）
+   ============================================================ */
+.tw-caret {
+  display: inline-block;
+  width: 1.5px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  border-radius: 1px;
+  background: var(--color-accent);
+  animation: tw-caret-blink 1.05s steps(1, end) infinite;
+}
+@keyframes tw-caret-blink {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 系统要求减弱动效时：不做闪烁（打字过程在 JS 里也已跳过） */
+@media (prefers-reduced-motion: reduce) {
+  .tw-caret {
+    animation: none;
+    opacity: 0;
+  }
+}
