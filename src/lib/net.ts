@@ -47,13 +47,17 @@ export async function request(
   const retries = opts.retries ?? DEFAULT_RETRIES;
 
   let credentials: RequestCredentials = opts.omitCredentials ? "omit" : "include";
-  const headers: Record<string, string> = {};
+
+  /* 用 Headers 实例合并，兼容 init.headers 是 Headers 实例（管理后台 call() 就是）或普通对象。
+   * 关键：绝对不能对 Headers 实例做对象展开——{...headersInstance} 会得到 {}，
+   * 所有头部（X-Admin-Key / Content-Type 等）都被静默丢弃，导致口令永远校验失败。 */
+  const mergedHeaders = new Headers(init.headers);
   try {
     const t = getAuthToken();
     if (t) {
       credentials = "omit";
-      if (t.type === "email") headers["X-Solhub-Session"] = t.token;
-      else if (t.type === "github") headers["Authorization"] = `Bearer ${t.token}`;
+      if (t.type === "email") mergedHeaders.set("X-Solhub-Session", t.token);
+      else if (t.type === "github") mergedHeaders.set("Authorization", `Bearer ${t.token}`);
     }
   } catch {
     /* sessionStorage 不可用时退回 Cookie 路径 */
@@ -62,7 +66,7 @@ export async function request(
   const finalInit: RequestInit = {
     ...init,
     credentials,
-    headers: { ...(init.headers as Record<string, string> | undefined), ...headers },
+    headers: mergedHeaders,
   };
 
   let lastError: unknown = null;
