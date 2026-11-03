@@ -3,20 +3,21 @@
 export default function GoldBadge({ className = "h-[15px] w-[15px]" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-label="Verified" role="img" fill="none">
-      {/* 星齿/花瓣外圈：橙色描边，透明填充 */}
-      <path
+      {/* 圆形外圈：橙色描边，透明填充（正圆，不歪不扁） */}
+      <circle
+        cx={12}
+        cy={12}
+        r={9.5}
         stroke="#F08A4B"
         strokeWidth={2}
-        strokeLinejoin="round"
-        d="M12 1.6l2.6 2.2 3.4-.4 1.1 3.2 3 1.7-1 3.2 1 3.2-3 1.7-1.1 3.2-3.4-.4L12 22.4l-2.6-2.2-3.4.4-1.1-3.2-3-1.7 1-3.2-1-3.2 3-1.7 1.1-3.2 3.4.4z"
       />
-      {/* 内部对勾：橙色描边 */}
+      {/* 内部对勾：橙色描边，居中 */}
       <path
         stroke="#F08A4B"
         strokeWidth={2.4}
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M8.5 12.2l2.3 2.3 4.7-4.7"
+        d="M8.4 12.1l2.4 2.4 4.8-4.8"
       />
     </svg>
   );
