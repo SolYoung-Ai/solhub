@@ -928,7 +928,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-1">
                             <span className="truncate text-[13px] font-medium text-foreground">{dev.name}</span>
-                            {dev.verified && <BadgeCheck className="h-3 w-3 shrink-0 text-accent" aria-hidden="true" />}
+                            {dev.verified && <GoldBadge className="h-3 w-3 shrink-0" />}
                           </span>
                           <span className="block truncate text-[11px] text-muted-foreground">
                             @{dev.author} · {dev.count} {en ? (dev.count > 1 ? "posts" : "post") : "条动态"}
