@@ -3133,6 +3133,37 @@ export default {
       }
     }
 
+    /* ---------- 运维：重置某账号头像（存量头像压缩迁移用） ----------
+       只改 user:<email> 的 avatar 一个字段，value 必须是合法的图片 data URL，
+       并且 base64 长度要是 4 的倍数（截断/多字符会在这里被挡住，不会写坏数据）。 */
+    if (url.pathname === "/admin/set-avatar" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      if (!adminKeyOk(request, env)) return json(request, { error: "需要管理口令", needKey: true }, 401);
+      let body = {};
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const items = Array.isArray(body.items) ? body.items : [];
+      if (!items.length) return json(request, { error: "items 不能为空" }, 400);
+      const done = [];
+      for (const item of items.slice(0, 50)) {
+        const email = String(item.email || "").trim().toLowerCase();
+        const avatar = String(item.avatar || "");
+        if (!EMAIL_RE.test(email)) return json(request, { error: `邮箱格式不正确：${email}` }, 400);
+        const m = /^data:image\/(png|jpe?g|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/.exec(avatar);
+        if (!m) return json(request, { error: `头像不是合法的图片 data URL：${email}` }, 400);
+        if (m[2].length % 4 !== 0) return json(request, { error: `头像 base64 长度异常（${m[2].length}）：${email}` }, 400);
+        if (avatar.length > 40000) return json(request, { error: `头像过大（${avatar.length}）：${email}` }, 413);
+        const key = `user:${email}`;
+        const user = await kvGetJSON(env, key, null, true);
+        if (!user) return json(request, { error: `账号不存在：${email}` }, 404);
+        user.avatar = avatar;
+        const next = JSON.stringify(user);
+        await env.PROFILES.put(key, next);
+        await cacheWrite(env, key, next);
+        done.push({ email, bytes: Math.floor((m[2].length * 3) / 4) });
+      }
+      return json(request, { ok: true, updated: done });
+    }
+
     /* ---------- 运维：指定某账号的用户名（保留名可在此豁免） ---------- */
     if (url.pathname === "/admin/set-handle" && request.method === "POST") {
       if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
