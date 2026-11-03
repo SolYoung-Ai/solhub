@@ -11,38 +11,16 @@ interface Props {
 const { locale = "zh" } = Astro.props;
 const dict = getDict(locale);
 
-/* 页脚全部功能入口：收在「关于」下拉里（桌面与手机共用同一份数据）。
- * 分组顺序沿用原来的四列：产品 / 关于 / 项目。 */
-type MenuGroup = { title: string; links: { label: string; href: string; external?: boolean }[] };
+/* 页脚入口：收在「关于」下拉里（桌面与手机共用同一份数据）。
+ * 只保留 3 项：关于 / 隐私说明 / GitHub 仓库；其余入口顶部导航已有，避免重复。 */
+type MenuLink = { label: string; href: string; external?: boolean };
 
-const menuGroups: MenuGroup[] = [
-  {
-    title: locale === "en" ? "Product" : "产品",
-    links: [
-      { label: translate(dict, "footer.discover"), href: p("/", locale) },
-      { label: translate(dict, "footer.launches"), href: p("/launches/", locale) },
-    ],
-  },
-  {
-    title: locale === "en" ? "About" : "关于",
-    links: [
-      { label: translate(dict, "nav.about"), href: p("/about/", locale) },
-      { label: translate(dict, "footer.privacy"), href: p("/privacy/", locale) },
-      { label: translate(dict, "nav.submit"), href: p("/submit/", locale) },
-    ],
-  },
-  {
-    title: locale === "en" ? "Project" : "项目",
-    links: [
-      ...(siteConfig.githubUrl
-        ? [{ label: locale === "en" ? "GitHub repo ↗" : "GitHub 仓库 ↗", href: siteConfig.githubUrl, external: true }]
-        : []),
-      {
-        label: locale === "en" ? "Verification" : "核验机制说明",
-        href: p("/about/#verification", locale),
-      },
-    ],
-  },
+const menuLinks: MenuLink[] = [
+  { label: translate(dict, "nav.about"), href: p("/about/", locale) },
+  { label: translate(dict, "footer.privacy"), href: p("/privacy/", locale) },
+  ...(siteConfig.githubUrl
+    ? [{ label: locale === "en" ? "GitHub repo ↗" : "GitHub 仓库 ↗", href: siteConfig.githubUrl, external: true }]
+    : []),
 ];
 ---
 
@@ -74,31 +52,24 @@ const menuGroups: MenuGroup[] = [
       </summary>
 
       <div
-        class="absolute bottom-full right-0 z-40 mb-2 w-56 overflow-hidden rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur md:w-60"
+        class="absolute bottom-full right-0 z-40 mb-2 w-40 overflow-hidden rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur md:w-44"
       >
-        {
-          menuGroups.map((group) => (
-            <div class="mt-1 first:mt-0">
-              <p class="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                {group.title}
-              </p>
-              <ul>
-                {group.links.map((link) => (
-                  <li>
-                    <a
-                      href={link.href}
-                      target={link.external ? "_blank" : undefined}
-                      rel={link.external ? "noopener noreferrer" : undefined}
-                      class="block rounded-lg px-2 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                    >
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))
-        }
+        <ul>
+          {
+            menuLinks.map((link) => (
+              <li>
+                <a
+                  href={link.href}
+                  target={link.external ? "_blank" : undefined}
+                  rel={link.external ? "noopener noreferrer" : undefined}
+                  class="block rounded-lg px-2.5 py-2 text-[12px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  {link.label}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
       </div>
     </details>
   </div>
