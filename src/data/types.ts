@@ -1,6 +1,6 @@
 /**
  * SolHub 统一数据模型
- * 所有页面（首页 / 榜单 / 搜索 / 详情）都从统一数据源读取。
+ * 所有页面（首页 / 产品 / 搜索 / 详情）都从统一数据源读取。
  */
 
 export type VerificationStatus = "verified" | "pending" | "unverified";
@@ -23,7 +23,7 @@ export interface Product {
   developerName: string;
   /**
    * 开发者账号（登录名 / 邮箱）。有值时产品详情页的「开发者」会链接到
-   * 该账号在世界页的个人主页（/world/?u=<login>）；为空则只显示纯文本。
+   * 该账号的创作者主页（/world/?u=<login>）；为空则只显示纯文本。
    */
   developerLogin?: string;
   /** 社区产品的提交者账号（由 Worker 写入 community.json，作为 developerLogin 的兜底） */
@@ -35,7 +35,7 @@ export interface Product {
   /** 核验方式说明 */
   verificationMethod?: string;
   verifiedAt?: string;
-  /** 榜单排序值（人工精选顺序），可选 */
+  /** 精选排序值（人工精选顺序），可选 */
   rankPosition?: number;
   /** 是否为演示数据。演示数据不会获得虚假核验状态。 */
   isDemo: boolean;

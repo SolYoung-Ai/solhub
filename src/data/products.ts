@@ -10,11 +10,11 @@ import communityProducts from "./community.json";
  * 2. verificationStatus="verified" 仅授予 SolHub 编辑已实际核验的产品：
  *    人工访问官网 → 核对产品名称、描述、站点可访问性 → 记录核验时间与方法。
  * 3. publishedAt 表示「SolHub 收录时间」（即加入本平台的时间），不是产品自身的发布日期，
- *    避免编造无法核实的发布时间；榜单批次 launchBatch 表示人工精选批次。
+ *    避免编造无法核实的发布时间；精选批次 launchBatch 表示人工精选批次。
  * 4. rankPosition 是人工精选顺序，规则见 src/lib/ranking.ts，与数据分离。
  */
 
-/** 目录内产品的开发者用户名（handle）。详情页「开发者」据此链接到其世界页个人主页。 */
+/** 目录内产品的开发者用户名（handle）。详情页「开发者」据此链接到其创作者主页。 */
 const OWNER_LOGIN = "solyoung";
 export const products: Product[] = [
   {

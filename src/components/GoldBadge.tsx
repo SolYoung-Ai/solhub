@@ -1,5 +1,5 @@
 /** Verified 徽章（橙色线描圆标 + 描边对勾，统一用户认证标志样式）。
- *  用于世界页、个人主页、搜索与管理后台——所有「用户/作者账号认证」处统一此样式。 */
+ *  用于创作者名录、个人主页、搜索与管理后台——所有「用户账号认证」处统一此样式。 */
 export default function GoldBadge({ className = "h-[15px] w-[15px]" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-label="Verified" role="img" fill="none">

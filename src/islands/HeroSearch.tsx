@@ -13,7 +13,7 @@ export default function HeroSearch() {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  /* 用户是否用方向键在下拉里挪动过：挪过 → Enter 进选中项；没挪过 → Enter 去榜单页看全部结果 */
+  /* 用户是否用方向键在下拉里挪动过：挪过 → Enter 进选中项；没挪过 → Enter 去产品页看全部结果 */
   const [keyNav, setKeyNav] = useState(false);
   /* 窄屏放不下完整占位文案（会被硬截断成 “SolY”），单独给一版短的。
      用 effect 而非初始值，避免 SSR 与首帧水合不一致。 */
@@ -43,8 +43,8 @@ export default function HeroSearch() {
     window.location.href = p(`/products/${r.slug}/`, locale);
   };
 
-  /* 提交搜索：统一去榜单页，带上关键词看完整列表（而不是替用户直接跳进某个产品）。
-     榜单页的 LaunchesExplorer 会读 ?q= 把关键词填进搜索框并过滤。 */
+  /* 提交搜索：统一去产品页，带上关键词看完整列表（而不是替用户直接跳进某个产品）。
+     产品页的 LaunchesExplorer 会读 ?q= 把关键词填进搜索框并过滤。 */
   const submit = () => {
     const q = query.trim();
     if (!q) {
@@ -69,7 +69,7 @@ export default function HeroSearch() {
             else if (e.key === "ArrowUp") { e.preventDefault(); setKeyNav(true); setActive((a) => Math.max(a - 1, 0)); }
             else if (e.key === "Enter") {
               e.preventDefault();
-              /* 用方向键选过 → 进那一个；只是敲了词直接回车 → 去榜单页看全部结果 */
+              /* 用方向键选过 → 进那一个；只是敲了词直接回车 → 去产品页看全部结果 */
               if (keyNav && results[active]) go(results[active]);
               else submit();
             }
@@ -93,7 +93,7 @@ export default function HeroSearch() {
           type="button"
           onClick={submit}
           className="shrink-0 rounded-[7px] bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent/90"
-          aria-label={locale === "en" ? "Search all products" : "在榜单中搜索"}
+          aria-label={locale === "en" ? "Search all products" : "在产品中搜索"}
         >
           <span className="hidden sm:inline">{locale === "en" ? "Search" : "搜索"}</span>
           <Search className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
@@ -119,14 +119,14 @@ export default function HeroSearch() {
                 </button>
               </li>
             ))}
-            {/* 不想逐条挑？直接去榜单页看完整结果 */}
+            {/* 不想逐条挑？直接去产品页看完整结果 */}
             <li className="border-t border-border">
               <button
                 type="button"
                 onClick={submit}
                 className="flex w-full items-center justify-between px-4 py-2 text-[12px] text-accent hover:bg-secondary"
               >
-                <span>{locale === "en" ? "See all results in rankings" : "在榜单中查看全部结果"}</span>
+                <span>{locale === "en" ? "See all results in products" : "在产品中查看全部结果"}</span>
                 <span aria-hidden="true">→</span>
               </button>
             </li>
@@ -137,7 +137,7 @@ export default function HeroSearch() {
         <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-[10px] border border-border bg-card px-4 py-3 text-[13px] text-muted-foreground shadow-xl">
           <p>{translate(dict, "search.emptyTitle", { q: query.trim() })}</p>
           <button type="button" onClick={submit} className="mt-1.5 text-[12px] text-accent hover:underline">
-            {locale === "en" ? "Search in rankings anyway →" : "仍然去榜单里搜一次 →"}
+            {locale === "en" ? "Search products anyway →" : "仍然去产品里搜一次 →"}
           </button>
         </div>
       )}

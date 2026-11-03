@@ -194,7 +194,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
             <div className="inline-flex rounded-[6px] border border-border bg-card p-0.5" role="group" aria-label={locale === "en" ? "Sort order" : "排序方式"}>
               {(
                 [
-                  ["ranked", locale === "en" ? "Ranked" : "榜单顺序"],
+                  ["ranked", locale === "en" ? "Curated" : "精选顺序"],
                   ["newest", locale === "en" ? "Newest" : "最新收录"],
                 ] as const
               ).map(([key, label]) => (

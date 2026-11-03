@@ -1,7 +1,7 @@
 import type { Product } from "@/data/types";
 
 /**
- * SolHub 榜单排序规则 —— 与数据分离，页面只消费排序结果与规则说明。
+ * SolHub 产品排序规则 —— 与数据分离，页面只消费排序结果与规则说明。
  *
  * 规则（透明、可解释，v1 以人工精选 + 核验状态为主，不包含任何随机分数）：
  * 1. 核验状态权重：verified(0) > pending(1) > unverified(2)；
@@ -34,7 +34,7 @@ function verificationWeight(s: Product["verificationStatus"]): number {
   }
 }
 
-/** 排序规则说明（用于榜单页向访问者解释排名机制） */
+/** 排序规则说明（用于产品页向访问者解释排序机制） */
 export const rankingRules: { title: string; detail: string }[] = [
   {
     title: "核验优先",

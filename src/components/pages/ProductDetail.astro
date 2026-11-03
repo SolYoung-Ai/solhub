@@ -222,7 +222,7 @@ const schemaJsonLd = {
             <dd class="font-medium text-foreground">{formatDateZh(product.publishedAt)}</dd>
           </div>
           <div class="flex items-center justify-between py-2">
-            <dt class="text-muted-foreground">{en ? "Launch batch" : "榜单批次"}</dt>
+            <dt class="text-muted-foreground">{en ? "Curated batch" : "精选批次"}</dt>
             <dd class="font-medium text-foreground">{product.launchBatch}</dd>
           </div>
         </dl>
@@ -231,7 +231,7 @@ const schemaJsonLd = {
           <p class="text-[13px] leading-6 text-muted-foreground">
             {en
               ? "Want on the list? Submit your product — it gets Verified only after passing a real check. Verification is manual today; automatic checks (Meta Tag / DNS TXT) are not enabled yet."
-              : "想加入榜单？提交你的产品，通过核验后将获得 Verified 状态。当前核验为人工核验，自动核验（Meta Tag / DNS TXT）功能尚未启用。"}
+              : "想加入产品列表？提交你的产品，通过核验后将获得 Verified 状态。当前核验为人工核验，自动核验（Meta Tag / DNS TXT）功能尚未启用。"}
           </p>
           <a href={p("/submit/", locale)} class="btn btn-accent mt-3 w-full !h-9">
             {en ? "Submit product" : "提交产品"}
