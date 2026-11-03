@@ -464,3 +464,79 @@ encodeURIComponent(str)
 | `scripts/_push_api.mjs` | 网络受限时用 Git Data API 推送（绕过 git 代理） |
 | `scripts/test-aliyun-sign.mjs` | **阿里云签名回归测试**：与官方 SDK `@alicloud/openapi-core` 交叉比对，3 个用例逐字节一致 |
 | `scripts/test-aliyun-live.mjs` | 用假 AK 打真实接口，验证参数编码与请求结构能进到鉴权阶段 |
+
+---
+
+## 六、数据备份与恢复（2026-11-04 起）
+
+### 为什么是自己做的
+
+CloudBase PostgreSQL 的**自动备份 / 手动备份 / 时间点恢复都由底层腾讯云 PostgreSQL 提供，
+且只对独享实例开放**。本环境是共享实例（`postgres-b140irpg`，`TenantType: SHARED`，
+套餐 `baas_trial` 体验版），控制台里没有备份入口 —— 不是没开，是这个档位没有这项能力。
+
+云存储这条路在同一次排查里也被排除了：PG 环境的旧 COS SDK 直接返回
+`STORAGE_NOT_SUPPORTED`（提示升级 SDK），pgstore 又还没进 `@cloudbase/node-sdk@3.18.7`。
+所以备份落在**数据库自己的表**里。
+
+### 现在的机制
+
+| 项目 | 值 |
+|---|---|
+| 表 | `public.kv_backup`（迁移 `20261104020000_create_kv_backup.sql`） |
+| 形态 | 一天一份全量键值，`PRIMARY KEY (taken_on, key)` |
+| 触发 | `solhub-cron` 的 `backup-daily` timer，每天 **03:30**（北京时间） |
+| 保留 | **30 天**，每次备份顺手删掉 30 天前那份 |
+| 体积 | 约 70 行 / 200 KB 一份（含 base64 头像）→ 30 天约 6 MB |
+| 权限 | 只有 `service_role` 有 GRANT，`anon` / `authenticated` 零授权且 RLS 开启 |
+| 状态记录 | KV 键 `backup:days`（已有哪些日期）、`backup:last`（最近一次的行数与耗时） |
+
+同一天重复跑只**覆盖**当天那份（先按 `taken_on` 删除再批量插入），不会累积重复快照。
+
+### 怎么手动备份 / 恢复
+
+都走 `solhub-cron` 这一个函数，用 `action` 分流：
+
+```bash
+# 立刻备份一次
+{ "action": "backup" }
+
+# 预览某天的恢复（不写库）
+{ "action": "restore", "confirm": "RESTORE", "dryRun": true }
+
+# 真恢复（默认取 backup:days 里最新的一天；也可传 "takenOn": "2026-11-04"）
+{ "action": "restore", "confirm": "RESTORE" }
+```
+
+控制台「云函数 → solhub-cron → 测试」里粘贴上述 JSON 即可，或用 MCP 的 `invokeFunction`。
+
+**恢复的语义是「补回」而不是「整库回滚」**：快照里有的键覆盖写回，快照里没有、
+库里现在有的键**保留**。这样误删/改坏能救回来，又不会把备份之后新注册的用户一起抹掉。
+真要整库回到某一天，先手动 `DELETE FROM kv` 再恢复 —— 属于人工决策，没放进自动化。
+
+### 它兜得住什么、兜不住什么
+
+| 场景 | 结果 |
+|---|---|
+| 误 `DELETE` / 误 `UPDATE` 一批键 | ✅ 恢复到当天快照 |
+| 迁移脚本或代码缺陷写坏数据 | ✅ 同上 |
+| 实例被销毁 / 环境被回收 / 账号异常 | ❌ **表和数据同生共死** |
+
+要覆盖最后一类，只有两条路：① 升级到独享实例用平台备份（顺带拿到 PITR）；
+② 定期把快照导一份到环境之外。导出可以直接用只读 SQL：
+
+```sql
+COPY (SELECT taken_on, key, value, expires_at FROM public.kv_backup
+      WHERE taken_on = '2026-11-04')
+  TO STDOUT WITH (FORMAT csv, HEADER true);
+```
+
+> ⚠️ 导出文件里含密码哈希（`pw:*`）、会话令牌（`session:*`）、验证码（`vcode:*`），
+> 落到本地后要按密钥对待：不要进仓库、不要发聊天工具、用完删掉。
+
+### 每月该做的一次演练
+
+备份只有在能恢复时才成立。每月挑一天，跑一次 `restore` + `dryRun: true` 看行数对不对，
+再抽查 2~3 个键（比如自己的 `user:` 记录）确认内容完整。行数明显少于线上 `SELECT count(*) FROM kv`
+就说明备份链路出问题了。
+
