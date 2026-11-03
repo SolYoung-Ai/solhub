@@ -222,7 +222,10 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
                 setPassErr(null);
               }}
               autoFocus
-              autoComplete="current-password"
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="管理口令"
               className="w-full rounded-full border border-border bg-secondary/40 py-2.5 pl-9 pr-3 text-center text-[15px] tracking-widest outline-none transition-colors placeholder:tracking-normal placeholder:text-muted-foreground focus:border-accent"
             />
@@ -234,7 +237,8 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
           </button>
         </form>
         <p className="mt-6 text-center text-[12px] text-muted-foreground">
-          忘记口令可重新部署 Worker 并更新 <code className="rounded bg-secondary px-1 py-0.5">ADMIN_KEY</code>。
+          口令输入时会自动规整（忽略全角/不可见字符）。如需更换口令，在后端云函数环境变量里更新{" "}
+          <code className="rounded bg-secondary px-1 py-0.5">ADMIN_KEY</code>。
         </p>
       </div>
     );

@@ -20,9 +20,25 @@ export interface AdminResult<T> {
  */
 const KEY_STORAGE = "solhub.admin.key";
 
+/** 规整用户输入的口令，消除「看起来一样但比对失败」的隐形因素：
+ *  - 去除所有空白与不可见字符（零宽空格 U+200B/C/D、不换行空格、BOM 等）
+ *  - 全角 ASCII（含全角数字 ０-９）转半角，避免中文输入法敲出的全角串比对失败
+ *  后端 adminKeyOk 按字符逐一比对 ASCII 码，全角与半角长度相同却字符不同，
+ *  会静默判错；这里在发送前归一化，从根本上解决「输入 2944354040 却进不去」。 */
+function normalizeKey(input: string): string {
+  return String(input || "")
+    // 不可见字符：NBSP(U+00A0)、U+2000-U+200D 各类窄空格与零宽字符、U+2060、BOM(U+FEFF)
+    .replace(/[\u00a0\u2000-\u200d\u2060\ufeff]/g, "")
+    // 常规空白（含首尾空格、换行、制表符）
+    .replace(/\s+/g, "")
+    // 全角 ASCII -> 半角（含全角数字 ０-９、全角标点）
+    .replace(/[\uff01-\uff5e]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
+}
+
 export function getAdminKey(): string {
   try {
-    return window.sessionStorage.getItem(KEY_STORAGE) || "";
+    // 读取时也归一化，防御历史会话里可能残留的全角/带不可见字符的口令
+    return normalizeKey(window.sessionStorage.getItem(KEY_STORAGE) || "");
   } catch {
     return "";
   }
@@ -60,10 +76,13 @@ async function call<T>(path: string, init?: RequestInit): Promise<AdminResult<T>
   }
 }
 
-/** 用口令试一次 /admin/stats：成功则记住口令。 */
+/** 用口令试一次 /admin/stats：成功则记住口令。
+ *  发送前先 normalizeKey 归一化（去不可见字符、全角转半角），
+ *  避免中文输入法/复制粘贴带出的隐形差异导致「明明输对却判错」。 */
 export async function unlockAdmin(key: string): Promise<AdminResult<AdminStats>> {
-  const res = await call<AdminStats>("/admin/stats", { headers: { "X-Admin-Key": key } });
-  if (res.status === "ok") setAdminKey(key);
+  const normalized = normalizeKey(key);
+  const res = await call<AdminStats>("/admin/stats", { headers: { "X-Admin-Key": normalized } });
+  if (res.status === "ok") setAdminKey(normalized);
   else if (res.status === "locked") setAdminKey("");
   return res;
 }
