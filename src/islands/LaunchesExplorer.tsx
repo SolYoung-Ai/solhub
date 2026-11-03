@@ -1,10 +1,11 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { ArrowRight, Filter, Search, ShieldCheck } from "lucide-react";
 import type { Product } from "@/data/types";
 import { rankProducts } from "@/lib/ranking";
 import { productCategoryName } from "@/data/product-categories";
 import { formatDateIso } from "@/lib/utils";
 import { p } from "@/lib/paths";
+import { buildSearchIndex, searchIndex } from "@/lib/search";
 import { cx, getLocale } from "@/lib/utils";
 import type { Locale } from "@/i18n";
 import { getDict, translate } from "@/i18n";
@@ -65,6 +66,31 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
   const [sort, setSort] = useState<"ranked" | "newest">("ranked");
   const [query, setQuery] = useState("");
   const [visible, setVisible] = useState(PAGE_SIZE);
+  const urlSynced = useRef(false);
+
+  /* 首页搜索条提交后带 ?q= 跳到这里：挂载后读一次，命中就把关键词填进搜索框。
+     用 effect 而不是 useState 初始值 —— SSR 阶段没有 location，写成初始值会导致水合不一致。 */
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) {
+      setQuery(q);
+      setVisible(PAGE_SIZE);
+    }
+  }, []);
+
+  /* 关键词变化时把它写回地址栏，方便分享 / 刷新后还在。
+     首次渲染跳过（那一次由上面的读 URL 负责），避免把 ?q= 先删掉再写回导致地址栏闪动。 */
+  useEffect(() => {
+    if (!urlSynced.current) {
+      urlSynced.current = true;
+      return;
+    }
+    const url = new URL(window.location.href);
+    const q = query.trim();
+    if (q) url.searchParams.set("q", q);
+    else url.searchParams.delete("q");
+    window.history.replaceState(null, "", url.toString());
+  }, [query]);
 
   const filtered = useMemo(() => {
     let list = ranked;
@@ -72,13 +98,11 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
       list = list.filter((p) => p.category === category);
     }
     if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          productShortDescription(p.slug, p.shortDescription, locale).toLowerCase().includes(q) ||
-          p.tags.some((t) => t.toLowerCase().includes(q)),
+      /* 复用首页搜索条同一套索引与评分，保证「首页能搜到的，这里也一定搜得到」 */
+      const matched = new Set(
+        searchIndex(query, buildSearchIndex(products, locale), locale).map((e) => e.slug),
       );
+      list = list.filter((p) => matched.has(p.slug));
     }
     if (sort === "newest") {
       list = [...list].sort(
@@ -93,6 +117,27 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
 
   return (
     <div>
+      {/* 从首页搜索跳过来时的关键词提示条：让人一眼确认「搜的就是这个词」 */}
+      {query.trim() && (
+        <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-[8px] border border-accent/25 bg-accent/[0.06] px-3 py-2 text-[12px] text-muted-foreground">
+          <span>
+            {locale === "en" ? "Results for " : "搜索结果："}
+            <strong className="font-medium text-foreground">“{query.trim()}”</strong>
+            {locale === "en" ? ` · ${filtered.length} found` : ` · 共 ${filtered.length} 个`}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setVisible(PAGE_SIZE);
+            }}
+            className="text-accent underline-offset-2 hover:underline"
+          >
+            {locale === "en" ? "Clear" : "清除关键词"}
+          </button>
+        </div>
+      )}
+
       {/* 筛选与排序工具条 */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
