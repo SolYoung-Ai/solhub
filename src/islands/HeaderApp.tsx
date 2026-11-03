@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Compass,
-  Globe,
   Languages,
   LogOut,
   Moon,
-  Pencil,
+  Package,
   Plus,
   Search,
   ShieldCheck,
   Sun,
-  Trophy,
+  Users,
   UserCog,
   UserRound,
   X,
@@ -60,8 +59,8 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
 
   const NAV: { label: string; path: string; icon: typeof Compass; match: (r: string) => boolean; bottom?: boolean }[] = [
     { label: translate(dict, "nav.discover"), path: "/", icon: Compass, match: (r) => r === "/" },
-    { label: translate(dict, "nav.launches"), path: "/launches/", icon: Trophy, match: (r) => r.startsWith("/launches/") },
-    { label: translate(dict, "nav.world"), path: "/world/", icon: Globe, match: (r) => r.startsWith("/world/") },
+    { label: translate(dict, "nav.launches"), path: "/launches/", icon: Package, match: (r) => r.startsWith("/launches/") },
+    { label: translate(dict, "nav.world"), path: "/world/", icon: Users, match: (r) => r.startsWith("/world/") },
     { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, match: (r) => r.startsWith("/my-submissions/") },
   ];
 
@@ -149,16 +148,6 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
           {/* 主行动：紧跟导航区（对应 X 的「发帖」大按钮位置），
               不压在最底部 —— 底部只留辅助控件和账号，视觉重量更轻 */}
           <div className="mt-4 flex flex-col gap-2">
-            {/* 发帖：次级动作，跳世界页并直接打开写作框 */}
-            <a
-              href={p("/world/?compose=1", locale)}
-              title={en ? "New post" : "发帖"}
-              className="flex h-9 items-center justify-center gap-2 rounded-[8px] border border-border bg-card text-[13px] font-medium text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground"
-            >
-              <Pencil className="h-4 w-4 shrink-0" />
-              <span className="hidden xl:block">{en ? "Post" : "发帖"}</span>
-            </a>
-
             {/* 提交产品：主行动，整个侧栏唯一的实心色块 */}
             <a
               href={p("/submit/", locale)}

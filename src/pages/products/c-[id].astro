@@ -28,7 +28,7 @@ const { id } = Astro.params;
     <nav class="mb-6 flex items-center gap-1.5 text-xs text-muted-foreground" aria-label="面包屑">
       <a href={p("/")} class="hover:text-foreground">Home</a>
       <span aria-hidden="true">/</span>
-      <a href={p("/launches/")} class="hover:text-foreground">Launches</a>
+      <a href={p("/launches/")} class="hover:text-foreground">Products</a>
       <span aria-hidden="true">/</span>
       <span id="cd-crumb" class="truncate text-foreground/80">加载中…</span>
     </nav>
@@ -91,7 +91,7 @@ const { id } = Astro.params;
 
         <div class="card p-5">
           <p class="text-[13px] leading-6 text-muted-foreground">
-            想加入榜单？提交你的产品，通过核验后将获得 Verified 状态。当前核验为人工核验，自动核验功能尚未启用。
+            想加入产品列表？提交你的产品，通过核验后将获得 Verified 状态。当前核验为人工核验，自动核验功能尚未启用。
           </p>
           <a href={p("/submit/")} class="btn btn-accent mt-3 w-full !h-9">提交产品</a>
         </div>

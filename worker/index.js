@@ -2852,6 +2852,76 @@ export default {
       return new Response(bytes, { status: 200, headers });
     }
 
+    /* ---------- 创作者名录 ----------
+       数据源与 /users/<pid> 完全一致：邮箱账号（user:<email>）+ GitHub 账号（profile:<gh>）。
+       产品数按「社区提交 + 目录归属 + 手动认领」合并去重后统计，与个人主页显示的数量一致。
+       只用于列表展示，不返回邮箱、会话、封禁原因等私有字段。 */
+    if (url.pathname === "/creators" && request.method === "GET") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const qRaw = String(url.searchParams.get("q") || "").trim().slice(0, 60).toLowerCase();
+      const filter = String(url.searchParams.get("filter") || "all");
+      const limit = Math.min(Number(url.searchParams.get("limit") || 300) || 300, 300);
+
+      const [emailKeys, ghKeys, community, index] = await Promise.all([
+        listKeys(env, "user:", SEARCH_USER_SCAN),
+        listKeys(env, "profile:", 200),
+        readCommunity(env),
+        readProductIndex(env),
+      ]);
+      const raws = await kvGetMany(env, [...emailKeys, ...ghKeys]);
+      const all = [];
+      const seen = new Set();
+      raws.forEach((raw, i) => {
+        if (!raw) return;
+        let u;
+        try { u = JSON.parse(raw); } catch { return; }
+        const isEmail = i < emailKeys.length;
+        /* 对外只露 handle / GitHub 用户名，邮箱不参与展示 */
+        const login = isEmail
+          ? (u.handle || handleFromEmail(u.email || (emailKeys[i] || "").slice(5)))
+          : ghKeys[i - emailKeys.length];
+        if (!login || seen.has(login)) return;
+        seen.add(login);
+        const name = u.displayName || login;
+        const products = mergeProducts(productsOf(community, login), allClaimedSlugs(index, login, u), index);
+        all.push({
+          login,
+          name,
+          avatar: avatarUrl(imgBase, login, u.avatar),
+          bio: u.bio || "",
+          website: u.website || "",
+          location: u.location || "",
+          joinedAt: u.createdAt || "",
+          verified: !!u.verified,
+          productCount: products.length,
+        });
+      });
+
+      /* 列表按「有作品优先 → 认证优先 → 先加入优先」排，空白账号沉底 */
+      all.sort((a, b) =>
+        b.productCount - a.productCount ||
+        Number(b.verified) - Number(a.verified) ||
+        String(a.joinedAt).localeCompare(String(b.joinedAt)),
+      );
+
+      /* 命中搜索的才需要检查封禁，省掉一次全量批量读 */
+      let list = all;
+      if (qRaw) list = all.filter((c) => hit(qRaw, [c.name, c.login, c.bio, c.website, c.location]));
+      const bannedFlags = await kvGetMany(env, list.slice(0, 100).map((x) => `ban:${x.login}`));
+      const banned = new Set(list.slice(0, 100).filter((_, i) => bannedFlags[i]).map((x) => x.login));
+      list = list.filter((x) => !banned.has(x.login));
+
+      const counts = {
+        all: list.length,
+        verified: list.filter((x) => x.verified).length,
+        products: list.filter((x) => x.productCount > 0).length,
+      };
+      if (filter === "verified") list = list.filter((x) => x.verified);
+      else if (filter === "products") list = list.filter((x) => x.productCount > 0);
+
+      return json(request, { total: counts.all, counts, creators: list.slice(0, limit) });
+    }
+
     if (url.pathname === "/search" && request.method === "GET") {
       if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
       const identity = await getIdentity(request, env);

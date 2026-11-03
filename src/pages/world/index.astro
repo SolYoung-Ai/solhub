@@ -1,15 +1,17 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import WorldFeed from "@/islands/WorldFeed.tsx";
+import Creators from "@/islands/Creators.tsx";
 ---
 
 <BaseLayout
-  title="世界 · SolHub"
-  description="SolHub 世界：发布动态、分享链接、点赞评论，关注你喜欢的独立开发者。"
+  title="创作者 · SolHub"
+  description="SolHub 创作者名录：认识独立开发者，看看他们做过什么、在哪里能找到他们。按作品数量排序，支持按认证状态筛选与搜索。"
   route="/world/"
   locale="zh"
 >
-  <section class="py-0">
-    <WorldFeed client:load locale="zh" />
+  <section class="py-5 sm:py-7">
+    <div class="container-page">
+      <Creators client:load locale="zh" />
+    </div>
   </section>
 </BaseLayout>

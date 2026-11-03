@@ -22,7 +22,7 @@ import { p } from "@/lib/paths";
 import { request } from "@/lib/net";
 import { avatarOf, fetchMeState, logout, resizeImageToDataUrl, saveProfile, type AuthUser } from "@/lib/auth";
 import { copyText, ensureHttps } from "@/lib/utils";
-import { fetchFollowList, fetchProfile, timeAgo, type FollowUser, type PublicProfile, type WorldPost } from "@/lib/world";
+import { fetchFollowList, fetchProfile, type FollowUser, type PublicProfile } from "@/lib/world";
 import { base } from "@/lib/api-base";
 import type { Locale } from "@/i18n";
 
@@ -142,12 +142,11 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   const [savingSlug, setSavingSlug] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  /* 世界：帖子 / 关注 / 粉丝 */
-  const [tab, setTab] = useState<"products" | "posts" | "following" | "followers">("products");
+  /* 创作者：我的作品 / 关注 / 粉丝 */
+  const [tab, setTab] = useState<"products" | "following" | "followers">("products");
   const [world, setWorld] = useState<PublicProfile | null>(null);
   const [followList, setFollowList] = useState<FollowUser[]>([]);
   const [followLoading, setFollowLoading] = useState(false);
-  const [myPosts, setMyPosts] = useState<WorldPost[]>([]);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -188,14 +187,11 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         contact: me.contact || "",
         emailPublic: !!me.emailPublic,
       });
-      if (typeof window !== "undefined" && window.location.hash === "#posts") setTab("posts");
       await Promise.all([
         loadProducts(),
         fetchProfile(me.login)
-          .then((prof) => {
-            if (prof) { setWorld(prof); setMyPosts(prof.posts); }
-          })
-          .catch(() => { /* 忽略，帖子区显示空态 */ }),
+          .then((prof) => { if (prof) setWorld(prof); })
+          .catch(() => { /* 忽略，关注 / 粉丝区显示空态 */ }),
         me.authType === "github"
           ? request(`${base()}/my-issues`, { cache: "no-store" }, { retries: 1 })
               .then((res) => (res.ok ? res.json() : null))
@@ -680,7 +676,6 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
       <div className="mt-8 flex items-center gap-1 overflow-x-auto border-b border-border">
         {([
           { key: "products", label: en ? "Products" : "产品", count: products.length },
-          { key: "posts", label: en ? "Posts" : "帖子", count: myPosts.length },
           { key: "following", label: en ? "Following" : "关注", count: world?.followingCount ?? 0 },
           { key: "followers", label: en ? "Followers" : "粉丝", count: world?.followerCount ?? 0 },
         ] as const).map((t) => (
@@ -697,7 +692,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
           </button>
         ))}
         <a href={p("/world/", locale)} className="ml-auto shrink-0 px-2 text-[12px] text-accent hover:underline">
-          {en ? "Open World →" : "进入世界 →"}
+          {en ? "Open Creators →" : "进入创作者 →"}
         </a>
       </div>
 
@@ -811,52 +806,6 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         </>
       )}
 
-      {/* 帖子 */}
-      {tab === "posts" && (
-        <div className="mt-5">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-base font-bold text-foreground">{en ? "My posts" : "我的帖子"}</h2>
-            <a href={p("/world/", locale)} className="btn btn-outline !h-8 gap-1.5 px-4 text-xs">
-              {en ? "Write a post" : "去发帖"}
-            </a>
-          </div>
-          {myPosts.length === 0 ? (
-            <div className="mt-4 rounded-[10px] border border-dashed border-border bg-secondary/30 py-14 text-center">
-              <p className="text-sm font-medium text-foreground/70">{en ? "No posts yet" : "还没有发过帖子"}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {en ? "Share what you're building in the World." : "去「世界」分享你在做什么、丢个产品链接。"}
-              </p>
-              <a href={p("/world/", locale)} className="btn btn-accent mt-4 !h-9 px-5 text-xs">
-                {en ? "Post something" : "去发一条"}
-              </a>
-            </div>
-          ) : (
-            <ul className="mt-4 divide-y divide-border rounded-[10px] border border-border bg-card">
-              {myPosts.map((post) => (
-                <li key={post.id} className="px-4 py-3">
-                  <p className="text-[11px] text-muted-foreground">{timeAgo(post.createdAt, locale)}</p>
-                  {post.text && (
-                    <p className="mt-1 line-clamp-3 whitespace-pre-wrap break-words text-[13px] leading-6 text-foreground/90">{post.text}</p>
-                  )}
-                  {post.linkUrl && (
-                    <a href={ensureHttps(post.linkUrl)} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[12px] text-accent hover:underline">
-                      <ExternalLink className="h-3 w-3" /> {post.linkUrl.replace(/^https?:\/\//, "").slice(0, 48)}
-                    </a>
-                  )}
-                  <div className="mt-1.5 flex items-center gap-4 text-[11px] text-muted-foreground">
-                    <span>{post.likeCount} {en ? "likes" : "赞"}</span>
-                    <span>{post.commentCount} {en ? "comments" : "评论"}</span>
-                    <a href={p(`/world/?u=${encodeURIComponent(post.author)}`, locale)} className="ml-auto text-accent hover:underline">
-                      {en ? "View" : "查看"}
-                    </a>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
       {/* 关注 / 粉丝 */}
       {(tab === "following" || tab === "followers") && (
         <div className="mt-5">
@@ -876,11 +825,11 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {tab === "following"
-                  ? (en ? "Find creators in the World and follow them." : "去「世界」里找到感兴趣的创作者，点关注即可。")
-                  : (en ? "Post in the World to get discovered." : "在「世界」多发帖，会有人关注你。")}
+                  ? (en ? "Find creators in the directory and follow them." : "去「创作者」里找到感兴趣的人，点关注即可。")
+                  : (en ? "Submit a product to get discovered." : "提交作品，会有人找到你。")}
               </p>
               <a href={p("/world/", locale)} className="btn btn-outline mt-4 !h-9 px-5 text-xs">
-                {en ? "Explore World" : "逛逛世界"}
+                {en ? "Explore creators" : "逛逛创作者"}
               </a>
             </div>
           ) : (

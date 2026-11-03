@@ -1,14 +1,16 @@
 /**
- * 「世界」社交模块客户端（浏览器侧）。
- * 帖子、点赞、评论、关注全部走认证 Worker，数据存 KV，不写仓库。
+ * 「创作者」模块客户端（浏览器侧）。
+ *
+ * 发帖功能已下线：这里只保留「人」相关的读写 —— 创作者名录、公开主页、关注关系。
+ * 帖子 / 点赞 / 评论的接口不再被前端使用，服务端接口保留但不再有新入口。
  */
 
 import { request } from "@/lib/net";
 import { base } from "@/lib/api-base";
 
 /**
- * 官方账号：用于发布产品更新日志（新品上架与每日推荐）。
- * 公开标识就是 handle @solhub；历史帖子可能仍带邮箱形态，isOfficial 两种都认。
+ * 官方账号：用于产品更新日志。
+ * 公开标识就是 handle @solhub；历史数据可能仍带邮箱形态，isOfficial 两种都认。
  */
 export const OFFICIAL_LOGIN = "solhub";
 const OFFICIAL_LEGACY = "solhub@solyoung.top";
@@ -21,31 +23,7 @@ export function isOfficial(login: string | undefined | null): boolean {
   return v === OFFICIAL_LOGIN || v === OFFICIAL_LEGACY;
 }
 
-export interface WorldPost {
-  id: string;
-  author: string;
-  authorName: string;
-  authorAvatar?: string;
-  /** 作者黄V 认证（发帖时的快照，管理员认证后会回填） */
-  authorVerified?: boolean;
-  text: string;
-  linkUrl?: string;
-  createdAt: string;
-  likeCount: number;
-  likedByMe: boolean;
-  commentCount: number;
-}
-
-export interface WorldComment {
-  id: string;
-  author: string;
-  authorName: string;
-  authorAvatar?: string;
-  text: string;
-  createdAt: string;
-}
-
-/** 用户主页里展示的产品卡片（来自社区收录数据） */
+/** 用户主页里展示的作品卡片（来自社区收录数据） */
 export interface WorldProduct {
   slug: string;
   name: string;
@@ -80,14 +58,9 @@ export interface PublicProfile {
   };
   followerCount: number;
   followingCount: number;
-  postCount: number;
   productCount: number;
   isFollowing: boolean;
   isSelf: boolean;
-  posts: WorldPost[];
-  /** 主页帖子也有分页：首屏 20 条，之后按 postsNextOffset 续拉 */
-  postsHasMore?: boolean;
-  postsNextOffset?: number;
   products: WorldProduct[];
 }
 
@@ -97,21 +70,27 @@ export interface FollowUser {
   avatar?: string;
 }
 
-/** 搜索命中的开发者（含从未发帖、只注册过的账号） */
-export interface SearchUser {
+/** 创作者名录里的一行 */
+export interface Creator {
   login: string;
   name: string;
   avatar?: string;
   bio?: string;
   website?: string;
+  location?: string;
   joinedAt?: string;
+  /** 黄V 认证 */
   verified?: boolean;
+  productCount: number;
 }
 
-export interface SearchResult {
-  users: SearchUser[];
-  posts: WorldPost[];
+export interface CreatorList {
+  total: number;
+  counts: { all: number; verified: number; products: number };
+  creators: Creator[];
 }
+
+export type CreatorFilter = "all" | "verified" | "products";
 
 async function getJSON<T>(path: string, fallback: T): Promise<T> {
   try {
@@ -123,92 +102,33 @@ async function getJSON<T>(path: string, fallback: T): Promise<T> {
   }
 }
 
-export interface FeedPage {
-  posts: WorldPost[];
-  /** 还有更早的帖子可以继续翻 */
-  hasMore: boolean;
-  /** 下一页要带的 offset（服务端按 feed 下标算，翻页不会重复/漏条） */
-  nextOffset: number;
-}
-
-export async function fetchFeed(
-  opts: { tab?: "latest" | "following"; author?: string; limit?: number; offset?: number } = {},
-): Promise<FeedPage> {
+/**
+ * 创作者名录（全站注册账号，不限于发过内容的）。
+ * 排序由服务端定：有作品优先 → 认证优先 → 先加入优先。
+ */
+export async function fetchCreators(
+  opts: { q?: string; filter?: CreatorFilter; limit?: number } = {},
+): Promise<CreatorList> {
   const q = new URLSearchParams();
-  if (opts.tab) q.set("tab", opts.tab);
-  if (opts.author) q.set("author", opts.author);
+  if (opts.q) q.set("q", opts.q);
+  if (opts.filter && opts.filter !== "all") q.set("filter", opts.filter);
   if (opts.limit) q.set("limit", String(opts.limit));
-  if (opts.offset) q.set("offset", String(opts.offset));
-  /* 兼容旧版接口（只回数组、没有分页字段）：前端与云函数不是同时上线的，
-     两边都在线期间不能因为格式不一致把信息流清空。 */
-  const data = await getJSON<Partial<FeedPage> | WorldPost[]>(`/world?${q.toString()}`, {});
-  if (Array.isArray(data)) return { posts: data, hasMore: false, nextOffset: data.length };
-  return {
-    posts: Array.isArray(data.posts) ? data.posts : [],
-    hasMore: !!data.hasMore,
-    nextOffset: Number(data.nextOffset) || 0,
-  };
-}
-
-export async function createPost(input: { text: string; linkUrl?: string }): Promise<{ ok: boolean; error?: string; post?: WorldPost }> {
+  const empty: CreatorList = { total: 0, counts: { all: 0, verified: 0, products: 0 }, creators: [] };
   try {
-    /* 写操作不重试：网络抖动后重试可能重复发帖。只加超时，避免无限挂起。 */
-    const res = await request(`${base()}/world/posts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    }, { retries: 0 });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, error: data.error || `发布失败（${res.status}）` };
-    return { ok: true, post: data.post };
+    const res = await request(`${base()}/creators?${q.toString()}`, { cache: "no-store" }, { retries: 1 });
+    if (!res.ok) return empty;
+    const data = (await res.json()) as Partial<CreatorList>;
+    return {
+      total: Number(data.total) || 0,
+      counts: {
+        all: Number(data.counts?.all) || 0,
+        verified: Number(data.counts?.verified) || 0,
+        products: Number(data.counts?.products) || 0,
+      },
+      creators: Array.isArray(data.creators) ? data.creators : [],
+    };
   } catch {
-    return { ok: false, error: "网络错误，请稍后重试。" };
-  }
-}
-
-export async function deletePost(id: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const res = await request(`${base()}/world/posts/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    }, { retries: 0 });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, error: data.error || `删除失败（${res.status}）` };
-    return { ok: true };
-  } catch {
-    return { ok: false, error: "网络错误，请稍后重试。" };
-  }
-}
-
-export async function toggleLike(id: string): Promise<{ ok: boolean; liked?: boolean; likeCount?: number; error?: string }> {
-  try {
-    const res = await request(`${base()}/world/posts/${encodeURIComponent(id)}/like`, {
-      method: "POST",
-    }, { retries: 0 });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, error: data.error };
-    return { ok: true, liked: data.liked, likeCount: data.likeCount };
-  } catch {
-    return { ok: false, error: "网络错误" };
-  }
-}
-
-export async function fetchComments(id: string): Promise<WorldComment[]> {
-  const data = await getJSON<{ comments: WorldComment[] }>(`/world/posts/${encodeURIComponent(id)}/comments`, { comments: [] });
-  return Array.isArray(data.comments) ? data.comments : [];
-}
-
-export async function addComment(id: string, text: string): Promise<{ ok: boolean; error?: string; comment?: WorldComment }> {
-  try {
-    const res = await request(`${base()}/world/posts/${encodeURIComponent(id)}/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    }, { retries: 0 });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, error: data.error || `评论失败（${res.status}）` };
-    return { ok: true, comment: data.comment };
-  } catch {
-    return { ok: false, error: "网络错误，请稍后重试。" };
+    return empty;
   }
 }
 
@@ -238,46 +158,6 @@ export async function toggleFollow(login: string): Promise<{ ok: boolean; follow
 export async function fetchFollowList(login: string, kind: "following" | "followers"): Promise<FollowUser[]> {
   const data = await getJSON<{ users: FollowUser[] }>(`/users/${encodeURIComponent(login)}/${kind}`, { users: [] });
   return Array.isArray(data.users) ? data.users : [];
-}
-
-/**
- * 全站搜索（服务端）：开发者（所有注册账号）+ 帖子（全量信息流）。
- * Worker 端 /search 会遍历 KV 里的用户记录与帖子，不限于当前已加载的信息流。
- */
-export async function searchWorld(query: string, limit = 20): Promise<SearchResult> {
-  const q = query.trim();
-  if (!q) return { users: [], posts: [] };
-  const params = new URLSearchParams({ q, limit: String(limit) });
-  const empty: SearchResult = { users: [], posts: [] };
-  try {
-    const res = await request(`${base()}/search?${params.toString()}`, { cache: "no-store" }, { retries: 1 });
-    if (!res.ok) return empty;
-    const data = (await res.json()) as Partial<SearchResult>;
-    return {
-      users: Array.isArray(data.users) ? data.users : [],
-      posts: Array.isArray(data.posts) ? data.posts : [],
-    };
-  } catch {
-    return empty;
-  }
-}
-
-/** 相对时间：刚刚 / 5 分钟前 / 3 小时前 / 10月3日 */
-export function timeAgo(iso: string, locale: "zh" | "en" = "zh"): string {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "";
-  const diff = Date.now() - t;
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return locale === "en" ? "just now" : "刚刚";
-  if (min < 60) return locale === "en" ? `${min}m` : `${min} 分钟前`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return locale === "en" ? `${hr}h` : `${hr} 小时前`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return locale === "en" ? `${day}d` : `${day} 天前`;
-  const d = new Date(t);
-  return locale === "en"
-    ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-    : `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
 /** 从链接取主域名，用于卡片展示 */

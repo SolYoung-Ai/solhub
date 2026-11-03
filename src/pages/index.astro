@@ -87,17 +87,17 @@ const metaDesc = en
     </div>
   </section>
 
-  <!-- ===== 本周产品榜单 ===== -->
+  <!-- ===== 本周精选产品 ===== -->
   <section class="border-t border-border bg-secondary/30 py-10 sm:py-16">
     <div class="container-page">
       <SectionHeading
-        eyebrow={en ? "Recent · All Products" : "近期 · 全部榜单"}
-        title={en ? "Recent product launches" : "近期全部榜单"}
+        eyebrow={en ? "Recent · All Products" : "近期 · 全部产品"}
+        title={en ? "Recent product launches" : "近期全部产品"}
         description={en
           ? "Products worth your attention recently. Ranked by curation + verification priority; full rules on the launches page."
-          : "近期值得关注的产品。榜单为人工精选 + 核验优先排序，完整规则见榜单页。"}
+          : "近期值得关注的产品。排序为人工精选 + 核验优先，完整规则见产品页。"}
         actionHref={p("/launches/", locale)}
-        actionLabel={en ? "View full rankings" : "查看完整榜单"}
+        actionLabel={en ? "View all products" : "查看全部产品"}
       />
       <div class="grid gap-5 md:grid-cols-3">
         {
@@ -111,12 +111,12 @@ const metaDesc = en
     </div>
   </section>
 
-  <!-- ===== 全部产品榜单 ===== -->
+  <!-- ===== 全部产品 ===== -->
   <section class="border-t border-border bg-secondary/30 py-10 sm:py-16">
     <div class="container-page">
       <SectionHeading
         eyebrow="All Products"
-        title={en ? "All products" : "全部产品榜单"}
+        title={en ? "All products" : "全部产品"}
         description={en
           ? "Products and tools submitted by indie developers — verified within 24 hours."
           : "独立开发者提交的产品和工具，24 小时内完成核验。"}

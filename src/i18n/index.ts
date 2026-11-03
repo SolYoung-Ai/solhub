@@ -35,8 +35,8 @@ export const zh: Dict = {
 
   // 导航
   "nav.discover": "发现",
-  "nav.launches": "榜单",
-  "nav.world": "世界",
+  "nav.launches": "产品",
+  "nav.world": "创作者",
   "nav.tools": "工具",
   "nav.about": "关于",
   "nav.mySubmissions": "我",
@@ -73,9 +73,9 @@ export const zh: Dict = {
   "home.exploreProducts": "探索产品",
   "home.exploreTools": "探索工具",
   "home.weekEyebrow": "本周 · 人工精选",
-  "home.weekTitle": "本周产品榜单",
-  "home.weekDesc": "近期值得关注的产品。榜单为人工精选 + 核验优先排序，完整规则见榜单页。",
-  "home.weekMore": "查看完整榜单",
+  "home.weekTitle": "本周精选产品",
+  "home.weekDesc": "近期值得关注的产品。排序为人工精选 + 核验优先，完整规则见产品页。",
+  "home.weekMore": "查看全部产品",
   "home.toolsEyebrow": "免费工具 · 本地运行",
   "home.toolsTitle": "热门在线工具",
   "home.toolsDesc": "全部工具免费、无需登录，数据处理在浏览器本地完成。",
@@ -94,8 +94,8 @@ export const zh: Dict = {
   "home.ctaButton": "提交产品",
 
   // 榜单页
-  "launches.eyebrow": "产品发布",
-  "launches.title": "产品榜单",
+  "launches.eyebrow": "产品",
+  "launches.title": "产品",
   "launches.desc": "发现独立开发者正在创造的产品。所有排名都有清晰的规则，核验状态以 SolHub 实际核验为准；社区提交自动公开但未经人工核验，会单独标注。",
   "launches.communityTitle": "社区提交的产品",
   "launches.communityNote": "由开发者直接提交，自动公开 · 未经人工核验，请自行判断",
@@ -237,7 +237,7 @@ export const zh: Dict = {
   "footer.tagline": "发现好产品，使用好工具，让独立创作更高效。",
   "footer.products": "产品",
   "footer.discover": "发现",
-  "footer.launches": "产品榜单",
+  "footer.launches": "产品",
   "footer.tools": "免费在线工具箱",
   "footer.about": "关于 SolHub",
   "footer.privacy": "隐私说明",
@@ -261,8 +261,8 @@ export const zh: Dict = {
   "product.visitSite": "访问官网",
   "product.related": "相关产品与工具",
   "product.relatedNone": "暂无相关条目",
-  "product.submitCta": "想加入榜单？提交你的产品，通过核验后将获得 Verified 状态。当前核验为人工核验，自动核验（Meta Tag / DNS TXT）功能尚未启用。",
-  "product.back": "返回榜单",
+  "product.submitCta": "想加入产品列表？提交你的产品，通过核验后将获得 Verified 状态。当前核验为人工核验，自动核验（Meta Tag / DNS TXT）功能尚未启用。",
+  "product.back": "返回产品",
 
   // 工具详情页通用
   "toolui.freeNote": "免费使用 · 浏览器本地运行",
@@ -305,8 +305,8 @@ export const en: Dict = {
 
   // Nav
   "nav.discover": "Discover",
-  "nav.launches": "Launches",
-  "nav.world": "World",
+  "nav.launches": "Products",
+  "nav.world": "Creators",
   "nav.tools": "Tools",
   "nav.about": "About",
   "nav.mySubmissions": "Me",
@@ -344,8 +344,8 @@ export const en: Dict = {
   "home.exploreTools": "Explore Tools",
   "home.weekEyebrow": "This Week · Curated",
   "home.weekTitle": "This Week's Products",
-  "home.weekDesc": "Products worth watching. Ranking is human-curated with verification priority; full rules on the Launches page.",
-  "home.weekMore": "View full ranking",
+  "home.weekDesc": "Products worth watching. Ordering is human-curated with verification priority; full rules on the Products page.",
+  "home.weekMore": "View all products",
   "home.toolsEyebrow": "Free Tools · Local",
   "home.toolsTitle": "Popular Online Tools",
   "home.toolsDesc": "All tools are free, no login required; data is processed locally in your browser.",
@@ -364,8 +364,8 @@ export const en: Dict = {
   "home.ctaButton": "Submit a Product",
 
   // Launches
-  "launches.eyebrow": "Launches",
-  "launches.title": "Product Gallery",
+  "launches.eyebrow": "Products",
+  "launches.title": "Products",
   "launches.desc": "Discover what independent developers are building. Every ranking has clear rules; verification status reflects SolHub's actual review. Community submissions go public instantly but are not human-reviewed.",
   "launches.communityTitle": "Community Products",
   "launches.communityNote": "Submitted by developers, auto-published · not human-reviewed, judge for yourself",
