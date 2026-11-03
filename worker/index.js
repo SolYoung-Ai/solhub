@@ -94,6 +94,26 @@ function readCookie(request, name) {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+/* ---------------- 头像外置 ----------------
+   头像历史上以 base64 data URL 存 KV，而且会被复制进每一条帖子（authorAvatar）。
+   列表接口把这些 base64 内联进 JSON，会让响应膨胀到几十上百 KB（实测
+   /world 75KB、/search 117KB，其中 98% 是头像），每敲一个字都要重下一遍。
+   这里改成列表里只回一个短链接，图片由 GET /avatar/<login> 单独发并带缓存头，
+   浏览器第二次直接命中本地缓存。空值与外部链接（GitHub 头像）保持原样。 */
+function apiBaseOf(request, env) {
+  const override = String((env && env.PUBLIC_API_BASE) || "").replace(/\/+$/, "");
+  if (override) return override;
+  try { return `${new URL(request.url).origin}/api`; } catch { return ""; }
+}
+
+function avatarUrl(imgBase, login, raw) {
+  const v = String(raw || "");
+  if (!v) return "";
+  if (!/^data:image\//i.test(v)) return v;
+  if (!imgBase || !login) return v; /* 兜底：拿不到基址就保持内联，宁可大也不要坏 */
+  return `${imgBase}/avatar/${encodeURIComponent(login)}`;
+}
+
 /* 移动端（iOS Safari）的 ITP 会拦截跨站 Cookie，导致 solhub_session 存不下来、
    连带着 /me 这类带凭证的请求直接被浏览器掐掉（表现为「连不上认证服务」）。
    解决办法：邮箱登录额外回传一个会话令牌，前端用 X-Solhub-Session 头携带，
@@ -1236,7 +1256,7 @@ async function hydratePost(env, id, viewer) {
   };
 }
 
-async function feedPosts(env, ids, viewer, limit) {
+async function feedPosts(env, ids, viewer, limit, imgBase) {
   const slice = ids.slice(0, Math.min(ids.length, limit * 2));
   const posts = (await Promise.all(slice.map((id) => hydratePost(env, id, viewer)))).filter(Boolean);
   if (!posts.length) return [];
@@ -1247,6 +1267,8 @@ async function feedPosts(env, ids, viewer, limit) {
   const visible = (banned.size ? posts.filter((p) => !banned.has(p.author)) : posts).slice(0, limit);
   /* 对外统一用 handle 作为作者标识 */
   await normalizeAuthors(env, visible, "author");
+  /* 头像改成短链接（见 avatarUrl 注释） */
+  for (const p of visible) p.authorAvatar = avatarUrl(imgBase, p.author, p.authorAvatar);
   return visible;
 }
 
@@ -1302,7 +1324,7 @@ function hit(q, fields) {
 }
 
 /** 搜索所有注册过的开发者（邮箱用户 + GitHub 用户） */
-async function searchUsers(env, q, limit) {
+async function searchUsers(env, q, limit, imgBase) {
   const emailKeys = await listKeys(env, "user:", SEARCH_USER_SCAN);
   const ghKeys = await listKeys(env, "profile:", 100);
   const raws = await kvGetMany(env, [...emailKeys, ...ghKeys]);
@@ -1324,7 +1346,7 @@ async function searchUsers(env, q, limit) {
     users.push({
       login,
       name,
-      avatar: u.avatar || "",
+      avatar: avatarUrl(imgBase, login, u.avatar),
       bio: u.bio || "",
       website: u.website || "",
       joinedAt: u.createdAt || "",
@@ -1337,7 +1359,7 @@ async function searchUsers(env, q, limit) {
 }
 
 /** 搜索全部帖子（正文 / 链接 / 作者名 / 账号） */
-async function searchPosts(env, q, viewer, limit) {
+async function searchPosts(env, q, viewer, limit, imgBase) {
   const ids = (await kvGetJSON(env, "feed:global", [])).slice(0, SEARCH_POST_SCAN);
   if (!ids.length) return [];
   const raws = await kvGetMany(env, ids.map((id) => `post:${id}`));
@@ -1363,6 +1385,7 @@ async function searchPosts(env, q, viewer, limit) {
     });
   }
   await normalizeAuthors(env, out, "author");
+  for (const p of out) p.authorAvatar = avatarUrl(imgBase, p.author, p.authorAvatar);
   return out;
 }
 
@@ -1616,6 +1639,8 @@ async function suggestWithDailyQuota(env, force = false) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    /** 列表接口里把头像换成可缓存的短链接时用的 API 基址 */
+    const imgBase = apiBaseOf(request, env);
 
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsFor(request) });
@@ -2764,6 +2789,43 @@ export default {
     }
 
 
+    /* ---------- 头像（单独出图，可被浏览器与 CDN 缓存） ----------
+       列表接口里的 authorAvatar / avatar 现在只回 /avatar/<login> 这样的短链接，
+       真正的字节在这里发。带 ETag + 1 小时缓存，同一张头像一次会话只下一次。 */
+    if (url.pathname.startsWith("/avatar/") && request.method === "GET") {
+      const baseHeaders = { ...corsFor(request) };
+      if (!env.PROFILES) return new Response(null, { status: 404, headers: baseHeaders });
+      const login = decodeURIComponent(url.pathname.slice("/avatar/".length)).replace(/^@+/, "").trim();
+      let raw = "";
+      if (login) {
+        const sid = await sidOf(env, login);
+        if (sid) {
+          const rec = isEmailLogin(sid)
+            ? await kvGetJSON(env, `user:${sid}`, null, true)
+            : await kvGetJSON(env, `profile:${sid}`, null);
+          raw = (rec && rec.avatar) || "";
+        }
+      }
+      if (!raw) return new Response(null, { status: 404, headers: baseHeaders });
+      /* GitHub 头像等外链，直接跳转 */
+      if (/^https?:\/\//i.test(raw)) {
+        return new Response(null, { status: 302, headers: { ...baseHeaders, Location: raw } });
+      }
+      const m = /^data:(image\/[a-z0-9.+-]+);base64,([\s\S]+)$/i.exec(raw);
+      if (!m) return new Response(null, { status: 404, headers: baseHeaders });
+      let bytes;
+      try { bytes = fromB64(m[2]); } catch { return new Response(null, { status: 404, headers: baseHeaders }); }
+      const headers = {
+        ...baseHeaders,
+        "Content-Type": m[1],
+        "Cache-Control": "public, max-age=3600",
+        ETag: `W/"${bytes.length}"`,
+      };
+      const inm = request.headers.get("If-None-Match") || "";
+      if (inm && inm === headers.ETag) return new Response(null, { status: 304, headers });
+      return new Response(bytes, { status: 200, headers });
+    }
+
     if (url.pathname === "/search" && request.method === "GET") {
       if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
       const identity = await getIdentity(request, env);
@@ -2774,8 +2836,8 @@ export default {
 
       const q = qRaw.toLowerCase();
       const [users, posts] = await Promise.all([
-        searchUsers(env, q, limit),
-        searchPosts(env, q, viewer, limit),
+        searchUsers(env, q, limit, imgBase),
+        searchPosts(env, q, viewer, limit, imgBase),
       ]);
       return json(request, { query: qRaw, users, posts });
     }
@@ -2808,7 +2870,7 @@ export default {
         ids = await kvGetJSON(env, "feed:global", []);
       }
 
-      const posts = await feedPosts(env, ids, viewer, limit);
+      const posts = await feedPosts(env, ids, viewer, limit, imgBase);
       return json(request, { posts, viewer: viewerPid });
     }
 
@@ -2862,7 +2924,16 @@ export default {
         pushFeed(env, "feed:global", id),
         pushFeed(env, `feed:user:${identity.login}`, id),
       ]);
-      return json(request, { ok: true, post: { ...post, likeCount: 0, likedByMe: false, commentCount: 0 } });
+      return json(request, {
+        ok: true,
+        post: {
+          ...post,
+          authorAvatar: avatarUrl(imgBase, post.author, post.authorAvatar),
+          likeCount: 0,
+          likedByMe: false,
+          commentCount: 0,
+        },
+      });
     }
 
     /* ---------- 世界：单帖操作（删除 / 点赞 / 评论） ---------- */
@@ -2903,6 +2974,7 @@ export default {
         if (request.method === "GET") {
           const comments = await kvGetJSON(env, `post:${id}:comments`, []);
           await normalizeAuthors(env, comments, "author");
+          for (const c of comments) c.authorAvatar = avatarUrl(imgBase, c.author, c.authorAvatar);
           return json(request, { comments });
         }
         if (request.method === "POST") {
@@ -2932,7 +3004,11 @@ export default {
           comments.push(comment);
           await kvPutJSON(env, `post:${id}:comments`, comments.slice(-200));
           await rateLimitHit(rlKey, 10);
-          return json(request, { ok: true, comment, commentCount: comments.length });
+          return json(request, {
+            ok: true,
+            comment: { ...comment, authorAvatar: avatarUrl(imgBase, comment.author, comment.authorAvatar) },
+            commentCount: comments.length,
+          });
         }
       }
     }
@@ -2970,7 +3046,8 @@ export default {
         const list = await kvGetJSON(env, `${action}:${targetSid}`, []);
         const users = [];
         for (const pid of list.slice(0, 100)) {
-          users.push(await publicUser(env, pid));
+          const u = await publicUser(env, pid);
+          users.push({ ...u, avatar: avatarUrl(imgBase, u.login, u.avatar) });
         }
         return json(request, { users });
       }
@@ -2987,13 +3064,14 @@ export default {
           banOf(env, targetSid),
         ]);
         const author = await publicUser(env, targetPid);
-        const posts = await feedPosts(env, postIds, viewer, 30);
+        const posts = await feedPosts(env, postIds, viewer, 30, imgBase);
         const mine = mergeProducts(productsOf(community, targetPid), allClaimedSlugs(index, targetPid, user), index);
         const overrides = await readProductOverrides(env, mine.map((p) => p.slug));
         const products = mine.map((p) => applyOverride(p, overrides));
         return json(request, {
           user: {
             ...author,
+            avatar: avatarUrl(imgBase, author.login, author.avatar),
             bio: user?.bio || "",
             location: user?.location || "",
             website: user?.website || "",

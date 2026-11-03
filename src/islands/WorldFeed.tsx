@@ -82,8 +82,21 @@ function Avatar({
   src?: string;
   className?: string;
 }) {
-  if (src) {
-    return <img src={src} alt="" className={`${className} shrink-0 rounded-full border border-border object-cover`} />;
+  /* 头像现在是一个可缓存的短链接（/avatar/<login>），取不到时接口回 404。
+     这种情况下退回首字母，避免出现破图。 */
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [src]);
+  if (src && !broken) {
+    return (
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onError={() => setBroken(true)}
+        className={`${className} shrink-0 rounded-full border border-border object-cover`}
+      />
+    );
   }
   return (
     <span
