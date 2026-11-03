@@ -14,33 +14,33 @@ const dict = getDict(locale);
 ---
 
 <footer class="border-t border-border bg-secondary/40">
-  <div class="container-page py-12">
-    <div class="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+  <div class="container-page py-8">
+    <div class="grid gap-6 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
       <div>
         <a href={p("/", locale)} class="inline-block">
-          <Logo locale={locale} />
+          <Logo locale={locale} size={22} textClass="text-[15px]" />
         </a>
-        <p class="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
+        <p class="mt-3 max-w-xs text-[13px] leading-5 text-muted-foreground">
           {locale === "en" ? siteConfig.tagline : siteConfig.taglineZh}
         </p>
-        <p class="mt-1 font-mono text-xs uppercase tracking-wider text-muted-foreground/70">
+        <p class="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
           {siteConfig.tagline}
         </p>
       </div>
 
       <nav aria-label={locale === "en" ? "Product navigation" : "产品导航"}>
-        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <p class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {translate(dict, "footer.products")}
         </p>
-        <ul class="mt-3 space-y-2 text-sm">
+        <ul class="mt-2 space-y-1.5 text-[13px]">
           <li><a href={p("/", locale)} class="text-foreground/80 transition-colors hover:text-accent">{translate(dict, "footer.discover")}</a></li>
           <li><a href={p("/launches/", locale)} class="text-foreground/80 transition-colors hover:text-accent">{translate(dict, "footer.launches")}</a></li>
         </ul>
       </nav>
 
       <nav aria-label={locale === "en" ? "About" : "关于导航"}>
-        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">About</p>
-        <ul class="mt-3 space-y-2 text-sm">
+        <p class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">About</p>
+        <ul class="mt-2 space-y-1.5 text-[13px]">
           <li><a href={p("/about/", locale)} class="text-foreground/80 transition-colors hover:text-accent">{translate(dict, "nav.about")}</a></li>
           <li><a href={p("/privacy/", locale)} class="text-foreground/80 transition-colors hover:text-accent">{translate(dict, "footer.privacy")}</a></li>
           <li><a href={p("/submit/", locale)} class="text-foreground/80 transition-colors hover:text-accent">{translate(dict, "nav.submit")}</a></li>
@@ -48,8 +48,8 @@ const dict = getDict(locale);
       </nav>
 
       <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Project</p>
-        <ul class="mt-3 space-y-2 text-sm">
+        <p class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Project</p>
+        <ul class="mt-2 space-y-1.5 text-[13px]">
           {
             siteConfig.githubUrl && (
               <li>
@@ -76,7 +76,7 @@ const dict = getDict(locale);
       </div>
     </div>
 
-    <div class="mt-10 flex border-t border-border pt-6 text-xs text-muted-foreground">
+    <div class="mt-6 flex border-t border-border pt-4 text-[11px] text-muted-foreground">
       <p>
         <a href="https://solyoung.top/" target="_blank" rel="noopener noreferrer" class="text-foreground/80 transition-colors hover:text-accent">
           {translate(dict, "footer.copyright", { year: siteConfig.copyrightYear })}

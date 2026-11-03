@@ -9,7 +9,7 @@ interface Props {
   locale?: Locale;
 }
 
-const { size = 28, withText = true } = Astro.props;
+const { size = 28, withText = true, textClass = "text-[19px]" } = Astro.props;
 ---
 
 <span class="inline-flex items-center gap-2 leading-none" aria-label="SolHub">
@@ -22,7 +22,7 @@ const { size = 28, withText = true } = Astro.props;
   />
   {
     withText && (
-      <span class="font-display text-[19px] font-bold leading-none tracking-tight text-foreground">
+      <span class={`font-display ${textClass} font-bold leading-none tracking-tight text-foreground`}>
         SolHub
       </span>
     )
