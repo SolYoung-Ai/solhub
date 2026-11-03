@@ -5,6 +5,8 @@ interface TypewriterProps {
   lines: string[];
   /** 每字间隔（毫秒） */
   speed?: number;
+  /** 标点后额外停顿（毫秒） */
+  punctuationPause?: number;
   /** 开始前延迟（毫秒） */
   startDelay?: number;
   /** 打完是否保留光标闪烁 */
@@ -27,6 +29,7 @@ const PAUSE_AFTER = /[，。、；：！？,.;:!?]/;
 export default function Typewriter({
   lines,
   speed = 38,
+  punctuationPause = 70,
   startDelay = 320,
   keepCaret = false,
   className = "",
@@ -67,7 +70,7 @@ export default function Typewriter({
         return;
       }
       const ch = full[typed - 1] ?? "";
-      timer = window.setTimeout(step, speed + (PAUSE_AFTER.test(ch) ? 160 : 0));
+      timer = window.setTimeout(step, speed + (PAUSE_AFTER.test(ch) ? punctuationPause : 0));
     };
 
     const kick = window.setTimeout(step, startDelay);
@@ -76,7 +79,7 @@ export default function Typewriter({
       window.clearTimeout(kick);
       if (timer) window.clearTimeout(timer);
     };
-  }, [full, total, speed, startDelay]);
+  }, [full, total, speed, punctuationPause, startDelay]);
 
   /* 光标跟着「当前打到的字符」走：若正好落在换行处，留在上一行末尾 */
   const caretRow = useMemo(() => {

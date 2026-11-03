@@ -63,8 +63,9 @@ const metaDesc = en
                 ]
               : ["探索独立开发者正在创造的产品，使用简单、实用、免费的在线工具，", "让每一个好想法更快落地。"]
           }
-          speed={38}
-          startDelay={340}
+          speed={en ? 10 : 14}
+          punctuationPause={60}
+          startDelay={100}
         />
       </p>
       {/* 无 JS 时把 sr-only 的完整文案放出来（此时不会打字） */}
