@@ -1534,25 +1534,45 @@ async function announceNewProduct(env, product) {
   return postAsOfficial(env, lines.join("\n"), product.websiteUrl || "");
 }
 
-/** 随机推荐一个社区产品；队列轮转，且同一产品 5 天内不重复推荐。 */
+/** 过滤出可宣传的产品：有 slug/name 且官网可访问 */
+function isValidProduct(p) {
+  return p && p.slug && p.name && /^https?:\/\//.test(String(p.websiteUrl || ""));
+}
+
+/**
+ * 随机推荐一个产品并以官方账号发帖，附带产品链接。
+ * 候选池优先用社区提交的产品（尊重「社区」属性）；当社区产品不足或全在冷却内时，
+ * 自动用官方目录产品补充（排除演示产品），确保每天三次都能发出、且不单调。
+ * 同一产品 1 天内不重复推荐（队列轮转 + 冷却兜底）。
+ */
 async function suggestCommunityProduct(env) {
-  const community = await readCommunity(env);
-  const all = (Array.isArray(community) ? community : []).filter(
-    (p) => p && p.slug && p.name && /^https?:\/\//.test(String(p.websiteUrl || "")),
-  );
-  if (!all.length) return null;
+  const [community, index] = await Promise.all([readCommunity(env), readProductIndex(env)]);
+  const communityPool = (Array.isArray(community) ? community : []).filter(isValidProduct);
+  const catalogPool = (Array.isArray(index) ? index : [])
+    .filter(isValidProduct)
+    .filter((p) => !p.isDemo); // 演示产品不宣传
+  if (!communityPool.length && !catalogPool.length) return null;
 
-  /* 5 天内推荐过的产品先排除，避免社区产品少时刷屏 */
-  const COOLDOWN = 5 * 24 * 60 * 60 * 1000;
+  const COOLDOWN = 24 * 60 * 60 * 1000; // 1 天：同一产品一天内不重复推荐
   const now = Date.now();
-  const lasts = await kvGetMany(env, all.map((p) => `official:last:${p.slug}`));
-  const usable = all.filter((p, i) => {
-    const t = Number(lasts[i] || 0);
-    return !t || now - t > COOLDOWN;
-  });
-  if (!usable.length) return null;
 
-  const slugs = usable.map((p) => p.slug);
+  // 标记每个产品最近一次推荐时间
+  const tag = async (pool) => {
+    const lasts = await kvGetMany(env, pool.map((p) => `official:last:${p.slug}`));
+    return pool.map((p, i) => ({ p, last: Number(lasts[i] || 0) }));
+  };
+  const [cTagged, kTagged] = await Promise.all([tag(communityPool), tag(catalogPool)]);
+  const recentCommunity = cTagged.filter((x) => !x.last || now - x.last > COOLDOWN).map((x) => x.p);
+  const recentCatalog = kTagged.filter((x) => !x.last || now - x.last > COOLDOWN).map((x) => x.p);
+
+  // 候选池优先级：社区近期未推 > 目录近期未推 > 社区全量 > 目录全量（兜底，保证每天三次都能发）
+  const pool =
+    recentCommunity.length ? recentCommunity
+    : recentCatalog.length ? recentCatalog
+    : communityPool.length ? communityPool
+    : catalogPool;
+
+  const slugs = pool.map((p) => p.slug);
   let queue = await kvGetJSON(env, "official:queue", []);
   if (!Array.isArray(queue)) queue = [];
   queue = queue.filter((s) => slugs.includes(s));
@@ -1560,12 +1580,12 @@ async function suggestCommunityProduct(env) {
 
   const slug = queue.shift();
   await kvPutJSON(env, "official:queue", queue);
-  const p = usable.find((x) => x.slug === slug);
+  const p = pool.find((x) => x.slug === slug);
   if (!p) return null;
 
   const name = p.name;
-  const desc = String(p.shortDescription || "").trim().slice(0, 90);
-  const dev = String(p.developerName || "").trim();
+  const desc = String(p.shortDescription || p.description || "").trim().slice(0, 90);
+  const dev = String(p.developerName || p.author || "").trim();
   const templates = [
     `今日推荐 ✦ ${name}${desc ? ` — ${desc}` : ""}`,
     `逛逛社区 ✦ ${name}${desc ? `\n${desc}` : ""}`,
@@ -1578,12 +1598,13 @@ async function suggestCommunityProduct(env) {
   return post;
 }
 
-/** 每天最多两次推荐（cron 一天触发两次，这里再兜一层防止重复/重试超发）。 */
+/** 每天最多三次推荐（自动化一天触发三次：北京 9:00 / 16:00 / 0:00）。 */
 async function suggestWithDailyQuota(env, force = false) {
-  const day = new Date().toISOString().slice(0, 10);
+  // 用北京时间日期做配额键：保证「北京一天三次」落在同一天，避免跨 UTC 边界被拆成两个日期导致发不满
+  const day = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
   const key = `official:quota:${day}`;
   const used = Number((await env.PROFILES.get(key)) || 0);
-  if (!force && used >= 2) return { skipped: "daily quota reached" };
+  if (!force && used >= 3) return { skipped: "daily quota reached" };
   const post = await suggestCommunityProduct(env);
   if (!post) return { skipped: "no eligible product (all in cooldown or none uploaded)" };
   if (!force) await env.PROFILES.put(key, String(used + 1), { expirationTtl: 60 * 60 * 48 });
