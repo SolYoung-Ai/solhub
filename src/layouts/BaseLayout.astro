@@ -37,6 +37,8 @@ const pageTitle =
     ? title
     : `${title} · ${siteConfig.name}`;
 const canonical = absoluteUrl(route, locale);
+/* OG 图片必须是绝对地址（抓取方在站外解析），统一用根路径那一张 */
+const ogImage = absoluteUrl("/og.png", "zh");
 const searchIndex = buildSearchIndex(products, locale);
 const currentRoute = stripBase(Astro.url.pathname);
 
@@ -63,7 +65,10 @@ const orgJsonLd = {
       noIndex && <meta name="robots" content="noindex" />
     }
     <link rel="canonical" href={canonical} />
-    <link rel="icon" type="image/png" href={p("/favicon.png", locale)} />
+    {/* 静态资源不加语言前缀：p() 带 locale 会生成 /en/favicon.png，
+        而 public/ 下的文件只构建到根目录，英文页会 404（表现为英文站没有图标）。 */}
+    <link rel="icon" type="image/png" href={p("/favicon.png")} />
+    <link rel="apple-touch-icon" href={p("/apple-touch-icon.png")} />
     <meta name="solhub-base" content={baseUrl()} />
 
     <!-- 语言切换（alternate） -->
@@ -78,10 +83,17 @@ const orgJsonLd = {
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:locale" content={ogLocale} />
+    <!-- 分享缩略图：微信 / X / Telegram / Slack 抓取的都是这两个字段。
+         没有它，别人把作品或主页链接发到群里就只是一行裸文本。 -->
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={pageTitle} />
 
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
 
     <!-- 字体：与 SolYoung Studio 一致的 Archivo + Noto Sans SC -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

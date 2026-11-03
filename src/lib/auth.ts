@@ -342,9 +342,14 @@ export function avatarOf(user: AuthUser): string | undefined {
 
 /**
  * 把图片文件压缩为正方形 data URL（客户端 canvas 缩放）。
- * 头像/图标上传前统一走这里，保证 ≤200KB。
+ *
+ * 尺寸/质量的选择理由（不要随手调大）：
+ *   头像最长只显示到 96px（个人主页大图），192px 已经满足 2 倍屏；
+ *   而这张图会被复制进每一条帖子，信息流一次返回几十条 ——
+ *   用 256px@0.85 时单张可达 20~40KB，30 条帖子的 JSON 就有几百 KB，
+ *   在移动网络下明显拖慢首屏。192px@0.80 通常只要 6~10KB。
  */
-export function resizeImageToDataUrl(file: File, size = 256, quality = 0.85): Promise<string> {
+export function resizeImageToDataUrl(file: File, size = 192, quality = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("read failed"));

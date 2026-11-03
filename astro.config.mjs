@@ -10,13 +10,40 @@ import tailwindcss from "@tailwindcss/vite";
 const SITE = process.env.ASTRO_SITE ?? "https://solhub.solyoung.top";
 const BASE = process.env.BASE_PATH ?? "/";
 
+/* 不进 sitemap 的页面：后台、登录/注册、个人中心、表单页。
+ * 这些页面在 <meta robots> 里已经标了 noindex，若同时又出现在 sitemap 里，
+ * 等于一边告诉搜索引擎「别收录」、一边主动提交地址，是自相矛盾的信号；
+ * 后台地址（/guanli/）更不该出现在公开的 sitemap 中。 */
+const SITEMAP_EXCLUDE = [
+  "/admin/",
+  "/guanli/",
+  "/account/",
+  "/login/",
+  "/forgot-password/",
+  "/my-submissions/",
+  "/submit/",
+];
+
+const sitemapFilter = (page) => {
+  try {
+    const path = new URL(page).pathname;
+    /* 去掉 base 前缀与语言前缀后再比对，/en/login/ 与 /login/ 一并排除 */
+    const rest = BASE !== "/" && path.startsWith(BASE) ? path.slice(BASE.length - 1) : path;
+    const normalized = rest.replace(/^\/en(?=\/|$)/, "") || "/";
+    const withSlash = normalized.endsWith("/") ? normalized : `${normalized}/`;
+    return !SITEMAP_EXCLUDE.includes(withSlash);
+  } catch {
+    return true;
+  }
+};
+
 export default defineConfig({
   site: SITE,
   base: BASE,
   output: "static",
   trailingSlash: "always",
   compressHTML: true,
-  integrations: [react(), sitemap()],
+  integrations: [react(), sitemap({ filter: sitemapFilter })],
   vite: {
     plugins: [tailwindcss()],
   },

@@ -2139,12 +2139,16 @@ export default {
           /* 联系方式：用户自愿公开的联络方式（微信 / Telegram / 备用邮箱等），可留空 */
           contact: String(body.contact || "").slice(0, 200),
         };
-        /* 头像：客户端压缩后的 data URL（≤200KB），邮箱用户存 KV */
+        /* 头像：客户端压缩后的 data URL。上限 200KB（字符串长度，约 150KB 原图）。
+           注意：这个头像会被复制进每一条帖子（authorAvatar），而信息流一次返回
+           几十条 —— 上限放得越大，首页 JSON 就越大，所以要卡紧。 */
         if (typeof body.avatar === "string") {
           if (body.avatar === "") {
             allowed.avatar = "";
-          } else if (/^data:image\/(png|jpe?g|webp|gif);base64,/.test(body.avatar) && body.avatar.length <= 300000) {
+          } else if (/^data:image\/(png|jpe?g|webp|gif);base64,/.test(body.avatar) && body.avatar.length <= 200000) {
             allowed.avatar = body.avatar;
+          } else if (body.avatar.length > 200000) {
+            return json(request, { error: "头像文件太大，请换一张更小的图片" }, 413);
           }
         }
         /* 用户名（handle）：仅邮箱用户可改，全局唯一，改动后历史帖子同步改名 */
@@ -2237,6 +2241,11 @@ export default {
       if (!gh) return json(request, { error: "not authenticated" }, 401);
       const body = await request.json();
       if (!body.dataUrl) return json(request, { error: "missing dataUrl" }, 400);
+      /* 上限 2MB 字符串：这个接口把图片直接提交进 Git 仓库，
+         不设限等于允许往仓库里塞任意大的文件（会永久留在历史里）。 */
+      if (String(body.dataUrl).length > 2000000) {
+        return json(request, { error: "图标文件太大（上限约 1.5MB），请先压缩" }, 413);
+      }
       const m = body.dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
       if (!m) return json(request, { error: "invalid dataUrl" }, 400);
       const ext = m[1] === "jpeg" ? "jpg" : m[1];
@@ -2293,6 +2302,19 @@ export default {
       const identity = await getIdentity(request, env);
       if (!identity) return json(request, { error: "请先登录" }, 401);
 
+      /* 提交限流：同一账号 1 小时最多 6 个。
+         产品目录是「整块读-改-写」，不限流的话一个账号脚本连刷几十条
+         会把目录撑爆，还会连带覆盖别人同时提交的内容。 */
+      const pubKey = `publish:hour:${identity.login}`;
+      const pubState = await rateLimitPeek(pubKey);
+      if (pubState.count >= 6) {
+        return json(
+          request,
+          { error: `提交太频繁，请 ${retryAfterSec(pubState.startedAt, 3600)} 秒后再试` },
+          429,
+        );
+      }
+
       let data;
       try { data = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
       const name = String(data.name || "").slice(0, 80);
@@ -2320,6 +2342,30 @@ export default {
 
       const community = await readCommunity(env);
 
+      /* 同一个网站只收一次：按「域名 + 路径」归一化比对（忽略 www. 前缀、
+         末尾斜杠、大小写、query 与 fragment）。否则同一产品可以换个写法反复提交。 */
+      const normSite = (u) => {
+        try {
+          const x = new URL(String(u || ""));
+          const host = x.hostname.toLowerCase().replace(/^www\./, "");
+          const path = x.pathname.replace(/\/+$/, "").toLowerCase();
+          return `${host}${path}`;
+        } catch {
+          return "";
+        }
+      };
+      const targetSite = normSite(websiteUrl);
+      if (targetSite) {
+        const dup = community.find((p) => p && normSite(p.websiteUrl) === targetSite);
+        if (dup) {
+          return json(
+            request,
+            { error: `这个网站已经被收录过了（${dup.name}），可以在「我的收录」里编辑它`, duplicated: true },
+            409,
+          );
+        }
+      }
+
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) + "-" + Date.now().toString(36);
       const who = await displayOf(env, identity);
       const newProduct = {
@@ -2345,6 +2391,7 @@ export default {
 
       /* 主存储：写回 KV，产品立刻出现在个人主页与「我的收录」 */
       await kvPutJSON(env, KV_COMMUNITY, community);
+      await rateLimitHit(pubKey, 3600);
       /* 尽力同步到仓库（供静态站构建期目录；PAT 缺失或失败不影响提交结果） */
       const synced = await syncCommunityToRepo(env, community, `community: add ${name} by @${who.login}`);
       /* 官方账号自动播报新品（后台执行，不影响提交结果） */

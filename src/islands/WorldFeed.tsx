@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Trash2,
   UserPlus,
+  UserRound,
   Users,
   X,
 } from "lucide-react";
@@ -129,11 +130,14 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
     return new URLSearchParams(window.location.search).get("u");
   });
   const [userProfile, setUserProfile] = useState<PublicProfile | null>(null);
+  /** 主页拉取失败（用户不存在 / 网络错误）：不能一直转圈，要给明确提示 */
+  const [profileMissing, setProfileMissing] = useState(false);
   const [userTab, setUserTab] = useState<"posts" | "products">("posts");
 
   const openUser = (login: string) => {
     setViewUser(login);
     setUserProfile(null);
+    setProfileMissing(false);
     setUserTab("posts");
     const url = new URL(window.location.href);
     url.searchParams.set("u", login);
@@ -144,6 +148,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
   const closeUser = () => {
     setViewUser(null);
     setUserProfile(null);
+    setProfileMissing(false);
     const url = new URL(window.location.href);
     url.searchParams.delete("u");
     window.history.replaceState(null, "", url.toString());
@@ -152,6 +157,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
   const loadProfile = useCallback(async (login: string) => {
     const res = await fetchProfile(login);
     setUserProfile(res);
+    setProfileMissing(!res);
     if (res) setPosts(res.posts);
   }, []);
 
@@ -348,12 +354,10 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
 
   const share = async (post: WorldPost) => {
     const url = `${window.location.origin}${p("/world/", locale)}#post-${post.id}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      flash(en ? "Link copied" : "链接已复制");
-    } catch {
-      flash(url);
-    }
+    /* 优先用带降级方案的 copyText：http 页面 / 旧浏览器上
+       navigator.clipboard 不存在，直接调用会抛错，只能把整条 URL 弹出来。 */
+    const ok = await copyText(url);
+    flash(ok ? (en ? "Link copied" : "链接已复制") : url);
   };
 
   /* 分享用户公开主页链接（/world/?u=handle） */
@@ -653,6 +657,21 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                   </div>
                 )}
               </>
+            ) : profileMissing ? (
+              <div className="px-6 py-14 text-center">
+                <UserRound className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
+                <p className="mt-3 text-sm font-medium text-foreground/70">
+                  {en ? "This profile doesn't exist" : "这个用户不存在"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {en
+                    ? "The account may have been deleted or the link is wrong."
+                    : "账号可能已注销，或者链接里的用户名不对。"}
+                </p>
+                <button type="button" onClick={closeUser} className="btn btn-outline mt-4 !h-8 px-4 text-xs">
+                  {en ? "Back to feed" : "返回信息流"}
+                </button>
+              </div>
             ) : (
               <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> {en ? "Loading…" : "加载中…"}

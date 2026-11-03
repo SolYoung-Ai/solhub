@@ -147,8 +147,16 @@ const { id } = Astro.params;
         (document.getElementById("cd-dev") as HTMLElement).textContent = dev || "—";
         (document.getElementById("cd-date") as HTMLElement).textContent = date || "—";
 
+        /* 安全：Issue 正文是任何 GitHub 用户都能写的，URL 一律只接受 http(s)。
+           否则 `javascript:...` 这类超链接会被点开时执行（存储型 XSS）。 */
+        const safeHttp = (v: string): string => {
+          const s = (v || "").trim();
+          return /^https?:\/\//i.test(s) ? s : "";
+        };
+
         const iconEl = document.getElementById("cd-icon") as HTMLImageElement;
-        if (icon) iconEl.src = icon;
+        const safeIcon = safeHttp(icon);
+        if (safeIcon) iconEl.src = safeIcon;
         else iconEl.style.display = "none";
 
         const tagsEl = document.getElementById("cd-tags")!;
@@ -165,7 +173,8 @@ const { id } = Astro.params;
         }
 
         const visitEl = document.getElementById("cd-visit") as HTMLAnchorElement;
-        if (url) visitEl.href = url;
+        const safeUrl = safeHttp(url);
+        if (safeUrl) visitEl.href = safeUrl;
         else visitEl.remove();
       })
       .catch(() => {

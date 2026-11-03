@@ -149,7 +149,7 @@ export const products: Product[] = [
     id: "xinsight",
     slug: "xinsight",
     name: "X Account Insight",
-    icon: "/icons/xinsight.png",
+    icon: "/icons/xinsight.jpg",
     shortDescription: "X 账号运营数据体检：本地导入、透明计算、可解释分析。",
     description:
       "X Account Insight 是面向 X（Twitter）运营者的数据体检工具：本地导入账号数据 CSV，透明计算关键运营指标，输出可解释的分析结果。所有数据在浏览器本地处理，不上传服务器，不触碰账号权限。",

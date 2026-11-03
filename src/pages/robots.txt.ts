@@ -5,7 +5,8 @@ import { baseUrl } from "@/lib/paths";
 export const GET: APIRoute = ({ site }) => {
   const base = baseUrl();
   // Astro 的 site 是 URL 对象；toString 后去掉末尾斜杠再拼接 base
-  const host = (site ? site.toString() : "https://solyoung.top").replace(/\/$/, "");
+  // 兜底值与 astro.config.mjs 的 SITE 默认值保持一致（写成 solyoung.top 会把 sitemap 指到别的站）
+  const host = (site ? site.toString() : "https://solhub.solyoung.top").replace(/\/$/, "");
   const sitemapUrl = `${host}${base}sitemap-index.xml`;
   const body = [
     "User-agent: *",

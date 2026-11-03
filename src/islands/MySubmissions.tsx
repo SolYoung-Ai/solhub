@@ -229,7 +229,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     if (!file) return;
     setProfileError(null);
     try {
-      const dataUrl = await resizeImageToDataUrl(file, 256, 0.85);
+      const dataUrl = await resizeImageToDataUrl(file);
       setPf((v) => ({ ...v, avatar: dataUrl }));
     } catch {
       setProfileError(en ? "Failed to read image." : "图片读取失败，请换一张试试。");
@@ -591,7 +591,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
               )}
             </div>
             <p className="text-[11px] text-muted-foreground">
-              {en ? "Square image recommended; auto-cropped to 256×256." : "建议用正方形图片，会自动居中裁剪为 256×256。"}
+              {en ? "Square image recommended; auto-cropped to 192×192." : "建议用正方形图片，会自动居中裁剪为 192×192。"}
             </p>
             <label className="block">
               <span className="label">{en ? "Username" : "用户名"}</span>
