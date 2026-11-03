@@ -28,7 +28,7 @@ import {
 import { p } from "@/lib/paths";
 import GoldBadge from "@/components/GoldBadge";
 import { avatarOf, fetchMe, type AuthUser } from "@/lib/auth";
-import { ensureHttps } from "@/lib/utils";
+import { copyText, ensureHttps } from "@/lib/utils";
 import {
   addComment,
   createPost,
@@ -356,6 +356,13 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
     }
   };
 
+  /* 分享用户公开主页链接（/world/?u=handle） */
+  const shareProfile = async (handle: string) => {
+    const url = `${window.location.origin}${p(`/world/?u=${encodeURIComponent(handle)}`, locale)}`;
+    const ok = await copyText(url);
+    flash(ok ? (en ? "Profile link copied" : "主页链接已复制") : url);
+  };
+
   const remove = async (post: WorldPost) => {
     if (!confirm(en ? "Delete this post?" : "确定删除这条帖子？")) return;
     const res = await deletePost(post.id);
@@ -480,11 +487,21 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
             <span className="truncate text-[13px] font-semibold text-foreground">
               {userProfile?.user.name || viewUser}
             </span>
+          <div className="ml-auto flex items-center gap-3">
             {userProfile?.isSelf && (
-              <a href={p("/my-submissions/#posts", locale)} className="ml-auto text-[12px] text-accent hover:underline">
+              <a href={p("/my-submissions/#posts", locale)} className="text-[12px] text-accent hover:underline">
                 {en ? "Manage" : "管理资料"}
               </a>
             )}
+            <button
+              type="button"
+              onClick={() => void shareProfile(cleanHandle(viewUser))}
+              className="inline-flex items-center gap-1.5 text-[12px] text-accent hover:underline"
+              aria-label={en ? "Share profile" : "分享主页"}
+            >
+              <Share className="h-3.5 w-3.5" /> {en ? "Share" : "分享"}
+            </button>
+          </div>
           </div>
 
           {userProfile ? (

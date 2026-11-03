@@ -12,6 +12,7 @@ import {
   MessageCircle,
   PackagePlus,
   Pencil,
+  Share2,
   ShieldCheck,
   Trash2,
   User,
@@ -20,7 +21,7 @@ import {
 import { p } from "@/lib/paths";
 import { request } from "@/lib/net";
 import { avatarOf, fetchMeState, logout, resizeImageToDataUrl, saveProfile, type AuthUser } from "@/lib/auth";
-import { ensureHttps } from "@/lib/utils";
+import { copyText, ensureHttps } from "@/lib/utils";
 import { fetchFollowList, fetchProfile, timeAgo, type FollowUser, type PublicProfile, type WorldPost } from "@/lib/world";
 import { base } from "@/lib/api-base";
 import type { Locale } from "@/i18n";
@@ -117,6 +118,23 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   /* 头部那一行的「公开 / 不公开」快捷开关 */
   const [publicBusy, setPublicBusy] = useState(false);
   const [publicError, setPublicError] = useState<string | null>(null);
+
+  /* 一键分享个人主页链接 */
+  const [shared, setShared] = useState(false);
+  const shareProfile = async () => {
+    if (!user) return;
+    const handle = user.handle || user.login || "";
+    if (!handle) return;
+    const url = `${window.location.origin}${p(`/world/?u=${encodeURIComponent(handle)}`, locale)}`;
+    const ok = await copyText(url);
+    if (ok) {
+      setShared(true);
+      window.setTimeout(() => setShared(false), 1800);
+    } else {
+      /* 复制失败（如非安全上下文）则退化为让用户手动复制 */
+      window.prompt(en ? "Copy this link:" : "复制下面的主页链接：", url);
+    }
+  };
 
   /* 产品管理 */
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
@@ -444,6 +462,15 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                 </span>
               )}
               <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void shareProfile()}
+                  title={en ? "Copy your profile link" : "复制你的主页分享链接"}
+                  className="btn btn-outline !h-8 gap-1.5 px-4 text-xs"
+                >
+                  {shared ? <Check className="h-3 w-3" /> : <Share2 className="h-3 w-3" />}
+                  {shared ? (en ? "Copied" : "已复制") : (en ? "Share" : "分享主页")}
+                </button>
                 <button onClick={() => { setEditingProfile(true); setProfileError(null); }} className="btn btn-outline !h-8 gap-1.5 px-4 text-xs">
                   <Pencil className="h-3 w-3" /> {en ? "Edit profile" : "编辑资料"}
                 </button>
