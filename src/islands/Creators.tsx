@@ -532,7 +532,9 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
                     </span>
                     <Avatar name={c.name} src={c.avatar} className="h-10 w-10 text-[15px]" />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
+                      {/* 手机端把 @handle 换到下一行：名字 + 认证 + 官方标
+                          已经占满一行，再塞 handle 会把名字截成 "SolHub …" */}
+                      <div className="flex min-w-0 items-center gap-1.5">
                         <span className="truncate text-[14.5px] font-semibold text-foreground group-hover:text-accent">
                           {c.name}
                         </span>
@@ -542,8 +544,13 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
                             {en ? "Official" : "官方"}
                           </span>
                         )}
-                        <span className="truncate text-[12.5px] text-muted-foreground">@{cleanHandle(c.login)}</span>
+                        <span className="hidden truncate text-[12.5px] text-muted-foreground sm:inline">
+                          @{cleanHandle(c.login)}
+                        </span>
                       </div>
+                      <p className="mt-0.5 truncate text-[12px] text-muted-foreground sm:hidden">
+                        @{cleanHandle(c.login)}
+                      </p>
                       {c.bio && (
                         <p className="mt-0.5 line-clamp-1 text-[12.5px] leading-5 text-muted-foreground">{c.bio}</p>
                       )}
