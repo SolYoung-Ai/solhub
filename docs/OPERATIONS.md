@@ -26,9 +26,9 @@ DNS 0.003s、TCP 0.25s、TLS 0.58s 都正常，**卡在 TTFB 3.8~13.2 秒**，�
 | 层 | 技术 | 托管 | 说明 |
 |---|---|---|---|
 | 页面 | Astro SSG + React Islands | GitHub Pages | 不变 |
-| 账号 / 帖子 / 评论 / 关注 | CloudBase HTTP Function | `solyoung-d4gpp1f7s4e075f6d-1499756427.ap-shanghai.app.tcloudbase.com/api` | 原 Cloudflare Worker，机房从 LAX 变成上海 |
+| 账号 / 创作者名录 / 关注 | CloudBase HTTP Function | `solyoung-d4gpp1f7s4e075f6d-1499756427.ap-shanghai.app.tcloudbase.com/api` | 原 Cloudflare Worker，机房从 LAX 变成上海 |
 | 数据 | CloudBase PostgreSQL `public.kv` | 腾讯云 PG（上海） | 原 Cloudflare KV；**强一致**，彻底消除 30~60 秒最终一致窗口；写入不再有 1,000 次/天的配额 |
-| 定时任务（每日官方推荐） | CloudBase Event Function `solhub-cron` | 腾讯云 SCF | 原 Worker 的 cron 触发器（HTTP 函数不支持 timer 触发器） |
+| 定时任务（每日数据备份） | CloudBase Event Function `solhub-cron` | 腾讯云 SCF | 原 Worker 的 cron 触发器（HTTP 函数不支持 timer 触发器）；官方推荐帖已随发帖功能下线 |
 | 目录数据 | `src/data/*.json` 构建期产物 → PG | `catalog:community:v1` / `catalog:index:v1` | 灌入脚本换成 `scripts/seed-catalog-pg.mjs` |
 
 ### 代码怎么做到「一份逻辑，两处运行」

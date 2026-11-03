@@ -4,9 +4,11 @@
  *
  * 这一个函数承担两件事，靠触发器的名字分流：
  *
- *   1. 官方推荐帖（触发器 official-*）
- *      原来这件事是 Cloudflare Worker 的 cron 触发器做的（每天随机推一个社区产品）。
- *      迁到 CloudBase 后 HTTP 函数不支持 timer 触发器，所以单独用 Event 函数承担。
+ *   1. 官方推荐帖（原 official-* 触发器，**已下线**）
+ *      发帖功能在 2026-11-04 下线，页面上不再有任何帖子入口，所以三个
+ *      official-morning / afternoon / midnight 触发器已经删除，避免每天往
+ *      feed:global 里写没人看得到的孤儿数据。代码与 core.scheduled() 都保留，
+ *      把触发器加回（如 "0 0 9 * * * *"）即可恢复。
  *      与 Worker 的 scheduled() 完全同一份业务代码（core.cjs 里原封不动搬过来了），
  *      这里只做两件事：把 Worker 的 env / ctx 协议补齐；把 waitUntil 收集到的异步
  *      任务等完再返回 —— SCF 在函数返回后可能冻结容器，不等完可能写到一半被冻住。
