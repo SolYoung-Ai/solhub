@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  BadgeCheck,
   CalendarDays,
   Check,
   ExternalLink,
@@ -27,6 +26,7 @@ import {
 } from "lucide-react";
 import { p } from "@/lib/paths";
 import GoldBadge from "@/components/GoldBadge";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { avatarOf, fetchMe, type AuthUser } from "@/lib/auth";
 import { copyText, ensureHttps } from "@/lib/utils";
 import {
@@ -634,7 +634,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
                                 <p className="flex items-center gap-1.5 truncate text-[14px] font-bold text-foreground">
                                   {prod.name}
                                   {prod.verificationStatus === "verified" && (
-                                    <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-accent" aria-label={en ? "Verified" : "已核验"} />
+                                    <VerifiedBadge label={en ? "Verified" : "已核验"} className="mt-0.5" />
                                   )}
                                 </p>
                                 <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-muted-foreground">{prod.shortDescription}</p>
