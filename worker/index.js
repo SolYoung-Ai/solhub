@@ -69,7 +69,7 @@ function corsFor(request) {
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Solhub-Session, Authorization",
     "Access-Control-Allow-Credentials": "true",
     Vary: "Origin",
   };
