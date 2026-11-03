@@ -744,7 +744,7 @@ export default function WorldFeed({ locale = "zh" }: { locale?: Locale }) {
         <ul className={`divide-y divide-border ${searching ? "" : "border-t border-border"}`}>
           {visiblePosts.map((post) => (
             <li key={post.id} id={`post-${post.id}`} className="px-4 py-3 transition-colors hover:bg-secondary/20">
-              <div className="flex gap-3">
+              <div className="flex items-start gap-3">
                 <button
                   type="button"
                   onClick={() => openUser(post.author)}
