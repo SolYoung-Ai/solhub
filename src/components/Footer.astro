@@ -3,7 +3,6 @@ import { siteConfig } from "@/data/site";
 import { p } from "@/lib/paths";
 import { getDict, translate } from "@/i18n";
 import type { Locale } from "@/i18n";
-import Logo from "./Logo.astro";
 
 interface Props {
   locale?: Locale;
@@ -12,8 +11,8 @@ interface Props {
 const { locale = "zh" } = Astro.props;
 const dict = getDict(locale);
 
-/* 移动端「关于」菜单里的条目：把桌面端四列底部的功能全部收进这个下拉。
- * 分组标题 + 链接，顺序与桌面端一致（产品 / 关于 / 项目）。 */
+/* 页脚全部功能入口：收在「关于」下拉里（桌面与手机共用同一份数据）。
+ * 分组顺序沿用原来的四列：产品 / 关于 / 项目。 */
 type MenuGroup = { title: string; links: { label: string; href: string; external?: boolean }[] };
 
 const menuGroups: MenuGroup[] = [
@@ -48,133 +47,59 @@ const menuGroups: MenuGroup[] = [
 ---
 
 <footer class="border-t border-border bg-secondary/40">
-  <div class="container-page py-4 md:py-5">
-    <!-- ============ 桌面端：四列 ============ -->
-    <div class="hidden gap-5 md:grid md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-      <div>
-        <a href={p("/", locale)} class="inline-block opacity-80 transition-opacity hover:opacity-100">
-          <Logo locale={locale} size={18} textClass="text-[13px]" />
-        </a>
-        <p class="mt-2 max-w-xs text-[12px] leading-[1.45] text-muted-foreground">
-          {locale === "en" ? siteConfig.tagline : siteConfig.taglineZh}
-        </p>
-        <p class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-muted-foreground/60">
-          {siteConfig.tagline}
-        </p>
-      </div>
+  <div class="container-page flex items-center justify-between gap-3 py-3 md:py-4">
+    <p class="min-w-0 flex-1 truncate text-[10px] text-muted-foreground/70 md:text-[11px]">
+      <a href="https://solyoung.top/" target="_blank" rel="noopener noreferrer" class="transition-colors hover:text-accent">
+        {translate(dict, "footer.copyright", { year: siteConfig.copyrightYear })}
+      </a>
+    </p>
 
-      <nav aria-label={locale === "en" ? "Product navigation" : "产品导航"}>
-        <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
-          {translate(dict, "footer.products")}
-        </p>
-        <ul class="mt-1.5 space-y-1 text-[12px]">
-          <li><a href={p("/", locale)} class="text-muted-foreground transition-colors hover:text-accent">{translate(dict, "footer.discover")}</a></li>
-          <li><a href={p("/launches/", locale)} class="text-muted-foreground transition-colors hover:text-accent">{translate(dict, "footer.launches")}</a></li>
-        </ul>
-      </nav>
-
-      <nav aria-label={locale === "en" ? "About" : "关于导航"}>
-        <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">About</p>
-        <ul class="mt-1.5 space-y-1 text-[12px]">
-          <li><a href={p("/about/", locale)} class="text-muted-foreground transition-colors hover:text-accent">{translate(dict, "nav.about")}</a></li>
-          <li><a href={p("/privacy/", locale)} class="text-muted-foreground transition-colors hover:text-accent">{translate(dict, "footer.privacy")}</a></li>
-          <li><a href={p("/submit/", locale)} class="text-muted-foreground transition-colors hover:text-accent">{translate(dict, "nav.submit")}</a></li>
-        </ul>
-      </nav>
-
-      <div>
-        <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">Project</p>
-        <ul class="mt-1.5 space-y-1 text-[12px]">
-          {
-            siteConfig.githubUrl && (
-              <li>
-                <a
-                  href={siteConfig.githubUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-accent"
-                >
-                  {locale === "en" ? "GitHub repo ↗" : "GitHub 仓库 ↗"}
-                </a>
-              </li>
-            )
-          }
-          <li>
-            <a
-              href={p("/about/#verification", locale)}
-              class="text-muted-foreground transition-colors hover:text-accent"
-            >
-              {locale === "en" ? "Verification" : "核验机制说明"}
-            </a>
-          </li>
-        </ul>
-      </div>
-    </div>
-
-    <!-- ============ 桌面端版权条 ============ -->
-    <div class="mt-4 hidden border-t border-border pt-3 text-[10px] text-muted-foreground/80 md:flex">
-      <p>
-        <a href="https://solyoung.top/" target="_blank" rel="noopener noreferrer" class="text-muted-foreground transition-colors hover:text-accent">
-          {translate(dict, "footer.copyright", { year: siteConfig.copyrightYear })}
-        </a>
-      </p>
-    </div>
-
-    <!-- ============ 移动端：版权 + 关于（点开收起全部页脚功能） ============ -->
-    <div class="flex items-center justify-between gap-3 md:hidden">
-      <p class="min-w-0 flex-1 truncate text-[10px] text-muted-foreground/70">
-        <a href="https://solyoung.top/" target="_blank" rel="noopener noreferrer" class="transition-colors hover:text-accent">
-          {translate(dict, "footer.copyright", { year: siteConfig.copyrightYear })}
-        </a>
-      </p>
-
-      <details class="group relative shrink-0">
-        <summary
-          class="flex cursor-pointer list-none items-center gap-1 rounded-full border border-border/80 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-border hover:text-foreground [&::-webkit-details-marker]:hidden"
+    <details class="group relative shrink-0">
+      <summary
+        class="flex cursor-pointer list-none items-center gap-1 rounded-full border border-border/80 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-border hover:text-foreground md:px-3 md:py-1.5 md:text-[12px] [&::-webkit-details-marker]:hidden"
+      >
+        {locale === "en" ? "About" : "关于"}
+        <svg
+          class="h-3 w-3 opacity-60 transition-transform duration-200 group-open:rotate-180"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
         >
-          {locale === "en" ? "About" : "关于"}
-          <svg
-            class="h-3 w-3 opacity-60 transition-transform duration-200 group-open:rotate-180"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="m18 15-6-6-6 6" />
-          </svg>
-        </summary>
+          <path d="m18 15-6-6-6 6" />
+        </svg>
+      </summary>
 
-        <div
-          class="absolute bottom-full right-0 z-40 mb-2 w-56 overflow-hidden rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur"
-        >
-          {
-            menuGroups.map((group) => (
-              <div class="mt-1 first:mt-0">
-                <p class="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                  {group.title}
-                </p>
-                <ul>
-                  {group.links.map((link) => (
-                    <li>
-                      <a
-                        href={link.href}
-                        target={link.external ? "_blank" : undefined}
-                        rel={link.external ? "noopener noreferrer" : undefined}
-                        class="block rounded-lg px-2 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                      >
-                        {link.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))
-          }
-        </div>
-      </details>
-    </div>
+      <div
+        class="absolute bottom-full right-0 z-40 mb-2 w-56 overflow-hidden rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur md:w-60"
+      >
+        {
+          menuGroups.map((group) => (
+            <div class="mt-1 first:mt-0">
+              <p class="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                {group.title}
+              </p>
+              <ul>
+                {group.links.map((link) => (
+                  <li>
+                    <a
+                      href={link.href}
+                      target={link.external ? "_blank" : undefined}
+                      rel={link.external ? "noopener noreferrer" : undefined}
+                      class="block rounded-lg px-2 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        }
+      </div>
+    </details>
   </div>
 </footer>
