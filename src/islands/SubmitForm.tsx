@@ -194,9 +194,13 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
         setStatus("success");
         setResult({
           mode: "cloudbase",
-          message: en
-            ? "Published! Your product is live on the community list (site rebuilds within ~2 minutes). Manage it anytime in My Account."
-            : "发布成功！产品已自动收录上线（网站约 2 分钟内刷新展示）。可以在「个人中心」随时编辑或删除。",
+          message: data.verifiedGranted
+            ? (en
+              ? "Published! Your product is live, and your verified badge has been lit automatically — check it on your profile."
+              : "发布成功！产品已收录上线，你的认证徽章也已自动点亮——去个人主页看看吧。")
+            : (en
+              ? "Published! Your product is live on the community list (site rebuilds within ~2 minutes). Manage it anytime in My Account."
+              : "发布成功！产品已自动收录上线（网站约 2 分钟内刷新展示）。可以在「个人中心」随时编辑或删除。"),
         });
         return;
       } catch {
@@ -238,8 +242,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
 
   const modeNote = me
     ? (en
-      ? "Submitting while logged in: if your link opens correctly, the product is verified automatically and goes live instantly — no manual review. Manage it in My Account."
-      : "登录状态提交：官网链接可以正常打开即可通过自动检测，产品立即收录上线，无需人工审核；可在「个人中心」随时编辑或删除。")
+      ? "Submitting while logged in: if your link opens correctly, the product is verified automatically and goes live instantly — no manual review. Manage it in My Account. Submit with a verified email and your account badge lights up automatically."
+      : "登录状态提交：官网链接可以正常打开即可通过自动检测，产品立即收录上线，无需人工审核；可在「个人中心」随时编辑或删除。已验证邮箱的账号提交产品后，认证徽章自动点亮。")
     : (en
       ? "Fill the form and click submit — your email client opens with all info pre-filled. Send it and we'll review within 24 hours."
       : "填完表单点击提交，邮箱会自动打开并填好所有信息，发送即完成，我们会在 24 小时内核验。");
@@ -255,8 +259,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
             </p>
             <p className="mt-0.5 text-muted-foreground">
               {en
-                ? "Logged-in submissions skip the email step and are managed from My Account."
-                : "登录后提交无需走邮件流程，产品直接收录到你的账号名下，随时可编辑或删除。"}
+                ? "Logged-in submissions skip the email step and are managed from My Account. Verify your email and your verified badge lights up automatically when you submit."
+                : "登录后提交无需走邮件流程，产品直接收录到你的账号名下，随时可编辑或删除。完成邮箱验证后提交产品，认证徽章自动点亮。"}
             </p>
           </div>
           <a href={p("/login/?next=" + encodeURIComponent("/submit/"), locale)} className="btn btn-accent shrink-0 !h-9 px-4 text-xs">

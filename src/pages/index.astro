@@ -144,6 +144,15 @@ const metaDesc = en
             ? "Submit it to SolHub and let more indie developers and users find it. Submissions are auto-published to the community list; you can also upload a self-contained HTML tool to run in a sandbox right here."
             : "把它提交到 SolHub，让更多独立开发者与使用者发现它。提交即自动公开到社区列表；也可以上传自包含 HTML，让工具直接在本站沙箱内运行。"}
         </p>
+        <p class="relative mx-auto mt-3 inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent/5 px-3.5 py-1.5 text-[13px] font-medium text-foreground/80">
+          <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" aria-hidden="true">
+            <path fill="#F08A4B" d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path>
+            <path stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M8.6 12.2l2.3 2.3 4.5-4.5"></path>
+          </svg>
+          {en
+            ? "Submit with a verified email — your verified badge lights up automatically."
+            : "提交产品并完成邮箱验证，认证徽章自动点亮。"}
+        </p>
         <a href={p("/submit/", locale)} class="btn btn-accent relative mt-6 !h-10 px-6">
           {en ? "Submit a Product" : "提交你的产品"}
           <span aria-hidden="true">→</span>

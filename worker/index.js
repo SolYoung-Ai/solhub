@@ -2599,12 +2599,42 @@ export default {
       /* 主存储：写回 KV，产品立刻出现在个人主页与「我的收录」 */
       await kvPutJSON(env, KV_COMMUNITY, community);
       await rateLimitHit(pubKey, 3600);
+
+      /* 提交产品自动点亮黄V：邮箱账号须已通过邮箱验证（未点亮过才写，幂等）。
+         满足即视为创作者身份可信，登录态、头像、作品同属一人。 */
+      let verifiedGranted = false;
+      try {
+        if (identity.type === "email") {
+          const ukey = `user:${identity.login}`;
+          const u = await kvGetJSON(env, ukey, null, true);
+          if (u && u.emailVerified && !u.verified) {
+            u.verified = true;
+            u.verifiedAt = new Date().toISOString().slice(0, 10);
+            const next = JSON.stringify(u);
+            await env.PROFILES.put(ukey, next);
+            await cacheWrite(env, ukey, next);
+            verifiedGranted = true;
+            dropCreatorsCache();
+          }
+        }
+      } catch { /* 徽章点亮失败不影响提交结果，下次提交会再补 */
+
+      }
+
       /* 尽力同步到仓库（供静态站构建期目录；PAT 缺失或失败不影响提交结果） */
       const synced = await syncCommunityToRepo(env, community, `community: add ${name} by @${who.login}`);
       /* 官方账号自动播报新品（后台执行，不影响提交结果） */
       if (ctx && ctx.waitUntil) ctx.waitUntil(announceNewProduct(env, newProduct).catch(() => {}));
       else announceNewProduct(env, newProduct).catch(() => {});
-      return json(request, { ok: true, product: newProduct, synced, message: "链接检测通过，产品已自动收录上线" });
+      return json(request, {
+        ok: true,
+        product: newProduct,
+        synced,
+        verifiedGranted,
+        message: verifiedGranted
+          ? "链接检测通过，产品已收录上线；你的认证徽章也已自动点亮"
+          : "链接检测通过，产品已自动收录上线",
+      });
     }
 
     /* ---------- 我的收录产品 ---------- */
