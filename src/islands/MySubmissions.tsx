@@ -457,24 +457,30 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                   <User className="h-9 w-9 text-muted-foreground" aria-hidden="true" />
                 </span>
               )}
-              <div className="flex gap-2">
+              {/* 窄屏用 flex-wrap + 短文案 + 收窄 padding：三个按钮放不下时换行而不是被裁掉 */}
+              <div className="flex flex-wrap justify-end gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => void shareProfile()}
                   title={en ? "Copy your profile link" : "复制你的主页分享链接"}
-                  className="btn btn-outline !h-8 gap-1.5 px-4 text-xs"
+                  className="btn btn-outline !h-8 gap-1.5 px-3 text-xs sm:px-4"
                 >
                   {shared ? <Check className="h-3 w-3" /> : <Share2 className="h-3 w-3" />}
-                  {shared ? (en ? "Copied" : "已复制") : (en ? "Share" : "分享主页")}
+                  <span className="sm:hidden">{shared ? (en ? "Copied" : "已复制") : (en ? "Share" : "分享")}</span>
+                  <span className="hidden sm:inline">{shared ? (en ? "Copied" : "已复制") : (en ? "Share" : "分享主页")}</span>
                 </button>
-                <button onClick={() => { setEditingProfile(true); setProfileError(null); }} className="btn btn-outline !h-8 gap-1.5 px-4 text-xs">
-                  <Pencil className="h-3 w-3" /> {en ? "Edit profile" : "编辑资料"}
+                <button onClick={() => { setEditingProfile(true); setProfileError(null); }} className="btn btn-outline !h-8 gap-1.5 px-3 text-xs sm:px-4">
+                  <Pencil className="h-3 w-3" />
+                  <span className="sm:hidden">{en ? "Edit" : "编辑"}</span>
+                  <span className="hidden sm:inline">{en ? "Edit profile" : "编辑资料"}</span>
                 </button>
                 <button
                   onClick={() => { void logout().then(() => window.location.reload()); }}
-                  className="btn btn-outline !h-8 gap-1.5 px-4 text-xs text-muted-foreground hover:text-destructive"
+                  className="btn btn-outline !h-8 gap-1.5 px-3 text-xs text-muted-foreground hover:text-destructive sm:px-4"
                 >
-                  <LogOut className="h-3 w-3" /> {en ? "Log out" : "退出登录"}
+                  <LogOut className="h-3 w-3" />
+                  <span className="sm:hidden">{en ? "Log out" : "退出"}</span>
+                  <span className="hidden sm:inline">{en ? "Log out" : "退出登录"}</span>
                 </button>
               </div>
             </div>

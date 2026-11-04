@@ -214,6 +214,19 @@ html.viewport-mobile .app-tabbar {
     outline-offset: 2px;
     border-radius: 2px;
   }
+  /* iOS Safari 的安全底线：输入框字号 < 16px 时，聚焦会强制把整个页面放大，
+     且失焦后不会自动还原。用户点过一次搜索/登录，之后所有页面都停在放大状态，
+     右侧内容（退出登录按钮、搜索按钮）就被裁出屏幕。这里统一在手机断点把
+     所有输入类元素提到 16px，从源头掐掉触发条件。
+     用 !important 是因为 Tailwind 的 text-sm 等 utility 在更高的 layer。 */
+  @media (max-width: 639px) {
+    input:where(:not([type="checkbox"], [type="radio"], [type="range"], [type="color"])),
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -249,7 +262,8 @@ html.viewport-mobile .app-tabbar {
     @apply rounded-[12px] border border-border bg-card;
   }
   .input {
-    @apply w-full rounded-[10px] border border-border-strong bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none focus:ring-2 focus:ring-ring/25;
+    /* 手机 16px 防 iOS 聚焦放大；桌面回到 14px 保持紧凑 */
+    @apply w-full rounded-[10px] border border-border-strong bg-card px-3 py-2 text-[16px] text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none focus:ring-2 focus:ring-ring/25 sm:text-sm;
   }
   .badge {
     @apply inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[11px] leading-4 font-medium;
