@@ -1,23 +1,22 @@
-/** Verified 徽章（橙色线描圆标 + 描边对勾，统一用户认证标志样式）。
- *  用于创作者名录、个人主页、搜索与管理后台——所有「用户账号认证」处统一此样式。 */
+/** 用户认证徽章（橙色锯齿徽章 + 白色对勾，Twitter 风格 seal 形状）。
+ *  形状取自 lucide BadgeCheck 的锯齿外圈，实心填充 + 白勾；
+ *  颜色沿用品牌橙黄 #F08A4B（用户账号认证专用，产品认证请用 VerifiedBadge）。 */
 export default function GoldBadge({ className = "h-[15px] w-[15px]" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} aria-label="Verified" role="img" fill="none">
-      {/* 圆形外圈：橙色描边，透明填充（正圆，不歪不扁） */}
-      <circle
-        cx={12}
-        cy={12}
-        r={9.5}
-        stroke="#F08A4B"
-        strokeWidth={2}
-      />
-      {/* 内部对勾：橙色描边，居中 */}
+    <svg viewBox="0 0 24 24" className={className} aria-label="Verified" role="img">
+      {/* 锯齿徽章外圈：橙色实心填充 */}
       <path
-        stroke="#F08A4B"
-        strokeWidth={2.4}
+        fill="#F08A4B"
+        d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"
+      />
+      {/* 白色对勾：微内收，避免碰到锯齿边缘 */}
+      <path
+        stroke="#fff"
+        strokeWidth={2.3}
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M8.4 12.1l2.4 2.4 4.8-4.8"
+        fill="none"
+        d="M8.6 12.2l2.3 2.3 4.5-4.5"
       />
     </svg>
   );
