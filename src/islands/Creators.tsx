@@ -747,6 +747,30 @@ export default function Creators({
           </div>
         </section>
 
+        {/* 全球创作者招募：夹在「关于创作者」与「回到我的主页」之间，跳转到 /join/ */}
+        <section className="overflow-hidden rounded-[12px] border border-accent/30 bg-card">
+          <div className="flex items-center gap-2 border-b border-accent/20 bg-accent/5 px-4 py-3">
+            <Globe2 className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+            <h2 className="font-display text-[14px] font-bold text-foreground">
+              {en ? "Recruiting creators worldwide" : "全球招募创作者"}
+            </h2>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-[12.5px] leading-6 text-muted-foreground">
+              {en
+                ? "A transparent, honest stage for independent makers. Bring your work and let the world find it."
+                : "一个透明、真实的独立创作者舞台。带上你的作品，让全世界看见。"}
+            </p>
+            <a
+              href={p("/join/", locale)}
+              className="mt-3 flex h-9 items-center justify-center gap-1.5 rounded-full border border-accent/40 text-[13px] font-semibold text-accent transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              {en ? "Join the program" : "加入招募"}
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </a>
+          </div>
+        </section>
+
         <section className="rounded-[12px] border border-border bg-card px-4 py-3">
           {me ? (
             <a
