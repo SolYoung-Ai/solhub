@@ -23,6 +23,7 @@ import { request } from "@/lib/net";
 import { avatarOf, fetchMeState, logout, resizeImageToDataUrl, saveProfile, type AuthUser } from "@/lib/auth";
 import { copyText, ensureHttps } from "@/lib/utils";
 import { fetchFollowList, fetchProfile, type FollowUser, type PublicProfile } from "@/lib/world";
+import GoldBadge from "@/components/GoldBadge";
 import { base } from "@/lib/api-base";
 import type { Locale } from "@/i18n";
 
@@ -486,8 +487,10 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
             </div>
 
             <div className="mt-3">
-              <h1 className="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
+              <h1 className="flex flex-wrap items-center gap-1.5 font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
                 {user.displayName || (isGithub ? user.login : (en ? "Anonymous creator" : "匿名创作者"))}
+                {/* 黄V：与公开主页（/world/?u=）口径一致，读公开资料里的 verified */}
+                {world?.user.verified && <GoldBadge className="h-[18px] w-[18px] shrink-0" />}
               </h1>
               <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
                 <a
