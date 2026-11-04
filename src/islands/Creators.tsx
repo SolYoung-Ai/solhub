@@ -77,6 +77,39 @@ function Avatar({
   );
 }
 
+/**
+ * 产品图标：与头像同样的兜底逻辑。
+ *
+ * 后端目录数据是 KV 优先（catalog:index:v1 / catalog:community:v1），
+ * 若图标文件改名后没有重新灌库，KV 里会残留旧的 .png 路径导致 404。
+ * 加载失败时退回首字母块，避免出现浏览器破图占位符。
+ */
+function ProductIcon({ name, src }: { name: string; src?: string }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [src]);
+  const box = "h-10 w-10 shrink-0 rounded-[8px] border border-border";
+  if (src && !broken) {
+    return (
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onError={() => setBroken(true)}
+        className={`${box} bg-card object-cover`}
+      />
+    );
+  }
+  return (
+    <span
+      className={`${box} flex items-center justify-center bg-secondary font-display text-[15px] font-bold uppercase text-foreground`}
+      aria-hidden="true"
+    >
+      {(name || "?").slice(0, 1)}
+    </span>
+  );
+}
+
 const EMPTY: CreatorList = { total: 0, counts: { all: 0, verified: 0, products: 0 }, creators: [] };
 
 /**
@@ -435,17 +468,7 @@ export default function Creators({
                           rel="noopener noreferrer"
                           className="flex items-start gap-3 py-3 transition-colors hover:bg-secondary/30"
                         >
-                          {prod.icon ? (
-                            <img
-                              src={prod.icon}
-                              alt=""
-                              className="h-10 w-10 shrink-0 rounded-[8px] border border-border object-cover"
-                            />
-                          ) : (
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-secondary font-display text-[15px] font-bold uppercase text-foreground">
-                              {prod.name.slice(0, 1)}
-                            </span>
-                          )}
+                          <ProductIcon name={prod.name} src={prod.icon} />
                           <div className="min-w-0 flex-1">
                             <p className="flex items-center gap-1.5 truncate text-[14px] font-bold text-foreground">
                               {prod.name}

@@ -460,7 +460,7 @@ encodeURIComponent(str)
 | 每周 | 看 Cloudflare Dashboard 的 KV 用量（读/写/天）。**接近额度 60% 就做阶段 0 的优化** |
 | 每周 | 看阿里云邮件推送控制台**概览页**的发信量与额度余量；再看 Worker 侧 `vcode:quota` 的累计值是否接近 1800 |
 | 每月 | 跑一次备份校验：从备份恢复 KV 到测试命名空间，确认能读出来 |
-| 每次改 `src/data/products.ts` | `node scripts/build-product-index.mjs` → `node scripts/seed-catalog-kv.mjs` → 提交 |
+| 每次改 `src/data/products.ts` | `node scripts/build-product-index.mjs` → `node scripts/seed-catalog-pg.mjs` → 提交（**目录数据是 KV 优先，漏跑会让线上个人主页读旧快照**） |
 | 每次改 `worker/index.js` | `wrangler deploy` → 冒烟：注册 → 发帖 → 评论 → 改资料 → 删除 |
 | 每次改邮件签名逻辑 | `node scripts/test-aliyun-sign.mjs`（与官方 SDK 交叉比对，**必须全绿再部署**） |
 | **上线前** | 确认 `DM_DRY_RUN` / `DM_DEV_KEY` **已删除**；真实发信跑通一封再宣布上线 |
@@ -472,11 +472,26 @@ encodeURIComponent(str)
 | 脚本 | 作用 |
 |---|---|
 | `scripts/build-product-index.mjs` | 从 `products.ts` 生成带 `developerLogin` 的产品索引 |
-| `scripts/seed-catalog-kv.mjs` | 把目录数据灌进 Worker 的 KV（**必须带 `--remote`**） |
+| `scripts/seed-catalog-pg.mjs` | 把 `src/data/*.json` 灌进 CloudBase PG 的 `catalog:index:v1` / `catalog:community:v1`；社区键已有运行时数据时自动跳过，`--force-community` 才强覆盖 |
 | `scripts/changelog.mjs` / `scripts/official.mjs` | 官方账号一键发更新日志 |
 | `scripts/_push_api.mjs` | 网络受限时用 Git Data API 推送（绕过 git 代理） |
 | `scripts/test-aliyun-sign.mjs` | **阿里云签名回归测试**：与官方 SDK `@alicloud/openapi-core` 交叉比对，3 个用例逐字节一致 |
 | `scripts/test-aliyun-live.mjs` | 用假 AK 打真实接口，验证参数编码与请求结构能进到鉴权阶段 |
+
+> **目录数据不同步 = 个人主页产品图标破图**（2026-11-04 实际踩过一次）
+>
+> 后端 `worker/index.js` 的 `readProductIndex()` / `readCommunity()` 是 **KV 优先**：
+> PG `public.kv` 里 `catalog:index:v1` 有值就直接返回，只有为空才回退 GitHub 仓库文件。
+> 榜单页 / 产品详情页在构建期读 `src/data/*.json`，个人主页 `/users/<pid>` 在运行时读 KV ——
+> 于是把图标从 `.png` 改成 `.jpg` 却没重新灌库时，会出现「榜单正常、个人主页 404 破图」。
+>
+> 排查：`curl -s "<API_BASE>/users/<handle>"` 看 `products[].icon` 是不是旧路径。
+> 修复：改完目录依次跑 `build-product-index.mjs` → `seed-catalog-pg.mjs`，再复验接口。
+>
+> **不要**用 `seed-catalog-pg.mjs` 无脑覆盖 `catalog:community:v1`：该键由 `/publish` 运行时写入，
+> 仓库 `community.json` 只是初始种子。脚本已加保护（内容不同默认跳过），
+> 只在初始化全新环境、确实需要重置时才加 `--force-community`。
+> 若只想刷新官方索引，单独 upsert `catalog:index:v1` 即可，写前把旧值备份到 `backup:*` 键。
 
 ---
 
