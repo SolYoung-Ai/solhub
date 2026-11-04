@@ -641,8 +641,8 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
           <p className="font-display text-[14px] font-bold text-foreground">{en ? "Your product here" : "把你的作品放上来"}</p>
           <p className="mt-1.5 text-[12.5px] leading-6 text-muted-foreground">
             {en
-              ? "Submit a product and it shows up on your creator page, the gallery and search."
-              : "提交作品后，它会出现在你的创作者主页、产品列表和搜索结果里。"}
+              ? "Submit a product and it shows up on your creator page, the gallery and search. Submit with a verified email and your verified badge lights up automatically."
+              : "提交作品后，它会出现在你的创作者主页、产品列表和搜索结果里。完成邮箱验证后提交产品，认证徽章自动点亮。"}
           </p>
           <a
             href={p("/submit/", locale)}
@@ -660,8 +660,8 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
           <div className="px-4 py-3">
             <p className="text-[12.5px] leading-6 text-muted-foreground">
               {en
-                ? "Every registered account has a creator page: what they built, where to find them, and how to follow them. Yellow badges mark verified accounts."
-                : "每个注册账号都有一张创作者名片：做过什么、在哪里找到他、怎么关注。橙色勾是人工核验过的账号。"}
+                ? "Every registered account has a creator page: what they built, where to find them, and how to follow them. Orange badges mark verified accounts — submit a product with a verified email and yours lights up automatically."
+                : "每个注册账号都有一张创作者名片：做过什么、在哪里找到他、怎么关注。橙色徽章代表已核验的账号——完成邮箱验证后提交产品，即可自动点亮。"}
             </p>
           </div>
         </section>
