@@ -352,6 +352,9 @@ html.viewport-mobile .app-tabbar {
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
+  /* 长不可断行内容（<pre> 命令行）不能把父级 grid/flex 列撑破；
+     外层列仍需 min-w-0，两者配合才是完整的窄屏防溢出 */
+  max-width: 100%;
 }
 
 /* ============================================================
