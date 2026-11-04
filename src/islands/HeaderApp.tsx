@@ -445,7 +445,9 @@ function SearchDialog({
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onKeyDown} type="text"
               placeholder={translate(dict, "search.placeholder")}
-              className="h-12 w-full bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+              /* 16px 防 iOS 聚焦放大；w-0 + min-w-0 + flex-1 让输入框宽度完全由 flex
+                 分配，不会因为固有宽度把右侧清空按钮挤出容器 */
+              className="h-12 w-0 min-w-0 flex-1 bg-transparent text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none sm:text-[15px]"
             />
             {query && (
               <button type="button" onClick={() => setQuery("")} className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground hover:bg-secondary">

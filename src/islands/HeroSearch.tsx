@@ -80,8 +80,12 @@ export default function HeroSearch() {
               ? narrow ? "Search products & tools…" : "Search products & tools, e.g. “json”, “QR”, “SolYoung”…"
               : narrow ? "搜索产品或工具…" : "搜索产品或工具，比如 “json”“二维码”“SolYoung”…"
           }
-          /* 移动端 16px：iOS Safari 对小于 16px 的输入框会在聚焦时自动放大页面 */
-          className="flex-1 bg-transparent text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none sm:text-sm"
+          /* 移动端 16px：iOS Safari 对小于 16px 的输入框会在聚焦时自动放大页面。
+             w-0 + min-w-0：flex 子项默认 min-width:auto，Safari 会按 input 的固有宽度
+             （由 placeholder 长度和字号决定）撑住不收缩，右侧搜索按钮就被挤到圆角框外
+             甚至屏幕外。basis 归零 + min-width:0 之后，宽度完全由 flex 分配，任何
+             字号下按钮都留在框内。 */
+          className="w-0 min-w-0 flex-1 bg-transparent text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none sm:text-sm"
           aria-label={translate(dict, "nav.search")}
         />
         {query && (

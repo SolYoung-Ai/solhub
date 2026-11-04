@@ -200,6 +200,11 @@ html.viewport-mobile .app-tabbar {
   }
   html {
     scroll-behavior: smooth;
+    /* iOS 的「文字自动放大」：Safari 会依据容器宽度自行放大正文字号（用户开了
+       「更大字体」或网页文字大小时尤其明显）。字号一变大，input 的固有宽度跟着涨，
+       把同一行右侧的按钮挤出容器。显式锁死为 100%，布局才能稳定。 */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   body {
     @apply bg-background font-sans text-foreground antialiased;
@@ -218,12 +223,15 @@ html.viewport-mobile .app-tabbar {
      且失焦后不会自动还原。用户点过一次搜索/登录，之后所有页面都停在放大状态，
      右侧内容（退出登录按钮、搜索按钮）就被裁出屏幕。这里统一在手机断点把
      所有输入类元素提到 16px，从源头掐掉触发条件。
-     用 !important 是因为 Tailwind 的 text-sm 等 utility 在更高的 layer。 */
+     用 !important 是因为 Tailwind 的 text-sm 等 utility 在更高的 layer。
+     min-width:0 是第二道保险：input 在 flex 容器里默认 min-width:auto，
+     会被自身内容（placeholder）的固有宽度撑住，字号一变大就把兄弟节点挤出去。 */
   @media (max-width: 639px) {
     input:where(:not([type="checkbox"], [type="radio"], [type="range"], [type="color"])),
     textarea,
     select {
       font-size: 16px !important;
+      min-width: 0;
     }
   }
 

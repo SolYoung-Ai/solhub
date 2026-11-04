@@ -373,7 +373,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
               value={form.websiteUrl}
               onChange={(e) => set("websiteUrl", e.target.value)}
               placeholder="https://example.com"
-              className="input font-mono !text-[13px]"
+              className="input font-mono sm:!text-[13px]"
               aria-required={needsUrl}
             />
           </Field>
