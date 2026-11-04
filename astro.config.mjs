@@ -22,6 +22,7 @@ const SITEMAP_EXCLUDE = [
   "/forgot-password/",
   "/my-submissions/",
   "/submit/",
+  "/u/",
 ];
 
 const sitemapFilter = (page) => {

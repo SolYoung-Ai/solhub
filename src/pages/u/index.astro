@@ -1,0 +1,40 @@
+---
+import ProfileLayout from "@/layouts/ProfileLayout.astro";
+import Creators from "@/islands/Creators.tsx";
+import { p } from "@/lib/paths";
+---
+
+<!--
+  对外分享的独立创作者展示页：URL /u/?h=<handle>。
+  刻意不套 BaseLayout —— 没有全站侧栏 / 顶栏 / 底栏，别人打开就是一个
+  干净的「个人名片 + 作品列表」，适合创作者直接发给客户、朋友或放在社交资料里。
+  短链接 /@<handle> 由 404 页重定向到这里。
+-->
+<ProfileLayout
+  title="创作者主页"
+  description="独立创作者的 SolHub 主页：个人资料、作品与联系方式。"
+  route="/u/"
+  locale="zh"
+  noIndex={true}
+>
+  <div class="container-page py-6 sm:py-10">
+    <div class="mx-auto mb-5 flex w-full max-w-2xl items-center justify-between gap-3">
+      <a href={p("/")} class="inline-flex items-center gap-2">
+        <img src={p("/solhub-mark.png")} alt="" width={22} height={22} class="shrink-0" />
+        <span class="font-display text-[16px] font-bold tracking-tight text-foreground">SolHub</span>
+      </a>
+      <a href={p("/world/")} class="text-[12px] text-muted-foreground transition-colors hover:text-foreground">
+        发现更多创作者 →
+      </a>
+    </div>
+
+    <Creators client:load locale="zh" standalone />
+
+    <div class="mx-auto mt-8 flex w-full max-w-2xl flex-wrap items-center justify-between gap-2 border-t border-border pt-5 text-[12px] text-muted-foreground">
+      <span>
+        由 <a href={p("/")} class="text-accent hover:underline">SolHub</a> 提供 · 独立创作者的作品展示页
+      </span>
+      <a href={p("/")} class="hover:text-foreground">访问 SolHub →</a>
+    </div>
+  </div>
+</ProfileLayout>

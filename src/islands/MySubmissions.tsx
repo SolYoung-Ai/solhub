@@ -126,7 +126,8 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     if (!user) return;
     const handle = user.handle || user.login || "";
     if (!handle) return;
-    const url = `${window.location.origin}${p(`/world/?u=${encodeURIComponent(handle)}`, locale)}`;
+    /* 短链接 /@<handle>：404 页重定向到独立展示页 /u/?h=，无侧栏、可直接对外展示 */
+    const url = `${window.location.origin}${p(`/@${encodeURIComponent(handle)}`)}`;
     const ok = await copyText(url);
     if (ok) {
       setShared(true);
@@ -615,8 +616,8 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                 {isGithub
                   ? (en ? "GitHub accounts use the GitHub username." : "GitHub 账号使用 GitHub 用户名。")
                   : (en
-                      ? "Your public page: /world/?u=username. 3–20 chars, letters/digits/underscore; changing it also renames your past posts."
-                      : "公开主页地址里的名字：/world/?u=用户名。3–20 位字母数字下划线；修改后历史帖子会一起改名。")}
+                      ? "Your public page: solhub.solyoung.top/@username. 3–20 chars, letters/digits/underscore; changing it also renames your past posts."
+                      : "公开主页地址里的名字：/@用户名。3–20 位字母数字下划线；修改后历史帖子会一起改名。")}
               </span>
             </label>
             <div className="grid gap-3 sm:grid-cols-2">

@@ -1,0 +1,149 @@
+---
+import { siteConfig } from "@/data/site";
+import { p, stripBase, absoluteUrl, baseUrl } from "@/lib/paths";
+import { getDict } from "@/i18n";
+import type { Locale } from "@/i18n";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+  /** 当前路由（不含 base、不含语言前缀），用于 canonical */
+  route: string;
+  ogType?: string;
+  noIndex?: boolean;
+  locale?: Locale;
+}
+
+const {
+  title,
+  description,
+  route,
+  ogType = "website",
+  noIndex = false,
+  locale = "zh",
+} = Astro.props;
+
+const dict = getDict(locale);
+const htmlLang = locale === "en" ? "en" : "zh-CN";
+const ogLocale = locale === "en" ? "en_US" : "zh_CN";
+const pageTitle =
+  title === siteConfig.name || title.includes(siteConfig.name)
+    ? title
+    : `${title} · ${siteConfig.name}`;
+const canonical = absoluteUrl(route, locale);
+const ogImage = absoluteUrl("/og.png", "zh");
+const orgJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: siteConfig.name,
+  url: absoluteUrl("/", locale),
+  description: locale === "en" ? siteConfig.descriptionEn : siteConfig.description,
+  inLanguage: locale === "en" ? "en" : "zh-CN",
+};
+---
+
+<!doctype html>
+<html lang={htmlLang} class="theme-init">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    {
+      noIndex && <meta name="robots" content="noindex" />
+    }
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/png" href={p("/favicon.png")} />
+    <link rel="apple-touch-icon" href={p("/apple-touch-icon.png")} />
+    <meta name="solhub-base" content={baseUrl()} />
+
+    <link rel="alternate" hreflang="zh-CN" href={absoluteUrl(route, "zh")} />
+    <link rel="alternate" hreflang="en" href={absoluteUrl(route, "en")} />
+    <link rel="alternate" hreflang="x-default" href={absoluteUrl(route, "zh")} />
+
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content={siteConfig.name} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={ogLocale} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={pageTitle} />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- 首屏前恢复 主题 / 语言 / 视口 偏好 -->
+    <script is:inline>
+      (function () {
+        try {
+          var hash = window.location.hash || "";
+          var m = hash.match(/[#&]gh_token=([^&]+)/);
+          if (m) {
+            try {
+              sessionStorage.setItem(
+                "solhub:auth",
+                JSON.stringify({ type: "github", token: decodeURIComponent(m[1]) }),
+              );
+            } catch (e) { /* 忽略存储不可用 */ }
+            var clean = window.location.pathname + window.location.search;
+            if (window.history && window.history.replaceState) {
+              window.history.replaceState(null, "", clean);
+            }
+          }
+
+          var savedTheme = localStorage.getItem("solhub:theme");
+          var theme = savedTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+          if (theme === "dark") document.documentElement.classList.add("dark");
+          document.documentElement.classList.remove("theme-init");
+
+          if (localStorage.getItem("solhub:viewport") === "mobile") {
+            document.documentElement.classList.add("viewport-mobile");
+          }
+
+          var savedLang = localStorage.getItem("solhub:lang");
+          var base = (document.querySelector("meta[name='solhub-base']") || {}).getAttribute
+            ? document.querySelector("meta[name='solhub-base']").getAttribute("content")
+            : "";
+          if (savedLang === "en" || savedLang === "zh") {
+            var path = window.location.pathname;
+            var hasEn = path.indexOf("/en/") !== -1 || path.endsWith("/en");
+            var wantEn = savedLang === "en";
+            if (wantEn !== hasEn) {
+              if (wantEn) {
+                var baseClean = base.replace(/\/$/, "");
+                var rest = baseClean && path.indexOf(baseClean) === 0 ? path.slice(baseClean.length) : path;
+                var target = baseClean + "/en" + (rest === "/" ? "/" : rest);
+                window.location.replace(target);
+              } else {
+                var t2 = path.replace(/\/en(\/|$)/, "/");
+                window.location.replace(t2);
+              }
+            }
+          }
+        } catch (e) { /* 忽略存储不可用 */ }
+      })();
+    </script>
+    <script type="application/ld+json" set:html={JSON.stringify(orgJsonLd)} />
+  </head>
+  <!-- 个人主页展示布局：无全站侧栏 / 顶栏 / 底栏，纯净展示 -->
+  <body class="min-h-screen">
+    <main class="flex-1">
+      <slot />
+    </main>
+  </body>
+</html>

@@ -1,0 +1,37 @@
+---
+import ProfileLayout from "@/layouts/ProfileLayout.astro";
+import Creators from "@/islands/Creators.tsx";
+import { p } from "@/lib/paths";
+---
+
+<!-- Standalone creator profile for sharing: /en/u/?h=<handle>.
+     Intentionally not using BaseLayout — no global sidebar / topbar / tabbar,
+     so a shared link opens as a clean personal card + product list. -->
+<ProfileLayout
+  title="Creator profile"
+  description="A creator's SolHub profile: bio, products and contact details."
+  route="/u/"
+  locale="en"
+  noIndex={true}
+>
+  <div class="container-page py-6 sm:py-10">
+    <div class="mx-auto mb-5 flex w-full max-w-2xl items-center justify-between gap-3">
+      <a href={p("/", "en")} class="inline-flex items-center gap-2">
+        <img src={p("/solhub-mark.png")} alt="" width={22} height={22} class="shrink-0" />
+        <span class="font-display text-[16px] font-bold tracking-tight text-foreground">SolHub</span>
+      </a>
+      <a href={p("/world/", "en")} class="text-[12px] text-muted-foreground transition-colors hover:text-foreground">
+        Meet more creators →
+      </a>
+    </div>
+
+    <Creators client:load locale="en" standalone />
+
+    <div class="mx-auto mt-8 flex w-full max-w-2xl flex-wrap items-center justify-between gap-2 border-t border-border pt-5 text-[12px] text-muted-foreground">
+      <span>
+        Powered by <a href={p("/", "en")} class="text-accent hover:underline">SolHub</a> · A creator showcase page
+      </span>
+      <a href={p("/", "en")} class="hover:text-foreground">Visit SolHub →</a>
+    </div>
+  </div>
+</ProfileLayout>

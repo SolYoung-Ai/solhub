@@ -220,8 +220,8 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
                   </div>
                   <span className="mt-1 block text-[11px] text-muted-foreground">
                     {en
-                      ? "Your public page is /world/?u=username. Leave blank and we'll pick one from your email."
-                      : "它就是你主页地址里的名字（/world/?u=用户名），留空则自动按邮箱生成。"}
+                      ? "Your public page is /@username. Leave blank and we'll pick one from your email."
+                      : "它就是你主页地址里的名字（/@用户名），留空则自动按邮箱生成。"}
                   </span>
                 </label>
               )}

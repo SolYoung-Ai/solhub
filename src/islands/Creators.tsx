@@ -20,7 +20,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { p } from "@/lib/paths";
+import { p, baseUrl } from "@/lib/paths";
 import GoldBadge from "@/components/GoldBadge";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { fetchMe, type AuthUser } from "@/lib/auth";
@@ -89,7 +89,14 @@ const EMPTY: CreatorList = { total: 0, counts: { all: 0, verified: 0, products: 
  * 发帖功能已下线：这个页面不再有写作框、点赞、评论、帖子流；
  * 个人主页也只保留资料与作品。
  */
-export default function Creators({ locale = "zh" }: { locale?: Locale }) {
+export default function Creators({
+  locale = "zh",
+  standalone = false,
+}: {
+  locale?: Locale;
+  /** 独立展示页 /u/：不渲染名录、不返回名录，用于对外分享的干净个人名片 */
+  standalone?: boolean;
+}) {
   const en = locale === "en";
 
   const [me, setMe] = useState<AuthUser | null>(null);
@@ -101,22 +108,26 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
   const [query, setQuery] = useState("");
   const seq = useRef(0);
 
-  /* 主页视图（?u=<handle>）：沿用旧分享链接的查询参数 */
+  /* 主页视图：站内名录用 ?u=，对外独立展示页用 ?h= */
   const [viewUser, setViewUser] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
-    return new URLSearchParams(window.location.search).get("u");
+    const qs = new URLSearchParams(window.location.search);
+    return qs.get("u") || qs.get("h");
   });
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [profileMissing, setProfileMissing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  /* 独立展示页 SSR 时读不到 URL 上的 ?h=，先用加载态占位，水合后再决定内容 */
+  const [shellReady, setShellReady] = useState(false);
 
   useEffect(() => {
     void fetchMe().then(setMe);
+    setShellReady(true);
   }, []);
 
   /* 列表加载：输入框防抖 220ms，并用序号丢弃过期响应 */
   useEffect(() => {
-    if (viewUser) return;
+    if (viewUser || standalone) return;
     const no = ++seq.current;
     setBusy(true);
     setMoreBusy(false);
@@ -132,7 +143,7 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
       query.trim() ? 220 : 0,
     );
     return () => window.clearTimeout(timer);
-  }, [query, filter, viewUser]);
+  }, [query, filter, viewUser, standalone]);
 
   /* 名录分页：首屏只拉 100 人，剩下的按需加载。
      服务端有 60 秒实例内缓存，翻页几乎不产生额外读库成本。 */
@@ -187,6 +198,11 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
   }, []);
 
   const closeUser = useCallback(() => {
+    /* 独立展示页没有名录可退，直接回站首 */
+    if (standalone) {
+      window.location.href = p("/", locale);
+      return;
+    }
     setViewUser(null);
     setProfile(null);
     setProfileMissing(false);
@@ -194,7 +210,7 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
     url.searchParams.delete("u");
     window.history.replaceState(null, "", url.toString());
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
+  }, [standalone, locale]);
 
   const flash = (msg: string) => {
     setToast(msg);
@@ -202,7 +218,9 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
   };
 
   const shareProfile = async (handle: string) => {
-    const url = `${window.location.origin}${p(`/world/?u=${encodeURIComponent(handle)}`, locale)}`;
+    /* 对外分享统一走短链接 /@<handle>（由 404 页重定向到独立展示页 /u/?h=），
+       不再暴露 /world/?u= 这种带侧栏的站内地址 */
+    const url = `${window.location.origin}${baseUrl()}@${encodeURIComponent(handle)}`;
     const ok = await copyText(url);
     flash(ok ? (en ? "Profile link copied" : "主页链接已复制") : url);
   };
@@ -219,19 +237,55 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
     );
   };
 
+  /* ==================== 独立展示页 ==================== */
+  if (standalone && !viewUser) {
+    /* SSR 阶段拿不到 ?h=：先给加载态，避免水合前闪一下「未找到」 */
+    if (!shellReady) {
+      return (
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-center gap-2 rounded-[12px] border border-border bg-card py-16 text-[13px] text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> {en ? "Loading…" : "加载中…"}
+        </div>
+      );
+    }
+    return (
+      <div className="mx-auto w-full max-w-2xl rounded-[12px] border border-dashed border-border bg-card px-6 py-16 text-center">
+        <UserRound className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
+        <h1 className="mt-3 font-display text-lg font-bold text-foreground">
+          {en ? "Creator not found" : "没有找到这位创作者"}
+        </h1>
+        <p className="mt-1.5 text-[13px] text-muted-foreground">
+          {en ? "This profile link is incomplete or the username is missing." : "这个主页链接不完整，可能缺少用户名。"}
+        </p>
+        <a href={p("/", locale)} className="btn btn-accent mt-5">
+          {en ? "Go to SolHub" : "访问 SolHub"}
+        </a>
+      </div>
+    );
+  }
+
   /* ==================== 个人主页 ==================== */
   if (viewUser) {
     return (
       <div className="mx-auto w-full max-w-2xl pb-10">
         <div className="overflow-hidden rounded-[12px] border border-border bg-card">
           <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
-            <button
-              type="button"
-              onClick={closeUser}
-              className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" /> {en ? "Back" : "返回"}
-            </button>
+            {standalone ? (
+              <a
+                href={p("/", locale)}
+                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-foreground transition-colors hover:text-accent"
+              >
+                <img src={p("/solhub-mark.png")} alt="" width={16} height={16} className="shrink-0" />
+                SolHub
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={closeUser}
+                className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" /> {en ? "Back" : "返回"}
+              </button>
+            )}
             <span className="truncate text-[13px] font-semibold text-foreground">
               {profile?.user.name || viewUser}
             </span>
