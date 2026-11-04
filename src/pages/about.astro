@@ -98,6 +98,27 @@ const metaDesc = en
           <>SolHub 由 <a href="https://solyoung.top" target="_blank" rel="noopener noreferrer">SolYoung</a>（独立创作者宋杨）构建与维护，与 SolYoung Studio 属于同一品牌体系。我们相信：真正有价值的产品和工具，值得被发现。</>
         )}
       </p>
+
+      <!-- 全球招募创作者 -->
+      <div class="card mt-6 flex flex-col gap-4 border-accent/25 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 class="font-display text-lg font-bold text-foreground">
+            {en ? "We're recruiting creators worldwide" : "全球招募创作者"}
+          </h3>
+          <p class="mt-1.5 text-[14px] leading-6 text-muted-foreground">
+            {
+              en
+                ? "Bring your product to a transparent, honest stage and get discovered by makers around the world."
+                : "把你的作品带到一个透明、真实的舞台，被全世界的创作者与使用者发现。"
+            }
+          </p>
+        </div>
+        <a href={p("/join/", locale)} class="btn btn-accent h-11 shrink-0 px-6 text-[15px]">
+          {en ? "Join the program" : "加入招募"}
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+
       <a href={p("/submit/", locale)} class="btn btn-accent mt-4">{en ? "Submit your product" : "提交你的产品"}</a>
     </div>
   </section>

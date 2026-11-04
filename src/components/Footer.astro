@@ -17,6 +17,7 @@ type MenuLink = { label: string; href: string; external?: boolean };
 
 const menuLinks: MenuLink[] = [
   { label: translate(dict, "nav.about"), href: p("/about/", locale) },
+  { label: locale === "en" ? "Recruit creators ↗" : "全球招募 ↗", href: p("/join/", locale) },
   { label: translate(dict, "footer.privacy"), href: p("/privacy/", locale) },
   ...(siteConfig.githubUrl
     ? [{ label: locale === "en" ? "GitHub repo ↗" : "GitHub 仓库 ↗", href: siteConfig.githubUrl, external: true }]
