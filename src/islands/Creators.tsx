@@ -183,11 +183,15 @@ export default function Creators({
       if (!alive) return;
       setProfile(res);
       setProfileMissing(!res);
+      /* 独立展示页：标签页显示创作者名字，而不是通用的「创作者主页」 */
+      if (standalone && res) {
+        document.title = `${res.user.name || cleanHandle(viewUser)} · SolHub`;
+      }
     });
     return () => {
       alive = false;
     };
-  }, [viewUser]);
+  }, [viewUser, standalone]);
 
   const openUser = useCallback((login: string) => {
     setViewUser(login);
