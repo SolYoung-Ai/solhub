@@ -4,6 +4,7 @@ import {
   ArrowRight,
   CalendarDays,
   Check,
+  ChevronDown,
   ExternalLink,
   Globe2,
   Link2,
@@ -95,6 +96,7 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
   const [data, setData] = useState<CreatorList>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [moreBusy, setMoreBusy] = useState(false);
   const [filter, setFilter] = useState<CreatorFilter>("all");
   const [query, setQuery] = useState("");
   const seq = useRef(0);
@@ -117,6 +119,7 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
     if (viewUser) return;
     const no = ++seq.current;
     setBusy(true);
+    setMoreBusy(false);
     const timer = window.setTimeout(
       () => {
         void fetchCreators({ q: query.trim(), filter }).then((res) => {
@@ -130,6 +133,34 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
     );
     return () => window.clearTimeout(timer);
   }, [query, filter, viewUser]);
+
+  /* 名录分页：首屏只拉 100 人，剩下的按需加载。
+     服务端有 60 秒实例内缓存，翻页几乎不产生额外读库成本。 */
+  const loadMore = useCallback(async () => {
+    if (moreBusy || !data.hasMore) return;
+    const no = seq.current;
+    setMoreBusy(true);
+    const res = await fetchCreators({ q: query.trim(), filter, offset: data.nextOffset || 0 });
+    /* 加载期间如果用户换了关键词/筛选，seq 会变，直接丢弃这批结果 */
+    if (no !== seq.current) {
+      setMoreBusy(false);
+      return;
+    }
+    setData((prev) => ({
+      ...prev,
+      total: res.total,
+      counts: res.counts,
+      hasMore: res.hasMore,
+      nextOffset: res.nextOffset,
+      creators: [...prev.creators, ...res.creators],
+    }));
+    setMoreBusy(false);
+  }, [moreBusy, data.hasMore, data.nextOffset, query, filter]);
+
+  /* 「加载更多」上显示的剩余人数：按当前筛选口径算（全部 / 已认证 / 有作品） */
+  const chipTotal =
+    filter === "verified" ? data.counts.verified : filter === "products" ? data.counts.products : data.counts.all;
+  const remainingCreators = Math.max(0, chipTotal - data.creators.length);
 
   /* 主页加载 */
   useEffect(() => {
@@ -519,6 +550,7 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
               </p>
             </div>
           ) : (
+            <>
             <ul className={`divide-y divide-border ${busy ? "opacity-60 transition-opacity" : "transition-opacity"}`}>
               {data.creators.map((c, i) => (
                 <li key={c.login}>
@@ -574,6 +606,31 @@ export default function Creators({ locale = "zh" }: { locale?: Locale }) {
                 </li>
               ))}
             </ul>
+            {/* 名录分页：还剩人就给一个按钮，不自动无限加载，避免一屏几百条把人拖卡 */}
+            {data.hasMore && (
+              <div className="flex justify-center py-4">
+                <button
+                  type="button"
+                  onClick={() => void loadMore()}
+                  disabled={moreBusy}
+                  className="btn btn-outline !h-9 gap-1.5 px-4 text-xs disabled:opacity-60"
+                >
+                  {moreBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                  {moreBusy
+                    ? en
+                      ? "Loading…"
+                      : "加载中…"
+                    : en
+                      ? `Load more (${remainingCreators} left)`
+                      : `加载更多（还有 ${remainingCreators} 位）`}
+                </button>
+              </div>
+            )}
+            </>
           )}
         </section>
       </div>

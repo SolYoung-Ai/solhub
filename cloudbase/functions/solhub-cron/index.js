@@ -23,7 +23,7 @@ const { webcrypto } = require("node:crypto");
 const core = require("./core.cjs");
 const { createKV } = require("./kv.cjs");
 const { installCaches } = require("./caches.cjs");
-const { runBackup, runRestore } = require("./backup.cjs");
+const { runBackup, runRestore, purgeExpired } = require("./backup.cjs");
 
 if (!globalThis.crypto || !globalThis.crypto.subtle) {
   globalThis.crypto = webcrypto;
@@ -64,9 +64,30 @@ exports.main = async (event, context) => {
 
   if (task === "backup") {
     try {
-      return await runBackup();
+      const backup = await runBackup();
+      /* 备份之后再清理过期键 —— 顺序不能反：先备份，被清理掉的行在当天的快照里
+         仍然存在，30 天内随时能 restore 找回。
+         清理失败不影响备份结果，只把错误挂在返回值上。 */
+      let purge;
+      try {
+        purge = await purgeExpired({ dryRun: !!(event && event.dryRun) });
+      } catch (err) {
+        console.error("[purge] 执行失败:", err && err.stack ? err.stack : err);
+        purge = { ok: false, error: String((err && err.message) || err) };
+      }
+      return { ...backup, purge };
     } catch (err) {
       console.error("[backup] 执行失败:", err && err.stack ? err.stack : err);
+      return { ok: false, error: String((err && err.message) || err) };
+    }
+  }
+
+  /* 只清理、不备份（人工调用：先 {"action":"purge","dryRun":true} 看数字） */
+  if (task === "purge") {
+    try {
+      return await purgeExpired({ dryRun: !!(event && event.dryRun) });
+    } catch (err) {
+      console.error("[purge] 执行失败:", err && err.stack ? err.stack : err);
       return { ok: false, error: String((err && err.message) || err) };
     }
   }

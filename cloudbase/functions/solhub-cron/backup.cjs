@@ -242,4 +242,80 @@ async function runRestore({ takenOn, dryRun = true } = {}) {
   return { ok: true, ...counts, restoredAt: new Date().toISOString() };
 }
 
-module.exports = { runBackup, runRestore, bjDate };
+/* ------------------------------------------------------------ 过期键清理 */
+
+/**
+ * 清理已过期的键（会话、验证码、限流令牌…）。
+ *
+ * 为什么需要：KV 兼容层的 get 只把「过期」当作不存在，**行本身一直留在表里**。
+ * 全库目前只有备份任务、没有任何清理逻辑，session:* 这类 30 天 TTL 的键会
+ * 无限堆积，而且每天被快照复制 30 份（备份是乘法）。
+ *
+ * 安全边界（很重要）：
+ *   - 只删 expires_at 非空、且已经到期的行；
+ *   - 用户 / 资料 / 产品目录 / 关注关系这些业务数据 expires_at 都是 NULL，
+ *     SQL 的 `NULL < now()` 不成立，JS 里也会再判一次，永远不会被这里碰到；
+ *   - 默认 dryRun，人工调用时先看数字再决定删不删。
+ */
+const PURGE_MAX = 5000;
+
+async function purgeExpired({ dryRun = true, max = PURGE_MAX } = {}) {
+  const a = await app();
+  const db = a.rdb();
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+
+  const rows = [];
+  let cursor = "";
+  for (let i = 0; i < Math.ceil(max / PAGE) + 2; i += 1) {
+    let q = db
+      .from("kv")
+      .select("key,expires_at")
+      .lt("expires_at", nowIso)
+      .order("key", { ascending: true })
+      .limit(PAGE);
+    if (cursor) q = q.gt("key", cursor);
+    const res = unwrap(await q, `扫描过期键（第 ${i + 1} 页）`);
+    const batch = res.data || [];
+    rows.push(...batch);
+    if (batch.length < PAGE || rows.length >= max) break;
+    cursor = batch[batch.length - 1].key;
+  }
+
+  /* 双保险：不只信 SQL 的字符串比较，再在 JS 里判一次绝对时间 */
+  const expired = rows.filter((r) => {
+    if (!r || !r.expires_at) return false;
+    const t = new Date(r.expires_at).getTime();
+    return Number.isFinite(t) && t <= nowMs;
+  });
+  const groups = {};
+  for (const r of expired) {
+    const g = `${String(r.key).split(":")[0]}:*`;
+    groups[g] = (groups[g] || 0) + 1;
+  }
+
+  if (dryRun || !expired.length) {
+    return { ok: true, dryRun, expired: expired.length, deleted: 0, groups };
+  }
+
+  let deleted = 0;
+  for (let i = 0; i < expired.length; i += CHUNK) {
+    const chunk = expired.slice(i, i + CHUNK).map((r) => r.key);
+    try {
+      unwrap(await db.from("kv").delete().in("key", chunk), `删除过期键第 ${i / CHUNK + 1} 批`);
+      deleted += chunk.length;
+    } catch (err) {
+      /* 批量删失败就退回逐个删，宁可慢也不能留一半 */
+      console.warn(`[purge] 批量删除失败，退回逐个删除：${err && err.message}`);
+      for (const k of chunk) {
+        unwrap(await db.from("kv").delete().eq("key", k), `删除过期键 ${k}`);
+        deleted += 1;
+      }
+    }
+  }
+  const summary = { ok: true, dryRun: false, expired: expired.length, deleted, groups, at: new Date().toISOString() };
+  console.log(`[purge] 完成 ${JSON.stringify(summary)}`);
+  return summary;
+}
+
+module.exports = { runBackup, runRestore, purgeExpired, bjDate };

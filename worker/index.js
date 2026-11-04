@@ -106,12 +106,53 @@ function apiBaseOf(request, env) {
   try { return `${new URL(request.url).origin}/api`; } catch { return ""; }
 }
 
-function avatarUrl(imgBase, login, raw) {
+function avatarUrl(imgBase, login, raw, hasAvatar) {
   const v = String(raw || "");
-  if (!v) return "";
-  if (!/^data:image\//i.test(v)) return v;
-  if (!imgBase || !login) return v; /* 兜底：拿不到基址就保持内联，宁可大也不要坏 */
-  return `${imgBase}/avatar/${encodeURIComponent(login)}`;
+  if (v) {
+    if (!/^data:image\//i.test(v)) return v; /* GitHub 等外链原样返回 */
+    if (!imgBase || !login) return v; /* 兜底：拿不到基址就保持内联，宁可大也不要坏 */
+    return `${imgBase}/avatar/${encodeURIComponent(login)}`;
+  }
+  /* 头像已外置到 avatar:<sid>，记录里只剩一个 hasAvatar 标记 */
+  if (hasAvatar && imgBase && login) return `${imgBase}/avatar/${encodeURIComponent(login)}`;
+  return "";
+}
+
+/* ---------------- 头像外置 ----------------
+   头像是这个站里最「便宜又最贵」的字段：便宜是因为它只有一张图，贵是因为
+   它以 base64 内联在 user:* / profile:* 里，而几乎所有读接口都要「枚举全部
+   账号」——/creators、/search、关注列表、后台账号表。实测单条用户记录 6KB，
+   其中 90% 是头像，于是一次创作者名录请求要读进几百 KB 的图片字节再全部丢掉。
+
+   改成独立键后：
+     user:<email> / profile:<login>  只剩 hasAvatar: true（约 0.5KB）
+     avatar:<sid>                    存原始值（data URL 或外链）
+   读列表时完全不需要碰头像；只有 GET /avatar/<login> 真发图时才读一次。
+
+   键名用 SID（邮箱 / GitHub 登录名）而不是 handle，是为了避免「改名要搬头像」。 */
+
+function avatarKey(sid) {
+  return `avatar:${sid}`;
+}
+
+/** 取头像原始值：记录里的外链优先，其次是外置键，最后兼容迁移前的内联 data URL */
+async function readAvatarRaw(env, sid, rec) {
+  const r = rec || {};
+  const inline = String(r.avatar || "");
+  if (inline) return inline;
+  if (!sid || !r.hasAvatar) return "";
+  return (await env.PROFILES.get(avatarKey(sid))) || "";
+}
+
+/** 写/清头像。传空串表示删除 */
+async function writeAvatarRaw(env, sid, value) {
+  const v = String(value || "");
+  if (!sid) return;
+  if (!v) {
+    await env.PROFILES.delete(avatarKey(sid));
+    return;
+  }
+  await env.PROFILES.put(avatarKey(sid), v);
 }
 
 /* 移动端（iOS Safari）的 ITP 会拦截跨站 Cookie，导致 solhub_session 存不下来、
@@ -338,7 +379,7 @@ async function accountExists(env, sid) {
 
 async function publicUser(env, pidOrSid) {
   const sid = await sidOf(env, pidOrSid);
-  if (!sid) return { login: "", name: "", avatar: "" };
+  if (!sid) return { login: "", name: "", avatar: "", hasAvatar: false };
   if (isEmailLogin(sid)) {
     const u = await kvGetJSON(env, `user:${sid}`, null, true);
     const handle = (u && u.handle) || handleFromEmail(sid);
@@ -346,12 +387,19 @@ async function publicUser(env, pidOrSid) {
       login: handle,
       name: (u && u.displayName) || handle,
       avatar: (u && u.avatar) || "",
+      hasAvatar: !!(u && (u.hasAvatar || u.avatar)),
       /* 联系方式是用户主动填写的公开信息，可以展示；邮箱则不在这里暴露 */
       contact: (u && u.contact) || "",
     };
   }
   const profile = await kvGetJSON(env, `profile:${sid}`, {});
-  return { login: sid, name: profile.displayName || sid, avatar: profile.avatar || "", contact: profile.contact || "" };
+  return {
+    login: sid,
+    name: profile.displayName || sid,
+    avatar: profile.avatar || "",
+    hasAvatar: !!(profile.hasAvatar || profile.avatar),
+    contact: profile.contact || "",
+  };
 }
 
 /**
@@ -487,6 +535,7 @@ async function getSessionUser(request, env) {
       emailPublic: !!user.emailPublic,
       emailVerified: !!user.emailVerified,
       avatar: user.avatar || "",
+      hasAvatar: !!(user.hasAvatar || user.avatar),
       verified: !!user.verified,
     };
   } catch {
@@ -1372,7 +1421,7 @@ async function searchUsers(env, q, limit, imgBase) {
     users.push({
       login,
       name,
-      avatar: avatarUrl(imgBase, login, u.avatar),
+      avatar: avatarUrl(imgBase, login, u.avatar, u.hasAvatar),
       bio: u.bio || "",
       website: u.website || "",
       joinedAt: u.createdAt || "",
@@ -1450,7 +1499,7 @@ async function requireAdmin(request, env) {
 }
 
 /** 枚举全部账号（邮箱用户 + GitHub 用户），附封禁/认证/发帖数 */
-async function listAllUsers(env, cap) {
+async function listAllUsers(env, cap, imgBase) {
   const emailKeys = await listKeys(env, "user:", cap);
   const ghKeys = await listKeys(env, "profile:", 100);
   const raws = await kvGetMany(env, [...emailKeys, ...ghKeys]);
@@ -1462,12 +1511,13 @@ async function listAllUsers(env, cap) {
     if (!login) return;
     let u = {};
     if (raw) { try { u = JSON.parse(raw); } catch {} }
+    const handle = isEmail ? (u.handle || handleFromEmail(login)) : login;
     accounts.push({
       login,
-      handle: isEmail ? (u.handle || handleFromEmail(login)) : login,
+      handle,
       type: isEmail ? "email" : "github",
       name: u.displayName || (isEmail ? login.split("@")[0] : login),
-      avatar: u.avatar || "",
+      avatar: avatarUrl(imgBase, handle, u.avatar, u.hasAvatar),
       bio: u.bio || "",
       website: u.website || "",
       location: u.location || "",
@@ -1660,6 +1710,86 @@ async function suggestWithDailyQuota(env, force = false) {
   return { ok: true, post };
 }
 
+/* ---------------- 创作者名录（带实例内缓存） ----------------
+   /creators 是目前最重的读接口：要枚举全部账号、批量读记录、再逐个合并产品数。
+   实测只有 3 个账号时热态就要 400~550ms，人一多会线性变差。
+
+   名录本身不需要实时 —— 新注册的人晚一分钟出现在列表里完全可以接受。所以加一层
+   60 秒实例内缓存：命中时零 KV 读、零产品合并，直接返回。
+   缓存里存的是「未过滤的全量列表」，q / filter / 分页都在缓存之上做，
+   不同搜索词不会把缓存打散成很多份。
+   写入路径（改资料、认证、封禁、提交产品）会主动 dropCreatorsCache() 让它立刻失效；
+   其它实例最多晚 60 秒，这是可接受的代价。 */
+
+const CREATORS_TTL_MS = 60 * 1000;
+/* 一次最多枚举多少账号。此前是 500 且没有分页，第 501 个账号会静默不出现在名录里。 */
+const CREATORS_SCAN = 2000;
+
+let creatorsCache = null; // { at: number, list: Array }
+
+function dropCreatorsCache() {
+  creatorsCache = null;
+}
+
+/** 全量构建一次名录（含封禁过滤）。只在缓存过期时执行。 */
+async function buildCreatorsList(env, imgBase) {
+  const [emailKeys, ghKeys, community, index] = await Promise.all([
+    listKeys(env, "user:", CREATORS_SCAN),
+    listKeys(env, "profile:", 500),
+    readCommunity(env),
+    readProductIndex(env),
+  ]);
+  const raws = await kvGetMany(env, [...emailKeys, ...ghKeys]);
+  const all = [];
+  const seen = new Set();
+  raws.forEach((raw, i) => {
+    if (!raw) return;
+    let u;
+    try { u = JSON.parse(raw); } catch { return; }
+    const isEmail = i < emailKeys.length;
+    /* 对外只露 handle / GitHub 用户名，邮箱不参与展示 */
+    const login = isEmail
+      ? (u.handle || handleFromEmail(u.email || (emailKeys[i] || "").slice(5)))
+      : ghKeys[i - emailKeys.length];
+    if (!login || seen.has(login)) return;
+    seen.add(login);
+    const name = u.displayName || login;
+    const products = mergeProducts(productsOf(community, login), allClaimedSlugs(index, login, u), index);
+    all.push({
+      login,
+      name,
+      /* 头像外置后这里只发短链接，列表 JSON 里不再有图片字节 */
+      avatar: avatarUrl(imgBase, login, u.avatar, u.hasAvatar),
+      bio: u.bio || "",
+      website: u.website || "",
+      location: u.location || "",
+      joinedAt: u.createdAt || "",
+      verified: !!u.verified,
+      productCount: products.length,
+    });
+  });
+
+  /* 列表按「有作品优先 → 认证优先 → 先加入优先」排，空白账号沉底 */
+  all.sort((a, b) =>
+    b.productCount - a.productCount ||
+    Number(b.verified) - Number(a.verified) ||
+    String(a.joinedAt).localeCompare(String(b.joinedAt)),
+  );
+
+  /* 封禁过滤放在缓存里做：封禁是全局状态、极少变，
+     挪进缓存后每次请求就不用再批量查 ban:* 了。 */
+  const bans = await kvGetMany(env, all.map((x) => `ban:${x.login}`));
+  return all.filter((_, i) => !bans[i]);
+}
+
+async function creatorsList(env, imgBase) {
+  const now = Date.now();
+  if (creatorsCache && now - creatorsCache.at < CREATORS_TTL_MS) return creatorsCache.list;
+  const list = await buildCreatorsList(env, imgBase);
+  creatorsCache = { at: now, list };
+  return list;
+}
+
 /* ---------------- 主路由 ---------------- */
 
 export default {
@@ -1761,6 +1891,12 @@ export default {
       /* 别名：让改邮箱前签发的旧会话仍能定位到账号 */
       await env.PROFILES.put(`alias:${oldEmail}`, newEmail);
       if (user.handle) await env.PROFILES.put(`handle:${user.handle}`, newEmail);
+      /* 头像外置键是按邮箱（SID）命名的，改邮箱时必须一起搬，否则头像会突然消失 */
+      const movedAvatar = await env.PROFILES.get(avatarKey(oldEmail));
+      if (movedAvatar) {
+        await env.PROFILES.put(avatarKey(newEmail), movedAvatar);
+        await env.PROFILES.delete(avatarKey(oldEmail));
+      }
       const ban = await env.PROFILES.get(`ban:${oldEmail}`);
       if (ban) {
         await env.PROFILES.put(`ban:${newEmail}`, ban);
@@ -1939,6 +2075,7 @@ export default {
         env.PROFILES.delete(`following:${email}`),
         env.PROFILES.delete(`followers:${email}`),
         env.PROFILES.delete(`ban:${email}`),
+        env.PROFILES.delete(avatarKey(email)),
         env.PROFILES.delete(`post:gap:${email}`),
         env.PROFILES.delete(`post:day:${email}`),
         handle ? env.PROFILES.delete(`handle:${handle}`) : null,
@@ -1951,6 +2088,7 @@ export default {
       await cacheDrop(env, `pwnew:${email}`);
       if (handle) await cacheDrop(env, `handle:${handle}`);
 
+      dropCreatorsCache();
       return json(request, { ok: true, deletedPosts: ids.length });
     }
 
@@ -2129,11 +2267,10 @@ export default {
            省掉一次慢 KV 读，/me 现在只做 1 次会话读，登录态拉取更快更稳。 */
         const handle = identity.user.handle || handleFromEmail(email);
         const admin = isAdminLogin(env, email);
-        return json(request, {
-          authenticated: true,
-          isAdmin: admin,
-          user: { ...identity.user, handle, login: handle, email, authType: "email", isAdmin: admin },
-        });
+        const me = { ...identity.user, handle, login: handle, email, authType: "email", isAdmin: admin };
+        /* 头像外置后前端拿到的仍是可用的短链接（头像本身不再进 JSON） */
+        me.avatar = avatarUrl(imgBase, handle, me.avatar, me.hasAvatar);
+        return json(request, { authenticated: true, isAdmin: admin, user: me });
       }
       let profile = {};
       if (env.PROFILES) {
@@ -2169,7 +2306,8 @@ export default {
             contact: (rec && rec.contact) || "",
             emailPublic: !!(rec && rec.emailPublic),
             emailVerified: !!(rec && rec.emailVerified),
-            avatar: u.avatar || "",
+            /* 外置后这里回短链接：前端拿它直接当 <img src>，不用再等一次 data URL */
+            avatar: avatarUrl(imgBase, handle, rec && rec.avatar, rec && rec.hasAvatar),
           });
         }
         let profile = {};
@@ -2191,13 +2329,14 @@ export default {
           contact: String(body.contact || "").slice(0, 200),
         };
         /* 头像：客户端压缩后的 data URL。上限 200KB（字符串长度，约 150KB 原图）。
-           注意：这个头像会被复制进每一条帖子（authorAvatar），而信息流一次返回
-           几十条 —— 上限放得越大，首页 JSON 就越大，所以要卡紧。 */
+           下面不再写进 user:*，而是落到独立的 avatar:<sid> 键，记录里只留 hasAvatar。
+           nextAvatar：undefined = 本次不修改、"" = 删除、data URL = 设置。 */
+        let nextAvatar;
         if (typeof body.avatar === "string") {
           if (body.avatar === "") {
-            allowed.avatar = "";
+            nextAvatar = "";
           } else if (/^data:image\/(png|jpe?g|webp|gif);base64,/.test(body.avatar) && body.avatar.length <= 200000) {
-            allowed.avatar = body.avatar;
+            nextAvatar = body.avatar;
           } else if (body.avatar.length > 200000) {
             return json(request, { error: "头像文件太大，请换一张更小的图片" }, 413);
           }
@@ -2238,13 +2377,30 @@ export default {
             if (ctx && ctx.waitUntil) ctx.waitUntil(republishAuthor(env, user.email, nextHandle, prevHandle).catch(() => {}));
           }
           if (!user.handle) user.handle = await allocateHandle(env, user.email, "");
+          /* 头像：写独立键，记录里只留标记，避免 user:* 又变回 6KB */
+          if (nextAvatar !== undefined) {
+            await writeAvatarRaw(env, identity.login, nextAvatar);
+            delete user.avatar;
+            user.hasAvatar = !!nextAvatar;
+          }
           await env.PROFILES.put(key, JSON.stringify(user));
           await cacheWrite(env, key, JSON.stringify(user));
+          dropCreatorsCache();
           return json(request, { ok: true, ...allowed, handle: user.handle, emailPublic: user.emailPublic });
         }
         /* GitHub 账号没有站内邮箱，不提供「公开邮箱」开关 */
         if (env.PROFILES) {
-          await env.PROFILES.put(`profile:${identity.login}`, JSON.stringify(allowed));
+          const key = `profile:${identity.login}`;
+          /* 老代码直接覆盖整条记录，会把 GitHub 头像字段一起抹掉；这里改成合并 */
+          const prev = await kvGetJSON(env, key, {});
+          const next = { ...prev, ...allowed };
+          if (nextAvatar !== undefined) {
+            await writeAvatarRaw(env, identity.login, nextAvatar);
+            delete next.avatar;
+            next.hasAvatar = !!nextAvatar;
+          }
+          await env.PROFILES.put(key, JSON.stringify(next));
+          dropCreatorsCache();
         }
         return json(request, { ok: true, ...allowed });
       }
@@ -2584,7 +2740,7 @@ export default {
       if (gate.error) return gate.error;
 
       const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
-      let users = await listAllUsers(env, 500);
+      let users = await listAllUsers(env, 500, imgBase);
       if (q) {
         users = users.filter((u) =>
           u.name.toLowerCase().includes(q) ||
@@ -2829,7 +2985,7 @@ export default {
           const rec = isEmailLogin(sid)
             ? await kvGetJSON(env, `user:${sid}`, null, true)
             : await kvGetJSON(env, `profile:${sid}`, null);
-          raw = (rec && rec.avatar) || "";
+          raw = await readAvatarRaw(env, sid, rec);
         }
       }
       if (!raw) return new Response(null, { status: 404, headers: baseHeaders });
@@ -2860,56 +3016,14 @@ export default {
       if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
       const qRaw = String(url.searchParams.get("q") || "").trim().slice(0, 60).toLowerCase();
       const filter = String(url.searchParams.get("filter") || "all");
-      const limit = Math.min(Number(url.searchParams.get("limit") || 300) || 300, 300);
+      const limit = Math.min(Math.max(1, Number(url.searchParams.get("limit") || 100) || 100), 200);
+      const offset = Math.max(0, Number(url.searchParams.get("offset") || 0) || 0);
 
-      const [emailKeys, ghKeys, community, index] = await Promise.all([
-        listKeys(env, "user:", SEARCH_USER_SCAN),
-        listKeys(env, "profile:", 200),
-        readCommunity(env),
-        readProductIndex(env),
-      ]);
-      const raws = await kvGetMany(env, [...emailKeys, ...ghKeys]);
-      const all = [];
-      const seen = new Set();
-      raws.forEach((raw, i) => {
-        if (!raw) return;
-        let u;
-        try { u = JSON.parse(raw); } catch { return; }
-        const isEmail = i < emailKeys.length;
-        /* 对外只露 handle / GitHub 用户名，邮箱不参与展示 */
-        const login = isEmail
-          ? (u.handle || handleFromEmail(u.email || (emailKeys[i] || "").slice(5)))
-          : ghKeys[i - emailKeys.length];
-        if (!login || seen.has(login)) return;
-        seen.add(login);
-        const name = u.displayName || login;
-        const products = mergeProducts(productsOf(community, login), allClaimedSlugs(index, login, u), index);
-        all.push({
-          login,
-          name,
-          avatar: avatarUrl(imgBase, login, u.avatar),
-          bio: u.bio || "",
-          website: u.website || "",
-          location: u.location || "",
-          joinedAt: u.createdAt || "",
-          verified: !!u.verified,
-          productCount: products.length,
-        });
-      });
+      const base = await creatorsList(env, imgBase);
 
-      /* 列表按「有作品优先 → 认证优先 → 先加入优先」排，空白账号沉底 */
-      all.sort((a, b) =>
-        b.productCount - a.productCount ||
-        Number(b.verified) - Number(a.verified) ||
-        String(a.joinedAt).localeCompare(String(b.joinedAt)),
-      );
-
-      /* 命中搜索的才需要检查封禁，省掉一次全量批量读 */
-      let list = all;
-      if (qRaw) list = all.filter((c) => hit(qRaw, [c.name, c.login, c.bio, c.website, c.location]));
-      const bannedFlags = await kvGetMany(env, list.slice(0, 100).map((x) => `ban:${x.login}`));
-      const banned = new Set(list.slice(0, 100).filter((_, i) => bannedFlags[i]).map((x) => x.login));
-      list = list.filter((x) => !banned.has(x.login));
+      /* 命中搜索的才需要检查封禁 —— 封禁已在缓存构建时过滤掉了，这里不再重复查 */
+      let list = base;
+      if (qRaw) list = list.filter((c) => hit(qRaw, [c.name, c.login, c.bio, c.website, c.location]));
 
       const counts = {
         all: list.length,
@@ -2919,7 +3033,15 @@ export default {
       if (filter === "verified") list = list.filter((x) => x.verified);
       else if (filter === "products") list = list.filter((x) => x.productCount > 0);
 
-      return json(request, { total: counts.all, counts, creators: list.slice(0, limit) });
+      /* 分页：offset 是本页在「筛选后列表」里的下标，够翻到最后一个账号 */
+      const page = list.slice(offset, offset + limit);
+      return json(request, {
+        total: counts.all,
+        counts,
+        creators: page,
+        hasMore: offset + page.length < list.length,
+        nextOffset: offset + page.length,
+      });
     }
 
     if (url.pathname === "/search" && request.method === "GET") {
@@ -3151,7 +3273,7 @@ export default {
         const users = [];
         for (const pid of list.slice(0, 100)) {
           const u = await publicUser(env, pid);
-          users.push({ ...u, avatar: avatarUrl(imgBase, u.login, u.avatar) });
+          users.push({ ...u, avatar: avatarUrl(imgBase, u.login, u.avatar, u.hasAvatar) });
         }
         return json(request, { users });
       }
@@ -3176,7 +3298,7 @@ export default {
         return json(request, {
           user: {
             ...author,
-            avatar: avatarUrl(imgBase, author.login, author.avatar),
+            avatar: avatarUrl(imgBase, author.login, author.avatar, author.hasAvatar),
             bio: user?.bio || "",
             location: user?.location || "",
             website: user?.website || "",
@@ -3225,13 +3347,57 @@ export default {
         const key = `user:${email}`;
         const user = await kvGetJSON(env, key, null, true);
         if (!user) return json(request, { error: `账号不存在：${email}` }, 404);
-        user.avatar = avatar;
+        /* 写独立键，记录里只留 hasAvatar —— 与 PUT /profile 走同一条路径 */
+        await writeAvatarRaw(env, email, avatar);
+        delete user.avatar;
+        user.hasAvatar = true;
         const next = JSON.stringify(user);
         await env.PROFILES.put(key, next);
         await cacheWrite(env, key, next);
+        dropCreatorsCache();
         done.push({ email, bytes: Math.floor((m[2].length * 3) / 4) });
       }
       return json(request, { ok: true, updated: done });
+    }
+
+    /* ---------- 运维：把存量内联头像搬到 avatar:<sid> ----------
+       一次性迁移。对每个 user:* 记录：
+         avatar 是 data URL  → 写 avatar:<email>，记录里改成 hasAvatar: true
+         avatar 是外链/为空  → 不动（外链本身就是短字符串，没必要搬）
+       dryRun 只统计不写库，便于先看影响面。 */
+    if (url.pathname === "/admin/externalize-avatars" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      if (!adminKeyOk(request, env)) return json(request, { error: "需要管理口令", needKey: true }, 401);
+      let body = {};
+      try { body = await request.json(); } catch {}
+      const dryRun = body.dryRun !== false; /* 默认只看不写 */
+      const cap = Math.min(Math.max(1, Number(body.cap || 500) || 500), 2000);
+
+      const keys = await listKeys(env, "user:", cap);
+      const raws = await kvGetMany(env, keys);
+      const report = { dryRun, scanned: keys.length, moved: 0, kept: 0, empty: 0, freedBytes: 0, bytes: [] };
+
+      for (let i = 0; i < keys.length; i += 1) {
+        const raw = raws[i];
+        if (!raw) continue;
+        let u;
+        try { u = JSON.parse(raw); } catch { continue; }
+        const email = String(u.email || keys[i].slice(5) || "").toLowerCase();
+        const av = String(u.avatar || "");
+        if (!av) { report.empty += 1; continue; }
+        if (!/^data:image\//i.test(av)) { report.kept += 1; continue; }
+        if (!dryRun) {
+          await writeAvatarRaw(env, email, av);
+          delete u.avatar;
+          u.hasAvatar = true;
+          await env.PROFILES.put(keys[i], JSON.stringify(u));
+        }
+        report.moved += 1;
+        report.freedBytes += av.length;
+        if (report.bytes.length < 10) report.bytes.push({ login: u.handle || email, avatarChars: av.length });
+      }
+      if (!dryRun) dropCreatorsCache();
+      return json(request, { ok: true, ...report });
     }
 
     /* ---------- 运维：指定某账号的用户名（保留名可在此豁免） ---------- */
@@ -3258,6 +3424,7 @@ export default {
       user.handle = wanted;
       await env.PROFILES.put(`user:${email}`, JSON.stringify(user));
       await cacheWrite(env, `user:${email}`, JSON.stringify(user));
+      dropCreatorsCache();
       await republishAuthor(env, email, wanted, prev);
       return json(request, { ok: true, email, handle: wanted, previous: prev });
     }

@@ -48,6 +48,19 @@ DNS 0.003s、TCP 0.25s、TLS 0.58s 都正常，**卡在 TTFB 3.8~13.2 秒**，�
 
 ### 新增的运维要点
 
+- **头像外置（2026-11-04）**：头像是全站最「便宜又最贵」的字段 —— 单条用户记录里
+  90% 是 base64 头像，而 `/creators`、`/search`、关注列表这些接口要枚举全部账号，
+  等于每次请求都把所有人的图片字节读进内存再丢掉。现在：
+  - `user:<email>` / `profile:<login>` 只留 `hasAvatar: true`（约 0.3~0.6KB）
+  - `avatar:<sid>`（sid = 邮箱或 GitHub 登录名）存原始值（data URL 或外链）
+  - 列表接口只回 `/avatar/<login>` 短链接；发字节的只有 `GET /avatar/<login>`
+  - **改邮箱时必须搬 `avatar:<旧邮箱>` → `avatar:<新邮箱>`**（已实现，别漏）
+  - 一次性迁移：`POST /admin/externalize-avatars`，默认 `dryRun`，传 `{"dryRun":false}` 才写库
+- **`/creators` 有 60 秒实例内缓存**（`creatorsCache`）：命中时零 KV 读、零产品合并。
+  写路径（改资料、认证、封禁、改名、注销）调用 `dropCreatorsCache()` 立刻失效；
+  其它函数实例最多晚 60 秒。**新增会影响名录的写接口时记得调它。**
+- **`/creators` 支持 `limit` / `offset` 分页**，返回 `hasMore` / `nextOffset`。
+  默认一页 100，上限 200；一次最多枚举 `CREATORS_SCAN = 2000` 个账号。
 - **CORS 归属**：CloudBase 网关的「跨域设置」若开启，会按环境安全域名白名单自动补
   `Access-Control-Allow-Origin`；本环境是**体验版套餐，加不了自定义安全域名**，
   所以路由上关掉跨域校验（`enableSafeDomain=false`），由函数自己发 CORS 头
@@ -487,19 +500,34 @@ CloudBase PostgreSQL 的**自动备份 / 手动备份 / 时间点恢复都由底
 | 形态 | 一天一份全量键值，`PRIMARY KEY (taken_on, key)` |
 | 触发 | `solhub-cron` 的 `backup-daily` timer，每天 **03:30**（北京时间） |
 | 保留 | **30 天**，每次备份顺手删掉 30 天前那份 |
-| 体积 | 约 70 行 / 200 KB 一份（含 base64 头像）→ 30 天约 6 MB |
+| 体积 | 约 57 行 / 28 KB 一份（头像已外置，仍在同一张表里）→ 30 天约 1 MB |
 | 权限 | 只有 `service_role` 有 GRANT，`anon` / `authenticated` 零授权且 RLS 开启 |
 | 状态记录 | KV 键 `backup:days`（已有哪些日期）、`backup:last`（最近一次的行数与耗时） |
 
 同一天重复跑只**覆盖**当天那份（先按 `taken_on` 删除再批量插入），不会累积重复快照。
+
+### 过期键清理（2026-11-04 起）
+
+KV 兼容层的 `get` 只把「已过期」当作不存在，**行一直留在表里**。原先全库只有备份、
+没有任何清理，`session:*`（30 天 TTL）会无限堆积，还被每天的快照复制 30 份。
+
+现在每次 `backup` 之后会顺带跑一次 `purgeExpired()`：
+
+- 只删 `expires_at` 非空、且已经到期的行；用户 / 资料 / 产品目录 / 关注关系的
+  `expires_at` 都是 `NULL`，SQL 与 JS 两层都判不到它们。
+- **顺序是「先备份再清理」**：被删掉的行在当天快照里仍然存在，30 天内可 restore 找回。
+- 清理失败不影响备份结果，错误挂在返回值的 `purge` 字段上。
 
 ### 怎么手动备份 / 恢复
 
 都走 `solhub-cron` 这一个函数，用 `action` 分流：
 
 ```bash
-# 立刻备份一次
+# 立刻备份一次（备份完自动清理过期键；带 "dryRun": true 则只统计不删）
 { "action": "backup" }
+
+# 只清理过期键，不备份
+{ "action": "purge", "dryRun": true }
 
 # 预览某天的恢复（不写库）
 { "action": "restore", "confirm": "RESTORE", "dryRun": true }

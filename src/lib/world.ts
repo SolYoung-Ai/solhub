@@ -88,6 +88,9 @@ export interface CreatorList {
   total: number;
   counts: { all: number; verified: number; products: number };
   creators: Creator[];
+  /** 还有下一页（服务端按 offset 分页，避免名录一多就只给前 N 个人） */
+  hasMore?: boolean;
+  nextOffset?: number;
 }
 
 export type CreatorFilter = "all" | "verified" | "products";
@@ -107,13 +110,14 @@ async function getJSON<T>(path: string, fallback: T): Promise<T> {
  * 排序由服务端定：有作品优先 → 认证优先 → 先加入优先。
  */
 export async function fetchCreators(
-  opts: { q?: string; filter?: CreatorFilter; limit?: number } = {},
+  opts: { q?: string; filter?: CreatorFilter; limit?: number; offset?: number } = {},
 ): Promise<CreatorList> {
   const q = new URLSearchParams();
   if (opts.q) q.set("q", opts.q);
   if (opts.filter && opts.filter !== "all") q.set("filter", opts.filter);
   if (opts.limit) q.set("limit", String(opts.limit));
-  const empty: CreatorList = { total: 0, counts: { all: 0, verified: 0, products: 0 }, creators: [] };
+  if (opts.offset) q.set("offset", String(opts.offset));
+  const empty: CreatorList = { total: 0, counts: { all: 0, verified: 0, products: 0 }, creators: [], hasMore: false };
   try {
     const res = await request(`${base()}/creators?${q.toString()}`, { cache: "no-store" }, { retries: 1 });
     if (!res.ok) return empty;
@@ -126,6 +130,8 @@ export async function fetchCreators(
         products: Number(data.counts?.products) || 0,
       },
       creators: Array.isArray(data.creators) ? data.creators : [],
+      hasMore: !!data.hasMore,
+      nextOffset: Number(data.nextOffset) || 0,
     };
   } catch {
     return empty;
