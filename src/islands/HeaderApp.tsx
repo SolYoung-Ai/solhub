@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ChevronsLeft,
+  ChevronsRight,
   Compass,
   Languages,
   LogOut,
@@ -31,9 +33,10 @@ interface Props {
 /**
  * 站点导航：桌面左右布局的左侧栏 + 手机端顶栏/底部标签栏。
  *
- * 三档：
- *   ≥1280px  完整侧栏（图标 + 文字，240px）
- *   1024–1279 折叠为图标栏（76px，仅图标，靠 title 提示）
+ * 桌面三档：
+ *   ≥1280px  完整侧栏（图标 + 文字，244px），头顶右侧有「收起」按钮；
+ *            收起后变 76px 图标栏，按钮翻成「展开」（状态记在 localStorage）
+ *   1024–1279 默认就是图标栏（76px，仅图标，靠 title 提示）
  *   <1024px  顶栏（Logo/搜索/头像）+ 底部标签栏
  *
  * 设计语言沿用 SolHub：白底 + 暖灰描边 + 橙色激活态（不是 X 的黑白反色），
@@ -97,6 +100,22 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
   const displayName = user ? user.displayName || user.login : "";
   const handle = user ? user.handle || user.login : "";
 
+  /* 侧栏收起 / 展开：只把状态写到 <html data-nav>，宽度与文字显隐交给 CSS。
+     这样不必为布局加 React 状态 —— 静态站每次跳页都是整页刷新，
+     若靠状态驱动，首帧会先按默认宽度渲染再跳到用户选的那档，明显闪一下。 */
+  const toggleNav = () => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const next = root.getAttribute("data-nav") === "rail" ? "full" : "rail";
+    root.setAttribute("data-nav", next);
+    try {
+      localStorage.setItem("solhub:nav", next);
+    } catch {
+      /* 隐私模式 / 存储被禁：本次会话内仍然生效 */
+    }
+  };
+  const navToggleLabel = en ? "Collapse / expand navigation" : "收起 / 展开导航栏";
+
   return (
     <>
       {/* ==================== 桌面：左侧固定栏 ==================== */}
@@ -105,17 +124,32 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
         aria-label={en ? "Main navigation" : "主导航"}
       >
         <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain px-3 py-5 xl:px-4">
-          {/* Logo：图标栏只留标识，完整栏带字标 */}
-          <a
-            href={p("/", locale)}
-            className="flex shrink-0 items-center justify-center gap-2.5 rounded-[8px] px-1 py-1 xl:justify-start xl:px-2"
-            aria-label="SolHub"
-          >
-            <img src="/solhub-mark.png" alt="" width={30} height={30} className="shrink-0" />
-            <span className="hidden font-display text-[19px] font-bold tracking-tight text-foreground xl:block">
-              SolHub
-            </span>
-          </a>
+          {/* 头部：Logo 与右侧的「收起导航」按钮同一行（与 logo 持平）；
+              收起后 76px 放不下并排，CSS 会把 .side-head 改成竖排，
+              按钮落到 logo 正下方再翻成「展开」 */}
+          <div className="side-head flex shrink-0 items-center justify-between gap-1">
+            <a
+              href={p("/", locale)}
+              className="flex items-center justify-center gap-2.5 rounded-[8px] px-1 py-1 xl:justify-start xl:px-2"
+              aria-label="SolHub"
+            >
+              <img src="/solhub-mark.png" alt="" width={30} height={30} className="shrink-0" />
+              <span className="side-label hidden font-display text-[19px] font-bold tracking-tight text-foreground xl:block">
+                SolHub
+              </span>
+            </a>
+
+            <button
+              type="button"
+              onClick={toggleNav}
+              title={navToggleLabel}
+              aria-label={navToggleLabel}
+              className="nav-toggle hidden h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground xl:inline-flex"
+            >
+              <ChevronsLeft className="ico-collapse h-4 w-4" strokeWidth={2} />
+              <ChevronsRight className="ico-expand h-4 w-4" strokeWidth={2} />
+            </button>
+          </div>
 
           {/* 主导航 */}
           <nav className="mt-7 flex flex-col gap-1">
@@ -129,7 +163,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
                   aria-current={on ? "page" : undefined}
                   title={item.label}
                   className={cx(
-                    "group flex items-center justify-center gap-2.5 rounded-[8px] border px-2 py-[7px] text-[14px] transition-colors xl:justify-start",
+                    "side-row group flex items-center justify-center gap-2.5 rounded-[8px] border px-2 py-[7px] text-[14px] transition-colors xl:justify-start",
                     on
                       ? "border-border bg-secondary text-foreground"
                       : "border-transparent text-foreground/60 hover:bg-secondary/70 hover:text-foreground",
@@ -145,7 +179,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
                   >
                     <Icon className="h-[15px] w-[15px] text-white" strokeWidth={2} />
                   </span>
-                  <span className={cx("hidden min-w-0 truncate xl:block", on && "font-semibold")}>{item.label}</span>
+                  <span className={cx("side-label hidden min-w-0 truncate xl:block", on && "font-semibold")}>{item.label}</span>
                 </a>
               );
             })}
@@ -157,7 +191,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
             type="button"
             onClick={() => setSearchOpen(true)}
             title={en ? "Search" : "搜索"}
-            className="group flex items-center justify-center gap-2.5 rounded-[8px] border border-transparent px-2 py-[7px] text-[14px] text-foreground/60 transition-colors hover:bg-secondary/70 hover:text-foreground xl:justify-start"
+            className="side-row group flex items-center justify-center gap-2.5 rounded-[8px] border border-transparent px-2 py-[7px] text-[14px] text-foreground/60 transition-colors hover:bg-secondary/70 hover:text-foreground xl:justify-start"
           >
             <span
               className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[#a8a29e] opacity-80 transition-opacity group-hover:opacity-100"
@@ -165,7 +199,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
             >
               <Search className="h-[15px] w-[15px] text-white" strokeWidth={2} />
             </span>
-            <span className="hidden min-w-0 truncate xl:block">{en ? "Search" : "搜索"}</span>
+            <span className="side-label hidden min-w-0 truncate xl:block">{en ? "Search" : "搜索"}</span>
           </button>
 
           {/* 主行动：紧跟导航区（对应 X 的「发帖」大按钮位置），
@@ -178,13 +212,13 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
               className="flex h-10 items-center justify-center gap-2 rounded-[8px] bg-accent text-[13px] font-semibold text-accent-foreground shadow-xs transition-colors hover:brightness-95"
             >
               <Plus className="h-4 w-4 shrink-0" />
-              <span className="hidden xl:block">{translate(dict, "nav.submit")}</span>
+              <span className="side-label hidden xl:block">{translate(dict, "nav.submit")}</span>
             </a>
           </div>
 
           {/* 底部：辅助控件 → 账号 */}
           <div className="mt-auto flex flex-col gap-3 pt-6">
-            <div className="flex flex-col items-center gap-1 xl:flex-row xl:gap-1">
+            <div className="side-tools flex flex-col items-center gap-1 xl:flex-row xl:gap-1">
               <LangButton locale={locale} currentRoute={currentRoute} />
               <ThemeButton />
             </div>
@@ -198,10 +232,10 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
                   aria-expanded={userMenuOpen}
                   aria-label={displayName}
                   title={displayName}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-[8px] p-1.5 transition-colors hover:bg-secondary xl:justify-start"
+                  className="side-row flex w-full items-center justify-center gap-2.5 rounded-[8px] p-1.5 transition-colors hover:bg-secondary xl:justify-start"
                 >
                   <Avatar user={user} size={30} />
-                  <span className="hidden min-w-0 text-left xl:block">
+                  <span className="side-label hidden min-w-0 text-left xl:block">
                     <span className="block truncate text-[13px] font-medium leading-4 text-foreground">{displayName}</span>
                     <span className="block truncate text-[11px] leading-4 text-muted-foreground">@{handle}</span>
                   </span>
@@ -222,7 +256,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
                 className="flex h-9 items-center justify-center gap-2 rounded-[8px] text-[13px] font-medium text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
               >
                 <UserRound className="h-4 w-4 shrink-0" />
-                <span className="hidden xl:block">{translate(dict, "nav.login")}</span>
+                <span className="side-label hidden xl:block">{translate(dict, "nav.login")}</span>
               </a>
             )}
           </div>

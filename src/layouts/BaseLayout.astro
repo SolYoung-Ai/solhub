@@ -137,6 +137,14 @@ const orgJsonLd = {
           if (tc) tc.setAttribute("content", theme === "dark" ? "#0a0908" : "#ffffff");
           document.documentElement.classList.remove("theme-init");
 
+          // 1.5) 侧栏收起状态：rail（图标栏）/ full（完整栏）
+          //      状态挂在 <html data-nav> 上、由 CSS 决定宽度与文字显隐，
+          //      必须在这儿（首帧前）恢复，否则每次跳页都会看到侧栏先展开再收起。
+          var savedNav = localStorage.getItem("solhub:nav");
+          if (savedNav === "rail" || savedNav === "full") {
+            document.documentElement.setAttribute("data-nav", savedNav);
+          }
+
           // 2) 视口模拟
           if (localStorage.getItem("solhub:viewport") === "mobile") {
             document.documentElement.classList.add("viewport-mobile");

@@ -150,6 +150,53 @@ html.dark {
   }
 }
 
+/* ---------- 侧栏收起 / 展开（桌面 ≥1280） ---------- */
+/* 状态写在 <html data-nav="rail|full">：由 BaseLayout 的 head 脚本在首帧前恢复，
+   宽度、文字显隐、图标朝向全部交给 CSS —— 不用 React 状态驱动布局，
+   否则每次跳页（静态站是整页刷新）都会看到侧栏先展开再收起地闪一下。
+   属性缺省 = 跟随断点：≥1280px 完整栏，1024–1279px 图标栏。 */
+.app-sidebar .nav-toggle .ico-expand {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  html[data-nav="rail"] .app-sidebar {
+    width: 76px;
+  }
+  /* 76px 放不下「logo + 按钮」并排，改成竖排，按钮落到 logo 正下方 */
+  html[data-nav="rail"] .app-sidebar .side-head {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.5rem;
+    padding-inline: 0;
+  }
+  html[data-nav="rail"] .app-sidebar .side-head a,
+  html[data-nav="rail"] .app-sidebar .side-row {
+    padding-inline: 0;
+  }
+  html[data-nav="rail"] .app-sidebar .side-row {
+    justify-content: center;
+  }
+  html[data-nav="rail"] .app-sidebar .side-label {
+    display: none;
+  }
+  /* 语言 / 主题两个小按钮：完整栏是并排一行，图标栏放不下必须竖排，
+     否则会被 overflow-hidden 从两侧裁掉 */
+  html[data-nav="rail"] .app-sidebar .side-tools {
+    flex-direction: column;
+  }
+  html[data-nav="rail"] .app-sidebar .nav-toggle .ico-collapse {
+    display: none;
+  }
+  html[data-nav="rail"] .app-sidebar .nav-toggle .ico-expand {
+    display: block;
+  }
+  /* 搜索浮层跟着侧栏收窄，否则会在内容区里偏右 168px */
+  html[data-nav="rail"] .app-search-layer {
+    left: 88px;
+  }
+}
+
 /* ---------- Mobile viewport simulation ---------- */
 /* 「手机 / 电脑」切换按钮：html.viewport-mobile 时把内容限制为手机宽度并居中 */
 html.viewport-mobile body {
