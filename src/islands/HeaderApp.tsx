@@ -101,7 +101,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
     <>
       {/* ==================== 桌面：左侧固定栏 ==================== */}
       <aside
-        className="app-sidebar sticky top-0 z-40 hidden h-screen shrink-0 flex-col border-r border-border bg-background lg:flex lg:w-[76px] xl:w-[244px]"
+        className="app-sidebar sticky top-3 z-40 ml-3 hidden h-[calc(100vh-1.5rem)] shrink-0 flex-col overflow-hidden rounded-[16px] border border-border bg-secondary shadow-sm lg:flex lg:w-[76px] xl:w-[244px] dark:bg-card"
         aria-label={en ? "Main navigation" : "主导航"}
       >
         <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain px-3 py-5 xl:px-4">
@@ -421,6 +421,9 @@ function ThemeButton() {
     root.classList.add("theme-transition");
     if (next) root.classList.add("dark"); else root.classList.remove("dark");
     try { localStorage.setItem("solhub:theme", next ? "dark" : "light"); } catch {}
+    /* 手机地址栏/状态栏跟着切，否则深色页面顶上会挂一条白条 */
+    const tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.setAttribute("content", next ? "#0a0908" : "#ffffff");
     window.setTimeout(() => root.classList.remove("theme-transition"), 350);
   };
   return (

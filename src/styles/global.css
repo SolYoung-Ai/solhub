@@ -56,17 +56,19 @@
   --container-narrow: 48rem;
 }
 
-/* ---------- Dark theme ---------- */
-/* 深色主题覆盖同一套设计令牌（暖黑基调，保持品牌气质） */
+/* ---------- Dark theme（默认主题） ---------- */
+/* 深色是站点默认观感：暖黑底 + 略亮的卡片面板 + 极细描边，
+   靠「底色比卡片更暗」拉开层次（与浅色主题的思路正好相反）。
+   色相统一压在暖侧（hue≈30），保证换成深色后仍是同一个品牌。 */
 html.dark {
-  --color-background: #0e0d0c;
-  --color-foreground: #f3efe9;
-  --color-card: #161514;
-  --color-card-foreground: #f3efe9;
-  --color-secondary: #1c1a18;
-  --color-secondary-foreground: #f3efe9;
-  --color-muted: #1c1a18;
-  --color-muted-foreground: #9a958c;
+  --color-background: #0a0908;
+  --color-foreground: #f6f2ec;
+  --color-card: #151311;
+  --color-card-foreground: #f6f2ec;
+  --color-secondary: #211e1a;
+  --color-secondary-foreground: #f6f2ec;
+  --color-muted: #1b1815;
+  --color-muted-foreground: #a49d92;
   --color-accent: #f0853f;
   --color-accent-foreground: #16120c;
   --color-destructive: #ec5a86;
@@ -75,17 +77,17 @@ html.dark {
   --color-success-foreground: #16120c;
   --color-warning: #d8b066;
   --color-warning-foreground: #16120c;
-  --color-border: #ffffff14;
-  --color-border-strong: #ffffff24;
+  --color-border: #ffffff1a;
+  --color-border-strong: #ffffff2e;
   --color-ring: #f0853f;
-  --color-ink: #f3efe9;
+  --color-ink: #f6f2ec;
 
   --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-  --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.4);
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 2px 8px -2px rgb(0 0 0 / 0.4);
-  --shadow-md: 0 2px 12px -2px rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.3);
-  --shadow-lg: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 2px 4px -1px rgb(0 0 0 / 0.35);
-  --shadow-xl: 0 8px 28px -8px rgb(0 0 0 / 0.55), 0 4px 8px -2px rgb(0 0 0 / 0.4);
+  --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.45);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4), 0 2px 8px -2px rgb(0 0 0 / 0.45);
+  --shadow-md: 0 2px 12px -2px rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 4px 16px -4px rgb(0 0 0 / 0.55), 0 2px 4px -1px rgb(0 0 0 / 0.4);
+  --shadow-xl: 0 8px 28px -8px rgb(0 0 0 / 0.6), 0 4px 8px -2px rgb(0 0 0 / 0.45);
 }
 
 /* 主题切换过渡（仅非 reduced-motion 时） */
@@ -127,15 +129,16 @@ html.dark {
   }
 }
 
-/* 搜索浮层：桌面端让开侧栏宽度，使搜索框在内容区居中而非整个视口居中 */
+/* 搜索浮层：桌面端让开侧栏宽度，使搜索框在内容区居中而非整个视口居中。
+   侧栏现在是浮起面板（左侧 12px 外边距），所以偏移要额外 +12px。 */
 @media (min-width: 1024px) {
   .app-search-layer {
-    left: 76px;
+    left: 88px;
   }
 }
 @media (min-width: 1280px) {
   .app-search-layer {
-    left: 244px;
+    left: 256px;
   }
 }
 
@@ -205,6 +208,12 @@ html.viewport-mobile .app-tabbar {
        把同一行右侧的按钮挤出容器。显式锁死为 100%，布局才能稳定。 */
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    /* 让浏览器原生控件（<select> 下拉面板、滚动条、日期选择器、自动填充）
+       跟着主题走。不加这一行，深色站里的下拉框仍是白底黑字，非常突兀。 */
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
   }
   body {
     @apply bg-background font-sans text-foreground antialiased;

@@ -62,7 +62,7 @@ const en = pathname.includes("/en/") || pathname.endsWith("/en");
         /* 主题：避免短链接跳转前白屏闪烁 */
         try {
           var t = localStorage.getItem("solhub:theme");
-          if (t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          if (t !== "light") {
             document.documentElement.classList.add("dark");
           }
           document.documentElement.classList.remove("theme-init");

@@ -58,6 +58,8 @@ const orgJsonLd = {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
+    {/* 手机浏览器地址栏 / 状态栏配色：默认深色，随主题在下面的内联脚本里同步 */}
+    <meta name="theme-color" content="#0a0908" />
 
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
@@ -125,9 +127,14 @@ const orgJsonLd = {
           }
 
           // 1) 主题：dark class + 过渡
+          //    深色是站点默认观感；只有用户手动切到浅色（存了 "light"）才走浅色。
+          //    不跟随系统 prefers-color-scheme —— 否则同一台设备上深浅不一，品牌观感会飘。
           var savedTheme = localStorage.getItem("solhub:theme");
-          var theme = savedTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+          var theme = savedTheme === "light" ? "light" : "dark";
           if (theme === "dark") document.documentElement.classList.add("dark");
+          // 同步手机浏览器地址栏配色，否则深色页面顶上会挂一条白条
+          var tc = document.querySelector('meta[name="theme-color"]');
+          if (tc) tc.setAttribute("content", theme === "dark" ? "#0a0908" : "#ffffff");
           document.documentElement.classList.remove("theme-init");
 
           // 2) 视口模拟

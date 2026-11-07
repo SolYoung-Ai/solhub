@@ -48,6 +48,7 @@ const orgJsonLd = {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a0908" />
     <meta name="generator" content={Astro.generator} />
 
     <title>{pageTitle}</title>
@@ -107,8 +108,10 @@ const orgJsonLd = {
           }
 
           var savedTheme = localStorage.getItem("solhub:theme");
-          var theme = savedTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+          var theme = savedTheme === "light" ? "light" : "dark";
           if (theme === "dark") document.documentElement.classList.add("dark");
+          var tc = document.querySelector('meta[name="theme-color"]');
+          if (tc) tc.setAttribute("content", theme === "dark" ? "#0a0908" : "#ffffff");
           document.documentElement.classList.remove("theme-init");
 
           if (localStorage.getItem("solhub:viewport") === "mobile") {
