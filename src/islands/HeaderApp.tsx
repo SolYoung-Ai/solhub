@@ -57,11 +57,20 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
     return () => window.removeEventListener("click", close);
   }, [userMenuOpen]);
 
-  const NAV: { label: string; path: string; icon: typeof Compass; match: (r: string) => boolean; bottom?: boolean }[] = [
-    { label: translate(dict, "nav.discover"), path: "/", icon: Compass, match: (r) => r === "/" },
-    { label: translate(dict, "nav.launches"), path: "/launches/", icon: Package, match: (r) => r.startsWith("/launches/") },
-    { label: translate(dict, "nav.world"), path: "/world/", icon: Users, match: (r) => r.startsWith("/world/") },
-    { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, match: (r) => r.startsWith("/my-submissions/") },
+  /* 每个导航项一个彩色图标块：颜色只用来区分栏目，文字与背景仍是 SolHub 的
+     暖白 / 暖灰 / 品牌橙体系，所以整体观感不变，只是多了一层识别度。 */
+  const NAV: {
+    label: string;
+    path: string;
+    icon: typeof Compass;
+    color: string;
+    match: (r: string) => boolean;
+    bottom?: boolean;
+  }[] = [
+    { label: translate(dict, "nav.discover"), path: "/", icon: Compass, color: "#3b82f6", match: (r) => r === "/" },
+    { label: translate(dict, "nav.launches"), path: "/launches/", icon: Package, color: "#e87028", match: (r) => r.startsWith("/launches/") },
+    { label: translate(dict, "nav.world"), path: "/world/", icon: Users, color: "#14b8a6", match: (r) => r.startsWith("/world/") },
+    { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, color: "#8b5cf6", match: (r) => r.startsWith("/my-submissions/") },
   ];
 
   useEffect(() => {
@@ -120,14 +129,23 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
                   aria-current={on ? "page" : undefined}
                   title={item.label}
                   className={cx(
-                    "group flex items-center justify-center gap-3 rounded-[8px] px-3 py-2.5 text-[14px] font-medium transition-colors xl:justify-start",
+                    "group flex items-center justify-center gap-2.5 rounded-[8px] border px-2 py-[7px] text-[14px] transition-colors xl:justify-start",
                     on
-                      ? "bg-accent/10 text-accent"
-                      : "text-foreground/65 hover:bg-secondary hover:text-foreground",
+                      ? "border-border bg-secondary text-foreground"
+                      : "border-transparent text-foreground/60 hover:bg-secondary/70 hover:text-foreground",
                   )}
                 >
-                  <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={on ? 2.1 : 1.7} />
-                  <span className="hidden xl:block">{item.label}</span>
+                  <span
+                    className={cx(
+                      "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] transition-opacity",
+                      on ? "opacity-100 shadow-xs" : "opacity-80 group-hover:opacity-100",
+                    )}
+                    style={{ backgroundColor: item.color }}
+                    aria-hidden="true"
+                  >
+                    <Icon className="h-[15px] w-[15px] text-white" strokeWidth={2} />
+                  </span>
+                  <span className={cx("hidden min-w-0 truncate xl:block", on && "font-semibold")}>{item.label}</span>
                 </a>
               );
             })}
@@ -139,10 +157,15 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
             type="button"
             onClick={() => setSearchOpen(true)}
             title={en ? "Search" : "搜索"}
-            className="flex items-center justify-center gap-3 rounded-[8px] px-3 py-2.5 text-[14px] font-medium text-foreground/65 transition-colors hover:bg-secondary hover:text-foreground xl:justify-start"
+            className="group flex items-center justify-center gap-2.5 rounded-[8px] border border-transparent px-2 py-[7px] text-[14px] text-foreground/60 transition-colors hover:bg-secondary/70 hover:text-foreground xl:justify-start"
           >
-            <Search className="h-[19px] w-[19px] shrink-0" strokeWidth={1.7} />
-            <span className="hidden xl:block">{en ? "Search" : "搜索"}</span>
+            <span
+              className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[#a8a29e] opacity-80 transition-opacity group-hover:opacity-100"
+              aria-hidden="true"
+            >
+              <Search className="h-[15px] w-[15px] text-white" strokeWidth={2} />
+            </span>
+            <span className="hidden min-w-0 truncate xl:block">{en ? "Search" : "搜索"}</span>
           </button>
 
           {/* 主行动：紧跟导航区（对应 X 的「发帖」大按钮位置），
@@ -270,8 +293,9 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
               aria-current={on ? "page" : undefined}
               className={cx(
                 "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] leading-none transition-colors",
-                on ? "text-accent" : "text-muted-foreground",
+                on ? "font-semibold" : "text-muted-foreground",
               )}
+              style={on ? { color: item.color } : undefined}
             >
               <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={on ? 2.1 : 1.7} />
               <span className="truncate">{item.label}</span>
