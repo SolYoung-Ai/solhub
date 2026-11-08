@@ -1,5 +1,31 @@
 [
   {
+    "id": "lunasol",
+    "slug": "lunasol",
+    "name": "LunaSol",
+    "icon": "/icons/lunasol.png",
+    "shortDescription": "AI 智能包装设计平台 · 从创意到印刷文件一站完成",
+    "description": "LunaSol（AI Packaging Studio）是一站式 AI 包装设计平台：不需要设计经验，把想法告诉 AI 设计师 Luna，由她梳理需求、给出配色与结构建议，再完成版式设计、多种盒型的刀版展开图与印前检查，产出可交付的印刷文件。内置插舌盒、盖盒、飞机盒、自立袋等盒型，支持风格模板、AI 效果图以及出血与条码校验。人人都能成为设计师。",
+    "websiteUrl": "https://luna.solyoung.top",
+    "category": "design-tools",
+    "tags": [
+      "ai",
+      "packaging-design",
+      "dieline",
+      "prepress",
+      "print-ready"
+    ],
+    "developerName": "Sol Young",
+    "publishedAt": "2026-11-08",
+    "launchBatch": "Community",
+    "verificationStatus": "verified",
+    "verificationMethod": "人工访问 https://luna.solyoung.top（HTTP 200），核对产品名称「LunaSol — AI 智能包装设计平台」、页面文案与设计/印前功能入口后核验通过。",
+    "verifiedAt": "2026-11-08",
+    "isDemo": false,
+    "submittedBy": "solyoung",
+    "rankPosition": 1
+  },
+  {
     "id": "ofx-atlas",
     "slug": "ofx-atlas",
     "name": "OFX Atlas",

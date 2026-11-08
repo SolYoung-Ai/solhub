@@ -78,6 +78,7 @@ export const productShortEn: Record<string, string> = {
   myos: "A local-first workspace for independent creators: capture → think → create → ship → archive.",
   verity: "Personality, psychological and behavior tests in one place — pick one and start.",
   camsim: "Camera simulator: reverse-engineer aperture, shutter and ISO from the look you want.",
+  lunasol: "AI packaging design studio — from a rough idea to print-ready files in one place.",
 };
 
 export const productDescEn: Record<string, string> = {
@@ -91,6 +92,8 @@ export const productDescEn: Record<string, string> = {
     "Verity is an online collection of personality, psychological and behavior tests behind one consistent entry point, with new tests added over time and instant results. Free to use — for people who want to understand themselves quickly.",
   camsim:
     "CamSim is an interactive tool for photography beginners: tell it the look you want, get a reference set of aperture / shutter / ISO values. Free to use.",
+  lunasol:
+    "LunaSol is an end-to-end AI packaging design studio: no design experience needed. Tell Luna, your AI designer, what you have in mind and she will shape the brief, suggest palettes and structures, then take you through layout, dielines for common box styles (tuck-end, rigid, mailer, stand-up pouch) and pre-press checks such as bleed and barcode validation, all the way to print-ready files. Style presets and AI-generated mockups are included.",
 };
 
 /* ---------------- 本地化取数函数 ---------------- */
