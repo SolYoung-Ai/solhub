@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import SubmitForm from "@/islands/SubmitForm.tsx";
+import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 
 interface Props {
@@ -11,12 +12,12 @@ const locale = Astro.props.locale ?? "zh";
 const en = locale === "en";
 
 const metaDesc = en
-  ? "Submit your website, software, AI tool or self-contained HTML tool to SolHub. Submissions are auto-published to the community list; hosted tools run in a sandbox."
-  : "把你开发的网站、软件、AI 工具或自包含 HTML 工具提交到 SolHub。提交即自动公开到社区列表；托管工具在沙箱内运行。";
+  ? "Submit your website, AI tool or Agent Skill to SolHub. Products go live once the link opens; Skills are reviewed before joining the Skill directory; self-contained HTML tools run in a sandbox."
+  : "把你开发的网站、AI 工具或 Agent Skill 提交到 SolHub。产品链接可访问即自动收录；Skill 经核验后加入 Skill 库；自包含 HTML 工具在沙箱内运行。";
 ---
 
 <BaseLayout
-  title={en ? "Submit a Product" : "提交产品与工具"}
+  title={en ? "Submit a Product, Skill or Tool" : "提交产品 / Skill / 工具"}
   description={metaDesc}
   route="/submit/"
   locale={locale}
@@ -27,12 +28,12 @@ const metaDesc = en
         Launch
       </p>
       <h1 class="font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-        {en ? "Submit Your Product or Tool" : "提交你的产品与工具"}
+        {en ? "Submit a Product, Skill or Tool" : "提交产品 / Skill / 工具"}
       </h1>
       <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">
         {en
-          ? "If you built a website, app or AI tool, submit it to SolHub. Log in and submit — as long as your link opens, the product goes live on the community list automatically. Self-contained HTML tools can be hosted and run in a sandbox here."
-          : "如果你开发了网站、软件或 AI 工具，欢迎提交到 SolHub。登录后提交：官网链接可正常打开即自动收录上线，无需等待审核；自包含 HTML 工具可以直接托管，在本站沙箱内运行。"}
+          ? "Built a website, an AI tool or an Agent Skill? Pick the matching tab below. Product links that open are published instantly; Skills are reviewed before joining the Skill directory; self-contained HTML tools can be hosted in a sandbox right here."
+          : "开发了网站、AI 工具还是 Agent Skill？下面选对应的类型提交：产品链接可访问即自动收录；Skill 经核验后加入 Skill 库；自包含 HTML 工具可托管到本站沙箱运行。"}
       </p>
       <p class="mt-3 inline-flex max-w-2xl items-center gap-2 rounded-full border border-accent/25 bg-accent/5 px-3.5 py-1.5 text-[13px] font-medium text-foreground/80">
         <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" aria-hidden="true">
@@ -57,15 +58,15 @@ const metaDesc = en
           <ol class="mt-3 space-y-3 text-[13px] leading-6 text-muted-foreground">
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">01</span>
-              {en ? "Log in (email + password, 10 seconds)" : "登录账号（邮箱 + 密码，10 秒注册）"}
+              {en ? "Log in (only needed for one-click product publishing)" : "按需登录（产品一键收录需要，Skill 提交可跳过）"}
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">02</span>
-              {en ? "Fill in the details" : "填写产品信息"}
+              {en ? "Fill in the fields for the type you picked" : "按所选类型填写信息"}
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">03</span>
-              {en ? "Link check passes — live instantly" : "链接检测通过，产品立即上线展示"}
+              {en ? "Products go live instantly; Skills are reviewed" : "产品链接通过即上线；Skill 人工核验后收录"}
             </li>
             <li class="flex gap-2.5">
               <span class="font-display shrink-0 text-accent">04</span>
@@ -74,8 +75,8 @@ const metaDesc = en
           </ol>
           <p class="mt-3 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">
             {en
-              ? "No manual review — as long as the link opens, it's published. Illegal or infringing content will be removed."
-              : "无需人工审核：只要链接可正常打开就自动收录上线；违法违规或侵权内容会被下架。"}
+              ? "Products need no manual review — as long as the link opens, they are published. Skills are reviewed before listing. Illegal, infringing or malicious content will be removed."
+              : "产品无需人工审核：链接可正常打开即自动收录；Skill 需核验后收录。违法违规、侵权或夹带恶意指令的内容会被下架。"}
           </p>
         </div>
         <div class="card p-5">
@@ -87,6 +88,21 @@ const metaDesc = en
             <li>· {en ? "Ready to use, not a placeholder" : "已可正常使用，非半成品"}</li>
           </ul>
         </div>
+        <div class="card border-accent/25 p-5">
+          <h2 class="flex items-center gap-2 text-sm font-bold text-foreground">
+            <svg viewBox="0 0 24 24" class="h-4 w-4 text-accent" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 1.9 4.6L19 9.5l-4.2 2.6L14 17l-2-4.9L7 9.5l5.1-1.9L12 3Z" /></svg>
+            {en ? "Skill listing criteria" : "Skill 收录标准"}
+          </h2>
+          <ul class="mt-2 space-y-1.5 text-[13px] leading-6 text-muted-foreground">
+            <li>· {en ? "Public repo or skills.sh page" : "仓库 / skills.sh 页面公开可访问"}</li>
+            <li>· {en ? "Complete SKILL.md with trigger scenarios" : "含完整 SKILL.md 与触发场景"}</li>
+            <li>· {en ? "Installable, not an empty placeholder" : "可安装运行，不是空壳"}</li>
+            <li>· {en ? "Properly licensed, no malicious instructions" : "协议合规，无恶意指令"}</li>
+          </ul>
+          <a href={p("/skills/", locale)} class="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-accent hover:underline">
+            {en ? "Browse Skill directory ↗" : "查看 Skill 库 ↗"}
+          </a>
+        </div>
         <div class="card p-5">
           <h2 class="text-sm font-bold text-foreground">{en ? "Modify or delete" : "修改或删除"}</h2>
           <p class="mt-2 text-[13px] leading-6 text-muted-foreground">
@@ -96,8 +112,13 @@ const metaDesc = en
           </p>
           <p class="mt-2 text-[13px] leading-6 text-muted-foreground">
             {en
-              ? "Submitted via email? Email soyoang@outlook.com from the same address with your product name — processed within 24 hours."
-              : "邮件提交的用户：用提交时的邮箱发邮件到 soyoang@outlook.com 并注明产品名称，24 小时内处理。"}
+              ? "Submitted via email? Email soyoang@outlook.com from the same address with your product or Skill name — processed within 24 hours."
+              : "邮件提交的用户：用提交时的邮箱发邮件到 soyoang@outlook.com 并注明产品或 Skill 名称，24 小时内处理。"}
+          </p>
+          <p class="mt-2 text-[13px] leading-6 text-muted-foreground">
+            {en
+              ? "Listed Skills are maintained by the same email channel — just tell us what to change or remove."
+              : "Skill 库中的条目如需修改或下架，同样用提交时的邮箱发邮件说明即可。"}
           </p>
         </div>
       </aside>

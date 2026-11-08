@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  Sparkles,
   Sun,
   Users,
   UserCog,
@@ -72,6 +73,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
   }[] = [
     { label: translate(dict, "nav.discover"), path: "/", icon: Compass, color: "#3b82f6", match: (r) => r === "/" },
     { label: translate(dict, "nav.launches"), path: "/launches/", icon: Package, color: "#e87028", match: (r) => r.startsWith("/launches/") },
+    { label: translate(dict, "nav.skills"), path: "/skills/", icon: Sparkles, color: "#ec4899", match: (r) => r.startsWith("/skills/") },
     { label: translate(dict, "nav.world"), path: "/world/", icon: Users, color: "#14b8a6", match: (r) => r.startsWith("/world/") },
     { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, color: "#8b5cf6", match: (r) => r.startsWith("/my-submissions/") },
   ];
