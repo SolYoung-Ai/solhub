@@ -120,7 +120,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
     <>
       {/* ==================== 桌面：左侧固定栏 ==================== */}
       <aside
-        className="app-sidebar sticky top-3 z-40 ml-3 hidden h-[calc(100vh-1.5rem)] shrink-0 flex-col overflow-hidden rounded-[16px] border border-border bg-secondary shadow-sm lg:flex lg:w-[76px] xl:w-[244px] dark:bg-card"
+        className="app-sidebar sticky top-3 z-40 ml-3 hidden h-[calc(100vh-1.5rem)] shrink-0 flex-col overflow-hidden rounded-[18px] border lg:flex lg:w-[76px] xl:w-[244px]"
         aria-label={en ? "Main navigation" : "主导航"}
       >
         <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain px-3 py-5 xl:px-4">

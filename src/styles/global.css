@@ -150,6 +150,54 @@ html.dark {
   }
 }
 
+/* ---------- 侧栏：iOS 风格玻璃面板 ---------- */
+/* 浅色主题下侧栏是一块中性白玻璃（不是原来的暖米色 #faf7f2）：
+   白底 + 极淡冷调渐变 + 顶部 1px 高光 + 发丝边 + 大范围柔和投影。
+   **不要加 backdrop-filter**：侧栏和内容同列，背后没有可模糊的对象，加了也看不出来；
+   更关键的是它会成为 fixed 子元素的包含块，账号弹层（position:fixed）会被困在
+   侧栏里、再被 overflow-hidden 裁掉。
+   重点：hover / 选中态原本靠 --color-secondary（暖米色）区分，
+   白底上会糊成一片，所以在侧栏作用域内把 --color-secondary 换成就近 iOS 的
+   中性灰填充，--color-border 换成中性发丝线，内部所有 border-border /
+   bg-secondary 自动跟随，不必逐个改 JSX。 */
+.app-sidebar {
+  --color-secondary: rgb(120 120 128 / 0.14);
+  --color-border: rgb(15 15 20 / 0.07);
+
+  background-color: #fff;
+  background-image:
+    radial-gradient(130% 58% at 100% -6%, rgb(138 168 255 / 0.08), transparent 62%),
+    linear-gradient(180deg, #ffffff 0%, #fdfdff 50%, #f6f7f9 100%);
+  border-color: var(--color-border);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    0 1px 2px rgb(16 18 22 / 0.05),
+    0 24px 48px -24px rgb(16 18 22 / 0.26);
+}
+
+/* 深色主题保持深玻璃，只把描边调细、加一层冷调微光，与浅色版同构 */
+html.dark .app-sidebar {
+  --color-secondary: #211e1a;
+  --color-border: rgb(255 255 255 / 0.09);
+
+  background-color: #151311;
+  background-image:
+    radial-gradient(120% 62% at 100% -8%, rgb(120 150 255 / 0.06), transparent 64%),
+    linear-gradient(180deg, #1a1715 0%, #151311 58%, #121110 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 18px 40px -22px rgb(0 0 0 / 0.85);
+}
+
+/* 玻璃面板上的选中项：白底灰填充 + 发丝边，深色沿用原暖灰 */
+.app-sidebar .side-row[aria-current="page"] {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6);
+}
+html.dark .app-sidebar .side-row[aria-current="page"] {
+  box-shadow: none;
+}
+
 /* ---------- 侧栏收起 / 展开（桌面 ≥1280） ---------- */
 /* 状态写在 <html data-nav="rail|full">：由 BaseLayout 的 head 脚本在首帧前恢复，
    宽度、文字显隐、图标朝向全部交给 CSS —— 不用 React 状态驱动布局，
