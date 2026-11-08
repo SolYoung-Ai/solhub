@@ -8,9 +8,13 @@
 import { useEffect, useState } from "react";
 import type { SearchIndexEntry } from "@/data/types";
 import { skillCategoryName } from "@/data/skills";
+import { snapshot as catalogSnapshot } from "../data/skills-catalog-meta.json";
 import type { Locale } from "@/i18n";
 
-export const CATALOG_URL = "/data/skills-catalog.json";
+/* 带快照版本：重新采集后 URL 随之变化，自动绕过 GitHub Pages / CDN 的旧缓存，
+   否则更新了 skills-catalog.json 线上可能仍拿到上一版数据。
+   用具名 import 只取 snapshot，避免把整份 meta（含 15 条来源）打进客户端 bundle。 */
+export const CATALOG_URL = `/data/skills-catalog.json?v=${encodeURIComponent(catalogSnapshot)}`;
 
 export interface CatalogSource {
   repo: string;
