@@ -151,44 +151,90 @@ html.dark {
   }
 }
 
-/* ---------- 侧栏：iOS 风格玻璃面板 ---------- */
-/* 浅色主题下侧栏是一块中性白玻璃（不是原来的暖米色 #faf7f2）：
-   白底 + 极淡冷调渐变 + 顶部 1px 高光 + 发丝边 + 大范围柔和投影。
-   **不要加 backdrop-filter**：侧栏和内容同列，背后没有可模糊的对象，加了也看不出来；
-   更关键的是它会成为 fixed 子元素的包含块，账号弹层（position:fixed）会被困在
-   侧栏里、再被 overflow-hidden 裁掉。
-   重点：hover / 选中态原本靠 --color-secondary（暖米色）区分，
-   白底上会糊成一片，所以在侧栏作用域内把 --color-secondary 换成就近 iOS 的
-   中性灰填充，--color-border 换成中性发丝线，内部所有 border-border /
-   bg-secondary 自动跟随，不必逐个改 JSX。 */
-.app-sidebar {
-  --color-secondary: rgb(120 120 128 / 0.14);
-  --color-border: rgb(15 15 20 / 0.07);
-
-  background-color: #fff;
+/* 浅色主题的页面底色：纯白为主，只在左上角与左下角各留一丝橙/冷光。
+   半透明侧栏玻璃要有「可透的东西」才看得出质感，但不能让人觉得页面是暖米色，
+   所以橙的 alpha 压到 0.04 以下，直观仍是白底。深色主题不受影响。 */
+html:not(.dark) body {
   background-image:
-    radial-gradient(130% 58% at 100% -6%, rgb(138 168 255 / 0.08), transparent 62%),
-    linear-gradient(180deg, #ffffff 0%, #fdfdff 50%, #f6f7f9 100%);
-  border-color: var(--color-border);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.95),
-    0 1px 2px rgb(16 18 22 / 0.05),
-    0 24px 48px -24px rgb(16 18 22 / 0.26);
+    radial-gradient(38% 70% at 0% 18%, rgb(232 112 40 / 0.10), transparent 76%),
+    radial-gradient(34% 55% at 0% 100%, rgb(138 168 255 / 0.065), transparent 76%);
+  background-attachment: fixed;
 }
 
-/* 深色主题保持深玻璃，只把描边调细、加一层冷调微光，与浅色版同构 */
+/* ---------- 侧栏：iOS / Liquid Glass 半透明玻璃 ---------- */
+/* 半透明中性白 + 真实毛玻璃 + 顶部高光 + 内发光边 + 发丝线 + 大范围柔和投影。
+   **玻璃层挂在 ::before 伪元素上，不要给 .app-sidebar 本体加 backdrop-filter**：
+   backdrop-filter 会让侧栏成为 position:fixed 子元素的包含块，账号弹层
+   （fixed bottom-[86px]）会被困在侧栏里、再被 overflow-hidden 裁掉。
+   伪元素没有后代，既提供模糊又不会改变 fixed 的定位基准。
+   注意：只写标准 backdrop-filter，手写 -webkit- 同值两条会被 Lightning CSS
+   合并成仅 -webkit- 一条，而 Chrome 不认这个别名（毛玻璃会完全失效）。
+   hover / 选中态原本靠 --color-secondary（暖米色）区分，白底上会糊成一片，
+   所以在侧栏作用域内换成 iOS 中性灰填充，--color-border 换成中性发丝线，
+   内部所有 bg-secondary / border-border 自动跟随，不必逐个改 JSX。 */
+.app-sidebar {
+  --color-secondary: rgb(120 120 128 / 0.14);
+  --color-border: rgb(15 15 20 / 0.09);
+
+  isolation: isolate;
+  background: transparent;
+  border-color: var(--color-border);
+  /* 光从左上打来：左上内亮边 + 右下内暗边 + 顶部 1px 高光，
+     再加一圈几乎不可见的外发丝线与大范围柔和投影 —— iOS 玻璃的辨识度
+     主要来自这层边缘光学，而不是「透出了多少背景」。 */
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.95),
+    inset -1px -1px 0 rgb(255 255 255 / 0.35),
+    inset 0 1px 12px rgb(255 255 255 / 0.55),
+    0 0 0 1px rgb(15 15 20 / 0.045),
+    0 2px 8px rgb(16 18 22 / 0.045),
+    0 24px 48px -20px rgb(16 18 22 / 0.26);
+}
+.app-sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-color: rgb(255 255 255 / 0.66);
+  background-image:
+    /* 斜向镜面高光 + 顶部弧光，让面板有「光的流动」而不是一块纯白 */
+    linear-gradient(135deg, rgb(255 255 255 / 0.85) 0%, rgb(255 255 255 / 0.20) 28%, transparent 56%),
+    radial-gradient(110% 46% at 42% -12%, rgb(255 255 255 / 0.75), transparent 72%),
+    radial-gradient(120% 55% at 100% -8%, rgb(138 168 255 / 0.10), transparent 62%),
+    /* 一点点橙，克制到几乎看不出；直观仍是白底 */
+    radial-gradient(90% 45% at 0% 100%, rgb(232 112 40 / 0.055), transparent 65%),
+    linear-gradient(180deg, transparent 58%, rgb(120 140 180 / 0.055) 100%);
+  backdrop-filter: blur(28px) saturate(180%);
+}
+/* 内容永远在玻璃层之上 */
+.app-sidebar > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* 深色主题：同构的深玻璃，冷调微光 + 一丝暖橙，不刺眼 */
 html.dark .app-sidebar {
   --color-secondary: #211e1a;
-  --color-border: rgb(255 255 255 / 0.09);
+  --color-border: rgb(255 255 255 / 0.10);
 
-  background-color: #151311;
-  background-image:
-    radial-gradient(120% 62% at 100% -8%, rgb(120 150 255 / 0.06), transparent 64%),
-    linear-gradient(180deg, #1a1715 0%, #151311 58%, #121110 100%);
+  background: transparent;
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.05),
-    0 1px 2px rgb(0 0 0 / 0.4),
+    inset 1px 1px 0 rgb(255 255 255 / 0.09),
+    inset -1px -1px 0 rgb(255 255 255 / 0.02),
+    inset 0 1px 14px rgb(255 255 255 / 0.035),
+    0 0 0 1px rgb(255 255 255 / 0.02),
+    0 2px 8px rgb(0 0 0 / 0.35),
     0 18px 40px -22px rgb(0 0 0 / 0.85);
+}
+html.dark .app-sidebar::before {
+  background-color: rgb(26 23 21 / 0.76);
+  background-image:
+    linear-gradient(135deg, rgb(255 255 255 / 0.075) 0%, transparent 46%),
+    radial-gradient(110% 46% at 42% -12%, rgb(255 255 255 / 0.06), transparent 72%),
+    radial-gradient(120% 55% at 100% -8%, rgb(120 150 255 / 0.07), transparent 62%),
+    radial-gradient(90% 45% at 0% 100%, rgb(240 133 63 / 0.035), transparent 65%);
 }
 
 /* 玻璃面板上的选中项：白底灰填充 + 发丝边，深色沿用原暖灰 */
