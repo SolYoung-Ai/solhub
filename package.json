@@ -10,7 +10,8 @@
     "preview": "astro preview",
     "check": "astro check",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "skills:catalog": "node scripts/build-skills-catalog.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^7.1.0",

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronsLeft,
   ChevronsRight,
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import type { SearchIndexEntry } from "@/data/types";
 import { searchIndex } from "@/lib/search";
+import { useCatalogSearchEntries } from "@/lib/skills-catalog";
 import { avatarOf, fetchMe, logout, type AuthUser } from "@/lib/auth";
 import { cx } from "@/lib/utils";
 import { p } from "@/lib/paths";
@@ -482,14 +483,17 @@ function SearchDialog({
   const dict = getDict(locale);
   const en = locale === "en";
   const hasQuery = query.trim().length > 0;
-  /* 全局索引同时含产品与 Skill，Skill 条目 href 已经自带 ?q= 预填 */
+  /* 1000 条真实 SKILL.md 索引按需追加（全站只下载一次），页面 HTML 不内联大数据 */
+  const catalogEntries = useCatalogSearchEntries(locale);
+  const fullIndex = useMemo(() => [...index, ...catalogEntries], [index, catalogEntries]);
+  /* 全局索引含产品 + 精选 Skill + 全网 Skill，Skill 条目 href 已经自带 ?q= 预填 */
   const skillHref = p(`/skills/?q=${encodeURIComponent(query.trim())}`, locale);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => {
-    setResults(searchIndex(query, index, locale).slice(0, 24));
+    setResults(searchIndex(query, fullIndex, locale).slice(0, 24));
     setActive(0);
-  }, [query, index, locale]);
+  }, [query, fullIndex, locale]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, Math.max(results.length - 1, 0))); }
