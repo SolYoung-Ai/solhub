@@ -480,17 +480,26 @@ function SearchDialog({
   const inputRef = useRef<HTMLInputElement>(null);
   const [results, setResults] = useState<SearchIndexEntry[]>([]);
   const dict = getDict(locale);
+  const en = locale === "en";
+  const hasQuery = query.trim().length > 0;
+  /* 全局索引同时含产品与 Skill，Skill 条目 href 已经自带 ?q= 预填 */
+  const skillHref = p(`/skills/?q=${encodeURIComponent(query.trim())}`, locale);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => {
-    setResults(searchIndex(query, index, locale));
+    setResults(searchIndex(query, index, locale).slice(0, 24));
     setActive(0);
   }, [query, index, locale]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, Math.max(results.length - 1, 0))); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-    else if (e.key === "Enter") { e.preventDefault(); const t = results[active]; if (t) window.location.href = p(`/products/${t.slug}/`, locale); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      const t = results[active];
+      if (t) window.location.href = p(t.href, locale);
+      else if (hasQuery) window.location.href = skillHref;
+    }
   };
 
   return (
@@ -518,23 +527,53 @@ function SearchDialog({
             )}
           </div>
           <div className="max-h-[60vh] overflow-y-auto py-2">
-            {query.trim() === "" && (
-              <p className="px-4 py-8 text-center text-sm text-muted-foreground">{translate(dict, "search.hint")}</p>
+            {!hasQuery && (
+              <div className="px-4 py-7 text-center">
+                <p className="text-sm text-muted-foreground">{translate(dict, "search.hint")}</p>
+                <p className="mt-1.5 text-[11px] text-muted-foreground/70">{translate(dict, "search.hintTips")}</p>
+              </div>
+            )}
+            {hasQuery && results.length === 0 && (
+              <div className="px-4 py-7 text-center">
+                <p className="text-sm text-muted-foreground">{translate(dict, "search.emptyTitle", { q: query.trim() })}</p>
+                <a href={skillHref} className="mt-2 inline-block text-[12px] text-accent hover:underline">
+                  {en ? "Search the Skill library instead →" : "去 Skill 库里搜搜看 →"}
+                </a>
+              </div>
             )}
             {results.map((r, i) => (
               <a
                 key={r.slug}
-                href={p(`/products/${r.slug}/`, locale)}
+                href={p(r.href, locale)}
                 onMouseEnter={() => setActive(i)}
                 className={cx("mx-1.5 flex items-center justify-between gap-3 rounded-[6px] px-2.5 py-2", active === i ? "bg-secondary" : "hover:bg-secondary/50")}
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-foreground">{r.name}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
+                    {r.kind === "skill" && (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#ec4899]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#db2777]">
+                        <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
+                        Skill
+                      </span>
+                    )}
+                  </span>
                   <span className="block truncate text-xs text-muted-foreground">{r.description}</span>
                 </span>
                 <span className="shrink-0 text-[11px] text-muted-foreground">{r.categoryName}</span>
               </a>
             ))}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
+            <span>{translate(dict, "search.shortcut")}</span>
+            <span className="flex items-center gap-2">
+              <span className="hidden sm:inline">{translate(dict, "search.localNote")}</span>
+              {hasQuery && (
+                <a href={skillHref} className="text-accent hover:underline">
+                  {en ? "Search all Skills →" : "在 Skill 库中搜索 →"}
+                </a>
+              )}
+            </span>
           </div>
         </div>
       </div>

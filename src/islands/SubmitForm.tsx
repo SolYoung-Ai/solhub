@@ -17,6 +17,7 @@ import { base } from "@/lib/api-base";
 import { isValidHttpUrl } from "@/lib/utils";
 import { request } from "@/lib/net";
 import { fetchMe, type AuthUser } from "@/lib/auth";
+import { ownerKey, saveMySkill } from "@/lib/my-skills";
 import { Message } from "@/components/tool-ui";
 import type { Locale } from "@/i18n";
 
@@ -251,6 +252,26 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       }
     }
 
+    /* Skill 提交：邮件人工核验之外，本地留一份记录，让用户能在「个人中心 → Skill」
+       里查看、修改、删除或标记收录状态（Skill 不走 /publish，没有服务端记录）。 */
+    if (isSkill) {
+      saveMySkill(
+        {
+          name: form.name.trim(),
+          repoUrl: form.websiteUrl.trim(),
+          installCommand: form.installCommand.trim(),
+          platform: form.platform,
+          shortDescription: form.shortDescription.trim(),
+          description: form.description.trim(),
+          category: form.category,
+          tags: form.tags.trim(),
+          author: form.developerName.trim(),
+          contact: form.contact.trim(),
+        },
+        ownerKey(me),
+      );
+    }
+
     /* Skill / 托管工具 / 未登录产品：邮件提交，人工核验后收录 */
     window.location.href = buildEmail();
     setStatus("success");
@@ -259,8 +280,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       via: "email",
       message: isSkill
         ? en
-          ? "Your email client is opening with all Skill details pre-filled. Send it and we'll review the repo, SKILL.md and installability — approved skills are added to the Skill directory within 24 hours."
-          : "正在打开邮箱，Skill 信息已自动填好。发送后我们会核验仓库、SKILL.md 与可安装性，通过后 24 小时内收录到 Skill 库（不会进入产品列表）。"
+          ? "Your email client is opening with all Skill details pre-filled. Send it and we'll review the repo, SKILL.md and installability — approved skills are added to the Skill directory within 24 hours. You can edit or delete this submission in My Account → Skills."
+          : "正在打开邮箱，Skill 信息已自动填好。发送后我们会核验仓库、SKILL.md 与可安装性，通过后 24 小时内收录到 Skill 库（不会进入产品列表）。这份提交已保存到「个人中心 → Skill」，可随时编辑或删除。"
         : isHosted
           ? en
             ? "Your email client is opening. Attach the self-contained .html file and send it — we'll host it in a sandboxed iframe."

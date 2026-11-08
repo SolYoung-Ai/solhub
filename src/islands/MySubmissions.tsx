@@ -3,6 +3,7 @@ import {
   Camera,
   Check,
   ExternalLink,
+  HelpCircle,
   Link as LinkIcon,
   Loader2,
   LogIn,
@@ -14,6 +15,8 @@ import {
   Pencil,
   Share2,
   ShieldCheck,
+  Sparkles,
+  Terminal,
   Trash2,
   User,
   WifiOff,
@@ -25,7 +28,31 @@ import { copyText, ensureHttps } from "@/lib/utils";
 import { fetchFollowList, fetchProfile, type FollowUser, type PublicProfile } from "@/lib/world";
 import GoldBadge from "@/components/GoldBadge";
 import { base } from "@/lib/api-base";
+import { skillCategories, skillCategoryName } from "@/data/skills";
+import {
+  listMySkills,
+  ownerKey,
+  removeMySkill,
+  saveMySkill,
+  setMySkillStatus,
+  updateMySkill,
+  type MySkill,
+  type MySkillInput,
+} from "@/lib/my-skills";
 import type { Locale } from "@/i18n";
+
+const emptySkillForm: MySkillInput = {
+  name: "",
+  repoUrl: "",
+  installCommand: "",
+  platform: "",
+  shortDescription: "",
+  description: "",
+  category: "engineering",
+  tags: "",
+  author: "",
+  contact: "",
+};
 
 interface GhIssue {
   number: number;
@@ -144,8 +171,14 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   const [savingSlug, setSavingSlug] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  /* 创作者：我的作品 / 关注 / 粉丝 */
-  const [tab, setTab] = useState<"products" | "following" | "followers">("products");
+  /* Skill 管理：提交记录存在本机，支持新增 / 编辑 / 删除 / 标记收录状态 */
+  const [mySkills, setMySkills] = useState<MySkill[]>([]);
+  const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
+  const [skillForm, setSkillForm] = useState<MySkillInput>(emptySkillForm);
+  const [skillError, setSkillError] = useState<string | null>(null);
+
+  /* 创作者：我的产品 / 我的 Skill / 关注 / 粉丝 */
+  const [tab, setTab] = useState<"products" | "skills" | "following" | "followers">("products");
   const [world, setWorld] = useState<PublicProfile | null>(null);
   const [followList, setFollowList] = useState<FollowUser[]>([]);
   const [followLoading, setFollowLoading] = useState(false);
@@ -211,6 +244,21 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /* 支持 /my-submissions/?tab=skills 直达 Skill 标签 */
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(window.location.search).get("tab") === "skills") setTab("skills");
+    } catch {
+      /* 地址栏解析失败时保持默认标签 */
+    }
+  }, []);
+
+  /* Skill 提交记录按账号读取（含未登录时提交的草稿） */
+  useEffect(() => {
+    if (!user) return;
+    setMySkills(listMySkills(ownerKey(user)));
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -365,6 +413,62 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     }
   };
 
+  /* ---------------- Skill 提交记录的本地管理 ---------------- */
+  const refreshSkills = () => setMySkills(listMySkills(ownerKey(user)));
+
+  const startSkillEdit = (s: MySkill) => {
+    setEditingSkillId(s.id);
+    setSkillError(null);
+    setSkillForm({
+      name: s.name,
+      repoUrl: s.repoUrl,
+      installCommand: s.installCommand,
+      platform: s.platform,
+      shortDescription: s.shortDescription,
+      description: s.description,
+      category: s.category,
+      tags: s.tags,
+      author: s.author,
+      contact: s.contact,
+    });
+  };
+
+  const startNewSkill = () => {
+    setEditingSkillId("__new__");
+    setSkillError(null);
+    setSkillForm({ ...emptySkillForm, author: user?.displayName || user?.login || "" });
+  };
+
+  const saveSkill = () => {
+    const name = skillForm.name.trim();
+    const repoUrl = skillForm.repoUrl.trim();
+    if (!name || !repoUrl) {
+      setSkillError(en ? "Name and repo URL are required." : "请填写 Skill 名称与仓库 / 主页 URL。");
+      return;
+    }
+    if (!/^https?:\/\//i.test(repoUrl)) {
+      setSkillError(en ? "Repo URL must start with http:// or https://." : "仓库 URL 需以 http:// 或 https:// 开头。");
+      return;
+    }
+    const payload: MySkillInput = { ...skillForm, name, repoUrl };
+    if (editingSkillId === "__new__") saveMySkill(payload, ownerKey(user));
+    else if (editingSkillId) updateMySkill(editingSkillId, payload);
+    setEditingSkillId(null);
+    setSkillError(null);
+    refreshSkills();
+  };
+
+  const deleteSkill = (s: MySkill) => {
+    if (!confirm(en ? `Delete “${s.name}”? This only removes your local record.` : `确定删除「${s.name}」？仅删除本机的提交记录。`)) return;
+    removeMySkill(s.id);
+    refreshSkills();
+  };
+
+  const toggleSkillStatus = (s: MySkill) => {
+    setMySkillStatus(s.id, s.status === "listed" ? "pending" : "listed");
+    refreshSkills();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
@@ -406,8 +510,8 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         <LogIn className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden="true" />
         <p className="mt-4 text-sm text-muted-foreground">
           {en
-            ? "Log in with email to view and manage your submissions."
-            : "登录后即可查看和管理你提交的产品与工具。"}
+            ? "Log in with email to view and manage your products and Skills."
+            : "登录后即可查看和管理你提交的产品与 Skill。"}
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <a href={p("/login/?next=" + encodeURIComponent("/my-submissions/"), locale)} className="btn btn-accent !h-10 px-5">
@@ -561,6 +665,10 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                   <PackagePlus className="h-3 w-3" />
                   {en ? `${products.length} product${products.length === 1 ? "" : "s"}` : `${products.length} 个产品`}
                 </span>
+                <span className="inline-flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  {en ? `${mySkills.length} Skill${mySkills.length === 1 ? "" : "s"}` : `${mySkills.length} 个 Skill`}
+                </span>
               </div>
             </div>
           </div>
@@ -686,6 +794,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
       <div className="mt-8 flex items-center gap-1 overflow-x-auto border-b border-border">
         {([
           { key: "products", label: en ? "Products" : "产品", count: products.length },
+          { key: "skills", label: en ? "Skills" : "Skill", count: mySkills.length },
           { key: "following", label: en ? "Following" : "关注", count: world?.followingCount ?? 0 },
           { key: "followers", label: en ? "Followers" : "粉丝", count: world?.followerCount ?? 0 },
         ] as const).map((t) => (
@@ -816,6 +925,158 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         </>
       )}
 
+      {/* 我的 Skill：提交记录的查看 / 编辑 / 删除 / 状态标记 */}
+      {tab === "skills" && (
+        <>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-display text-base font-bold text-foreground">
+              {en ? "My Skills" : "我的 Skill"}
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              <a href={p("/skills/?guide=1", locale)} className="btn btn-outline !h-8 gap-1.5 px-3 text-xs">
+                <HelpCircle className="h-3 w-3" /> {en ? "How to use" : "使用教程"}
+              </a>
+              <button type="button" onClick={startNewSkill} className="btn btn-outline !h-8 gap-1.5 px-3 text-xs">
+                <PackagePlus className="h-3 w-3" /> {en ? "Add a record" : "手动登记"}
+              </button>
+              <a href={p("/submit/?type=skill", locale)} className="btn btn-accent !h-8 gap-1.5 px-3 text-xs">
+                <Sparkles className="h-3 w-3" /> {en ? "Submit a Skill" : "提交 Skill"}
+              </a>
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+            {en
+              ? "Skill submissions go through email review, so these records are stored in this browser rather than in the cloud. Edit, delete or mark them as listed here; clearing browser data will remove them."
+              : "Skill 提交走邮件人工核验，因此这些记录保存在当前浏览器，不是云端同步。可在此编辑、删除或标记为「已收录」；清除浏览器数据会一并清空。"}
+          </p>
+          {skillError && (
+            <p className="mt-3 rounded-[8px] bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{skillError}</p>
+          )}
+
+          {editingSkillId === "__new__" && (
+            <div className="card mt-4 space-y-3 p-5">
+              <p className="text-sm font-bold text-foreground">
+                {en ? "Add a Skill submission" : "手动登记一条 Skill 提交"}
+              </p>
+              <SkillFormFields form={skillForm} onChange={setSkillForm} en={en} />
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={saveSkill} className="btn btn-accent !h-8 gap-1.5 px-4 text-xs">
+                  <Check className="h-3 w-3" /> {en ? "Save" : "保存"}
+                </button>
+                <button type="button" onClick={() => { setEditingSkillId(null); setSkillError(null); }} className="btn btn-outline !h-8 px-4 text-xs">
+                  {en ? "Cancel" : "取消"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {mySkills.length === 0 && editingSkillId !== "__new__" ? (
+            <div className="mt-4 rounded-[10px] border border-dashed border-border bg-secondary/30 py-14 text-center">
+              <Sparkles className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
+              <p className="mt-3 text-sm font-medium text-foreground/70">{en ? "No Skill submissions yet" : "暂无提交的 Skill"}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {en
+                  ? "Submit a Skill and it will show up here so you can edit or delete it."
+                  : "提交 Skill 后会自动出现在这里，可随时编辑或删除。"}
+              </p>
+              <a href={p("/submit/?type=skill", locale)} className="btn btn-accent mt-4 !h-9 px-5 text-xs">
+                {en ? "Submit a Skill" : "去提交 Skill"}
+              </a>
+            </div>
+          ) : (
+            mySkills.length > 0 && (
+              <ul className="mt-4 grid gap-4">
+                {mySkills.map((s) => {
+                  if (editingSkillId === s.id) {
+                    return (
+                      <li key={s.id} className="card space-y-3 p-5">
+                        <p className="text-sm font-bold text-foreground">
+                          {en ? `Edit “${s.name}”` : `编辑「${s.name}」`}
+                        </p>
+                        <SkillFormFields form={skillForm} onChange={setSkillForm} en={en} />
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={saveSkill} className="btn btn-accent !h-8 gap-1.5 px-4 text-xs">
+                            <Check className="h-3 w-3" /> {en ? "Save" : "保存"}
+                          </button>
+                          <button type="button" onClick={() => { setEditingSkillId(null); setSkillError(null); }} className="btn btn-outline !h-8 px-4 text-xs">
+                            {en ? "Cancel" : "取消"}
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={s.id} className="card p-5">
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <a
+                            href={ensureHttps(s.repoUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="min-w-0 max-w-full truncate text-sm font-bold text-foreground hover:text-accent"
+                          >
+                            {s.name}
+                          </a>
+                          <span
+                            className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] uppercase ${
+                              s.status === "listed" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                            }`}
+                          >
+                            {s.status === "listed" ? (en ? "Listed" : "已收录") : (en ? "Pending" : "待核验")}
+                          </span>
+                          <span className="shrink-0 rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+                            {skillCategoryName(s.category, en ? "en" : "zh")}
+                          </span>
+                        </div>
+                        {s.shortDescription && (
+                          <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-muted-foreground">{s.shortDescription}</p>
+                        )}
+                        {s.description && (
+                          <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-muted-foreground/80">{s.description}</p>
+                        )}
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                          {s.platform && <span>{en ? "Works with" : "兼容"}：{s.platform}</span>}
+                          {s.tags && <span>{en ? "Tags" : "标签"}：{s.tags}</span>}
+                          {s.author && <span>{en ? "Author" : "作者"}：{s.author}</span>}
+                        </div>
+                        {s.installCommand && (
+                          <div className="mt-3 flex min-w-0 items-center gap-2 rounded-[7px] border border-border bg-secondary/40 px-2.5 py-1.5">
+                            <Terminal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                            <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground/80">{s.installCommand}</code>
+                          </div>
+                        )}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <a href={ensureHttps(s.repoUrl)} target="_blank" rel="noopener noreferrer" className="btn btn-outline !h-7 gap-1.5 px-3 text-xs">
+                            {en ? "Repo" : "仓库"} <ExternalLink className="h-3 w-3" />
+                          </a>
+                          <a href={p(`/skills/?q=${encodeURIComponent(s.name)}`, locale)} className="btn btn-outline !h-7 gap-1.5 px-3 text-xs">
+                            <Sparkles className="h-3 w-3" /> {en ? "In Skill library" : "在 Skill 库查看"}
+                          </a>
+                          <button type="button" onClick={() => startSkillEdit(s)} className="btn btn-outline !h-7 gap-1.5 px-3 text-xs">
+                            <Pencil className="h-3 w-3" /> {en ? "Edit" : "编辑"}
+                          </button>
+                          <button type="button" onClick={() => toggleSkillStatus(s)} className="btn btn-outline !h-7 gap-1.5 px-3 text-xs">
+                            <Check className="h-3 w-3" />
+                            {s.status === "listed" ? (en ? "Mark pending" : "设为待核验") : (en ? "Mark listed" : "标记已收录")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteSkill(s)}
+                            className="btn btn-outline !h-7 gap-1.5 px-3 text-xs text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3 w-3" /> {en ? "Delete" : "删除"}
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )
+          )}
+        </>
+      )}
+
       {/* 关注 / 粉丝 */}
       {(tab === "following" || tab === "followers") && (
         <div className="mt-5">
@@ -905,6 +1166,46 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/** 新增 / 编辑 Skill 提交记录时共用的表单字段 */
+function SkillFormFields({
+  form, onChange, en,
+}: {
+  form: MySkillInput;
+  onChange: (next: MySkillInput) => void;
+  en: boolean;
+}) {
+  const set = (key: keyof MySkillInput, value: string) => onChange({ ...form, [key]: value });
+  return (
+    <div className="grid gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input value={form.name} onChange={(e) => set("name", e.target.value)} className="input w-full" maxLength={80} placeholder={en ? "Skill name" : "Skill 名称"} />
+        <input value={form.repoUrl} onChange={(e) => set("repoUrl", e.target.value)} className="input w-full font-mono !text-[13px]" placeholder="https://github.com/owner/repo" />
+      </div>
+      <input value={form.installCommand} onChange={(e) => set("installCommand", e.target.value)} className="input w-full font-mono !text-[13px]" maxLength={200} placeholder={en ? "Install command (npx skills add …)" : "安装命令（npx skills add …）"} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input value={form.platform} onChange={(e) => set("platform", e.target.value)} className="input w-full" maxLength={120} placeholder={en ? "Compatible agents" : "兼容平台"} />
+        <select
+          value={form.category}
+          onChange={(e) => set("category", e.target.value)}
+          className="input w-full cursor-pointer !py-0"
+          aria-label={en ? "Skill category" : "Skill 分类"}
+        >
+          {skillCategories.map((c) => (
+            <option key={c.slug} value={c.slug}>{en ? c.nameEn : c.name}</option>
+          ))}
+        </select>
+      </div>
+      <input value={form.shortDescription} onChange={(e) => set("shortDescription", e.target.value)} className="input w-full" maxLength={200} placeholder={en ? "One-line description" : "一句话介绍"} />
+      <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} className="input w-full resize-y" maxLength={2000} placeholder={en ? "Trigger scenarios & details" : "触发场景与详细描述"} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input value={form.tags} onChange={(e) => set("tags", e.target.value)} className="input w-full" placeholder={en ? "Tags, comma-separated" : "标签，逗号分隔"} />
+        <input value={form.author} onChange={(e) => set("author", e.target.value)} className="input w-full" maxLength={80} placeholder={en ? "Author / team" : "作者 / 团队"} />
+      </div>
+      <input value={form.contact} onChange={(e) => set("contact", e.target.value)} className="input w-full" maxLength={200} placeholder={en ? "Contact (optional)" : "联系方式（可选）"} />
     </div>
   );
 }

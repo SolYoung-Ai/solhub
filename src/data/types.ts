@@ -92,13 +92,18 @@ export interface CloudBaseSubmission {
 }
 
 export interface SearchIndexEntry {
-  kind: "product";
+  /** product = 站内产品详情页；skill = Skill 库（带 ?q= 过滤） */
+  kind: "product" | "skill";
+  /** 唯一键；Skill 统一加 `skill:` 前缀，避免和产品 slug 撞车 */
   slug: string;
   name: string;
   description: string;
   category: string;
   categoryName: string;
   tags: string[];
+  /** 额外的可搜索关键词（别名、仓库、安装命令、中英文描述等） */
   keywords?: string[];
   isDemo?: boolean;
+  /** 站内目标路径（不含 base / 语言前缀），统一交给 p() 生成链接 */
+  href: string;
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Check,
@@ -20,6 +20,7 @@ import {
   type SkillKind,
 } from "@/data/skills";
 import { p } from "@/lib/paths";
+import { fuzzyMatch } from "@/lib/search";
 import type { Locale } from "@/i18n";
 
 type KindFilter = "all" | SkillKind;
@@ -44,6 +45,33 @@ export default function SkillsExplorer({
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState<SortKey>("heat");
   const [copied, setCopied] = useState<string | null>(null);
+  const urlSynced = useRef(false);
+
+  /* 支持 /skills/?q=<name>：全局搜索与 Skill 卡片「在库中查看」都靠这个参数定位条目 */
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get("q");
+      if (q) setQuery(q);
+    } catch {
+      /* 地址栏解析失败时保持空关键词 */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!urlSynced.current) {
+      urlSynced.current = true;
+      return;
+    }
+    try {
+      const url = new URL(window.location.href);
+      const q = query.trim();
+      if (q) url.searchParams.set("q", q);
+      else url.searchParams.delete("q");
+      window.history.replaceState(null, "", url.toString());
+    } catch {
+      /* 某些浏览器限制 history API 时只影响地址栏，不影响筛选 */
+    }
+  }, [query]);
 
   const counts = useMemo(
     () => ({
@@ -54,25 +82,25 @@ export default function SkillsExplorer({
   );
 
   const list = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     const matched = skills.filter((s) => {
       if (kind !== "all" && s.kind !== kind) return false;
       if (category !== "all" && s.category !== category) return false;
       if (!q) return true;
-      const haystack = [
+      /* 与全站搜索同一套模糊匹配：连字符 / 空格不敏感，容忍 1~2 个拼写误差 */
+      return fuzzyMatch(
+        q,
         s.name,
         s.repo,
         s.description,
         s.descriptionEn,
-        s.tags.join(" "),
-        s.platforms.join(" "),
+        s.tags,
+        s.platforms,
         skillCategoryName(s.category, "zh"),
         skillCategoryName(s.category, "en"),
-        ...(s.install ? [s.install] : []),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
+        s.install,
+        s.url,
+      );
     });
     const sorted = [...matched];
     if (sort === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
