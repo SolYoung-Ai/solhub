@@ -113,8 +113,9 @@ html.dark {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  min-height: calc(100vh - 52px);
-  padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  min-height: calc(100vh - 52px - env(safe-area-inset-top, 0px));
+  /* 悬浮胶囊：10px 底距 + 57px 胶囊高 + 12px 呼吸位 + 安全区 */
+  padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 1024px) {
@@ -198,6 +199,101 @@ html.dark .app-sidebar .side-row[aria-current="page"] {
   box-shadow: none;
 }
 
+/* ---------- 手机端：iOS 玻璃顶栏 + 悬浮玻璃标签栏 ---------- */
+/* 与桌面侧栏同一套语言：中性白（不是暖米色）+ 真实毛玻璃 + 顶部 1px 高光
+   + 发丝边 + 大范围柔和投影。顶栏是 iOS 导航栏（贴边、只留一条发丝线），
+   底栏是 iOS 26 风格的悬浮胶囊：左右各留 12px、离底部 10px + 安全区，
+   背后内容会透过玻璃隐约可见，滚动时比原来「一条实心暖白横条」轻很多。
+   注意：底栏改成悬浮后，.app-content 的底部留白必须同步加大，
+   否则最后一张卡片会被胶囊压住（下面两处 padding-bottom 一起改）。 */
+.app-topbar {
+  --color-border: rgb(15 15 20 / 0.10);
+
+  /* 加到主屏的 PWA / 刘海屏时，顶部安全区要算进顶栏高度，
+     否则 logo 会顶进状态栏；普通浏览器里 env() 为 0，样式不变。 */
+  height: calc(52px + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  background-color: rgb(255 255 255 / 0.76);
+  background-image: radial-gradient(
+    120% 160% at 100% -60%,
+    rgb(138 168 255 / 0.08),
+    transparent 62%
+  );
+  border-bottom: 1px solid rgb(15 15 20 / 0.07);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 6px 20px -14px rgb(16 18 22 / 0.22);
+  /* 只写标准属性，让构建工具按 browserslist 自动补 -webkit-。
+     手写两条同值声明会被 Lightning CSS 合并成仅 -webkit- 一条，
+     而部分浏览器（含本机 Chrome）不认别名，毛玻璃会完全失效。 */
+  backdrop-filter: blur(20px) saturate(180%);
+}
+.app-topbar button,
+.app-topbar a[href*="/login/"] {
+  box-shadow: 0 1px 2px rgb(16 18 22 / 0.05);
+}
+html.dark .app-topbar {
+  --color-border: rgb(255 255 255 / 0.12);
+
+  background-color: rgb(21 19 17 / 0.78);
+  background-image: radial-gradient(
+    120% 160% at 100% -60%,
+    rgb(120 150 255 / 0.07),
+    transparent 62%
+  );
+  border-bottom-color: rgb(255 255 255 / 0.09);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 8px 24px -14px rgb(0 0 0 / 0.8);
+}
+
+.app-tabbar {
+  left: 12px;
+  right: 12px;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  min-height: 57px;
+  padding: 5px 6px;
+  border: 1px solid rgb(15 15 20 / 0.08);
+  border-radius: 22px;
+  background-color: rgb(255 255 255 / 0.78);
+  background-image:
+    radial-gradient(120% 140% at 50% -60%, rgb(138 168 255 / 0.07), transparent 66%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.30) 0%, transparent 46%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    0 2px 6px rgb(16 18 22 / 0.05),
+    0 16px 34px -16px rgb(16 18 22 / 0.26);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+.app-tabbar a {
+  padding-block: 6px;
+  border-radius: 15px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+.app-tabbar a[aria-current="page"] {
+  background-color: rgb(120 120 128 / 0.11);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55);
+}
+.app-tabbar a:active {
+  transform: scale(0.95);
+}
+html.dark .app-tabbar {
+  border-color: rgb(255 255 255 / 0.11);
+  background-color: rgb(26 23 21 / 0.82);
+  background-image:
+    radial-gradient(120% 140% at 50% -60%, rgb(120 150 255 / 0.06), transparent 66%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.06) 0%, transparent 46%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 2px 8px rgb(0 0 0 / 0.4),
+    0 18px 36px -16px rgb(0 0 0 / 0.85);
+}
+html.dark .app-tabbar a[aria-current="page"] {
+  background-color: rgb(255 255 255 / 0.09);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
 /* ---------- 侧栏收起 / 展开（桌面 ≥1280） ---------- */
 /* 状态写在 <html data-nav="rail|full">：由 BaseLayout 的 head 脚本在首帧前恢复，
    宽度、文字显隐、图标朝向全部交给 CSS —— 不用 React 状态驱动布局，
@@ -272,8 +368,8 @@ html.viewport-mobile .app-search-layer {
   left: 0;
 }
 html.viewport-mobile .app-content {
-  min-height: calc(100vh - 52px);
-  padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  min-height: calc(100vh - 52px - env(safe-area-inset-top, 0px));
+  padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px));
 }
 /* 模拟模式下窗口宽度仍是桌面尺寸，sm/lg 的多列网格照常命中，
    但容器只有 430px —— 卡片会被挤成竖条。统一压回单列。 */
@@ -282,13 +378,15 @@ html.viewport-mobile .container-page [class*="md:grid-cols-"],
 html.viewport-mobile .container-page [class*="lg:grid-cols-"] {
   grid-template-columns: minmax(0, 1fr) !important;
 }
-/* body 被限制成 430px 居中，fixed 底栏却以整个视口定位，会横在窗口外 */
+/* body 被限制成 430px 居中，fixed 底栏却以整个视口定位，会横在窗口外。
+   悬浮胶囊本身左右留 12px，所以这里宽度取 430 - 24 = 406px 再居中。 */
 html.viewport-mobile .app-tabbar {
   inset-inline: auto;
   left: 50%;
+  right: auto;
   transform: translateX(-50%);
-  width: 430px;
-  max-width: 100%;
+  width: 406px;
+  max-width: calc(100% - 24px);
 }
 
 /* ---------- Base ---------- */

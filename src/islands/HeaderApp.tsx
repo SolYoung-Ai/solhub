@@ -264,7 +264,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
       </aside>
 
       {/* ==================== 手机：顶栏 ==================== */}
-      <header className="app-topbar sticky top-0 z-40 flex h-[52px] items-center gap-2 border-b border-border bg-background/90 px-3 backdrop-blur-md lg:hidden">
+      <header className="app-topbar sticky top-0 z-40 flex h-[52px] items-center gap-2 px-3 lg:hidden">
         <a href={p("/", locale)} className="flex items-center gap-2" aria-label="SolHub">
           <img src="/solhub-mark.png" alt="" width={24} height={24} />
           <span className="font-display text-[17px] font-bold tracking-tight text-foreground">SolHub</span>
@@ -313,8 +313,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
 
       {/* ==================== 手机：底部标签栏 ==================== */}
       <nav
-        className="app-tabbar fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-background/95 backdrop-blur-md lg:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        className="app-tabbar fixed z-40 flex lg:hidden"
         aria-label={en ? "Main navigation" : "主导航"}
       >
         {NAV.filter((item) => item.bottom !== false).map((item) => {
