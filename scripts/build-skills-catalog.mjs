@@ -267,10 +267,18 @@ async function main() {
   for (const it of items) bySource[it.repo] = (bySource[it.repo] || 0) + 1;
   for (const s of sourceMeta) s.included = bySource[s.repo] || 0;
 
+  /* 与 SKILLS_SNAPSHOT 保持同一时区口径（北京时间），否则 UTC 日期会比精选快照早一天，
+     页面上出现两个不同「快照」日期。用 Intl 显式指定时区，CI 在 UTC 也一致。 */
+  const dateParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date());
+  const dateOf = (type) => dateParts.find((p) => p.type === type)?.value ?? "";
+  const snapshot = `${dateOf("year")}-${dateOf("month")}-${dateOf("day")}`;
+
   const payload = {
     meta: {
       generatedAt: new Date().toISOString(),
-      snapshot: new Date().toISOString().slice(0, 10),
+      snapshot,
       total: items.length,
       scannedCandidates: pool.length,
       totalCandidates: candidates.length,
