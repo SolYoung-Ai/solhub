@@ -1,0 +1,56 @@
+{
+  "id": "/",
+  "name": "SolHub · AI 产品与 Skill 目录",
+  "short_name": "SolHub",
+  "description": "SolHub 是 AI 产品与 Agent Skill 的精选目录：发现作品、找到可直接给 Agent 安装的 Skill。",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "start_url": "/?from=app",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0a0908",
+  "theme_color": "#0a0908",
+  "categories": ["productivity", "developer", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/app-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/app-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/app-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Skill 库",
+      "short_name": "Skills",
+      "url": "/skills/",
+      "icons": [{ "src": "/icons/app-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "世界 · 创作者",
+      "short_name": "World",
+      "url": "/world/",
+      "icons": [{ "src": "/icons/app-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "提交作品",
+      "short_name": "提交",
+      "url": "/submit/",
+      "icons": [{ "src": "/icons/app-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import type { SearchIndexEntry } from "@/data/types";
+import InstallApp from "@/components/InstallApp";
 import { searchIndex } from "@/lib/search";
 import { useCatalogSearchEntries } from "@/lib/skills-catalog";
 import { avatarOf, fetchMe, logout, type AuthUser } from "@/lib/auth";
@@ -224,6 +225,8 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
             <div className="side-tools flex flex-col items-center gap-1 xl:flex-row xl:gap-1">
               <LangButton locale={locale} currentRoute={currentRoute} />
               <ThemeButton en={en} />
+              {/* 装到桌面：与主题 / 语言同一排 32px 方块 */}
+              <InstallApp locale={locale} />
             </div>
 
             {/* 账号 */}
@@ -286,6 +289,8 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
           {/* 深浅主题 / 语言切换原先只放在桌面侧栏底部，手机端完全没有入口。
               这里与搜索按钮共用同一套 32px 描边方块，320px 窄屏也放得下。 */}
           <ThemeButton en={en} />
+          {/* 320px 实测：五个按钮共 198px，右侧仍留 6px，不会溢出 */}
+          <InstallApp locale={locale} />
           <LangButton locale={locale} currentRoute={currentRoute} />
 
           {user ? (

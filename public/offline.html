@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SolHub · 离线</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <!-- 单一用途页：样式内联，断网时不会再多发一个 CSS 请求 -->
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fg: #1b1a18;
+        --muted: #74716a;
+        --card: rgb(255 255 255 / 0.52);
+        --border: rgb(255 255 255 / 0.7);
+        --ring: rgb(20 18 14 / 0.08);
+        --accent: #e87028;
+        --bg: #efeef1;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #f6f2ec;
+          --muted: #a49d92;
+          --card: rgb(40 36 32 / 0.55);
+          --border: rgb(255 255 255 / 0.14);
+          --ring: rgb(0 0 0 / 0.4);
+          --accent: #f0853f;
+          --bg: #0a0908;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background-color: var(--bg);
+        background-image:
+          radial-gradient(46% 56% at 22% -8%, rgb(255 138 76 / 0.36), transparent 68%),
+          radial-gradient(44% 54% at 82% 0%, rgb(92 136 255 / 0.30), transparent 70%),
+          radial-gradient(50% 50% at 72% 100%, rgb(255 112 170 / 0.20), transparent 72%);
+        background-attachment: fixed;
+        color: var(--fg);
+        font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .card {
+        width: 100%;
+        max-width: 420px;
+        padding: 28px 24px 24px;
+        border-radius: 26px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        box-shadow:
+          inset 0 1px 0 rgb(255 255 255 / 0.6),
+          0 0 0 1px var(--ring),
+          0 24px 52px -26px rgb(20 18 14 / 0.45);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        backdrop-filter: blur(28px) saturate(180%);
+        text-align: center;
+      }
+      img { width: 44px; height: 44px; }
+      h1 { margin: 14px 0 8px; font-size: 19px; letter-spacing: -0.01em; }
+      p { margin: 0; font-size: 13px; line-height: 1.75; color: var(--muted); }
+      .en { margin-top: 10px; font-size: 12px; opacity: 0.8; }
+      .row { display: flex; gap: 10px; margin-top: 20px; }
+      button, a {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 42px;
+        border-radius: 14px;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        text-decoration: none;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: filter 0.15s ease;
+      }
+      button { background: var(--accent); color: #fff; border: 0; }
+      a { background: transparent; color: var(--fg); border-color: var(--ring); }
+      button:hover, a:hover { filter: brightness(0.96); }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <img src="/solhub-mark.png" alt="SolHub" width="44" height="44" />
+      <h1>现在连不上网</h1>
+      <p>
+        这个应用可以离线打开你之前看过的页面。<br />
+        想浏览新内容的话，等网络恢复再试一次。
+      </p>
+      <p class="en">You're offline. Pages you've already opened still work.</p>
+      <div class="row">
+        <button type="button" onclick="location.reload()">重试</button>
+        <a href="/">回首页</a>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,52 @@
+---
+/**
+ * 安装成桌面应用所需的 <head> 片段（BaseLayout 与 ProfileLayout 共用）。
+ *
+ * 三件事：
+ * 1) manifest + iOS 主屏图标，浏览器才知道「这个站可以装成应用」
+ * 2) 提前截住 beforeinstallprompt —— 它在 React hydrate 之前就可能触发，
+ *    晚注册的监听器永远收不到，只能先存到 window 上再派发事件
+ * 3) 注册 service worker（仅生产环境有效，本地预览时静态服务器也照样发它）
+ */
+import { p } from "@/lib/paths";
+
+const manifestHref = p("/manifest.webmanifest");
+const swHref = p("/sw.js");
+---
+
+<link rel="manifest" href={manifestHref} />
+<meta name="application-name" content="SolHub" />
+<meta name="apple-mobile-web-app-title" content="SolHub" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="solhub-sw" content={swHref} />
+
+<script is:inline>
+  (function () {
+    window.__solhubInstallPrompt = null;
+    window.__solhubInstalled = false;
+
+    window.addEventListener("beforeinstallprompt", function (e) {
+      // 阻止 Chrome 自己弹那条小横幅，改由站内的「安装」按钮触发
+      e.preventDefault();
+      window.__solhubInstallPrompt = e;
+      window.dispatchEvent(new Event("solhub:installable"));
+    });
+
+    window.addEventListener("appinstalled", function () {
+      window.__solhubInstallPrompt = null;
+      window.__solhubInstalled = true;
+      window.dispatchEvent(new Event("solhub:installed"));
+    });
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        var meta = document.querySelector('meta[name="solhub-sw"]');
+        var url = (meta && meta.getAttribute("content")) || "/sw.js";
+        navigator.serviceWorker.register(url, { scope: "/" }).catch(function () {
+          /* 注册失败（比如 http 访问）不影响正常使用 */
+        });
+      });
+    }
+  })();
+</script>

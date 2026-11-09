@@ -3,6 +3,7 @@ import { siteConfig } from "@/data/site";
 import { p, stripBase, absoluteUrl, baseUrl } from "@/lib/paths";
 import { getDict } from "@/i18n";
 import type { Locale } from "@/i18n";
+import InstallHead from "@/components/InstallHead.astro";
 import "../styles/global.css";
 
 interface Props {
@@ -60,6 +61,9 @@ const orgJsonLd = {
     <link rel="icon" type="image/png" href={p("/favicon.png")} />
     <link rel="apple-touch-icon" href={p("/apple-touch-icon.png")} />
     <meta name="solhub-base" content={baseUrl()} />
+
+    {/* 装成桌面 / 主屏应用：manifest、iOS meta、service worker */}
+    <InstallHead />
 
     <link rel="alternate" hreflang="zh-CN" href={absoluteUrl(route, "zh")} />
     <link rel="alternate" hreflang="en" href={absoluteUrl(route, "en")} />
