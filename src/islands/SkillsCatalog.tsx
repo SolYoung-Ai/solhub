@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
-  GitBranch,
+  Check,
+  Copy,
   Loader2,
   Search,
   Star,
@@ -9,7 +10,8 @@ import {
 } from "lucide-react";
 import { skillCategories, skillCategoryName } from "@/data/skills";
 import { fuzzyMatch } from "@/lib/search";
-import { loadCatalog, type CatalogData, type CatalogItem } from "@/lib/skills-catalog";
+import { copyText } from "@/lib/utils";
+import { loadCatalog, rawUrl, type CatalogData, type CatalogItem } from "@/lib/skills-catalog";
 import type { Locale } from "@/i18n";
 
 const PAGE_SIZE = 24;
@@ -310,6 +312,13 @@ export default function SkillsCatalog({ locale = "zh" }: { locale?: Locale }) {
 
 function CatalogCard({ item, en }: { item: CatalogItem; en: boolean }) {
   const cat = skillCategories.find((c) => c.slug === item.category);
+  const [copied, setCopied] = useState(false);
+  const onCopyLink = async () => {
+    const ok = await copyText(rawUrl(item.url));
+    if (!ok) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
   return (
     <article className="card group flex min-w-0 flex-col p-3.5 transition-colors hover:border-border-strong">
       <div className="flex min-w-0 items-start gap-2">
@@ -366,15 +375,19 @@ function CatalogCard({ item, en }: { item: CatalogItem; en: boolean }) {
           {en ? "View SKILL.md" : "查看 SKILL.md"}
           <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
         </a>
-        <a
-          href={item.github}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+        {/* 一键复制 raw 直链：教程就是让用户把这条链接直接发给自己的 Agent */}
+        <button
+          type="button"
+          onClick={() => void onCopyLink()}
+          title={en
+            ? "Copy the SKILL.md link — paste it to your AI agent to install"
+            : "复制 SKILL.md 链接，直接粘给你的 AI 助手就能装"}
+          aria-label={en ? "Copy SKILL.md link" : "复制 SKILL.md 链接"}
+          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-accent"
         >
-          <GitBranch className="h-3 w-3" aria-hidden="true" />
-          {en ? "Repository" : "源仓库"}
-        </a>
+          {copied ? <Check className="h-3 w-3 text-success" aria-hidden="true" /> : <Copy className="h-3 w-3" aria-hidden="true" />}
+          {copied ? (en ? "Copied" : "已复制") : (en ? "Copy link" : "复制链接")}
+        </button>
         <span className="ml-auto truncate text-[10px] text-muted-foreground">
           {en ? item.sourceLabelEn : item.sourceLabel}
         </span>

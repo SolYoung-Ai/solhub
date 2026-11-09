@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { catalogSearchEntries, type CatalogData } from "@/lib/skills-catalog";
+import { catalogSearchEntries, rawUrl, type CatalogData } from "@/lib/skills-catalog";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const data: CatalogData = JSON.parse(
@@ -52,5 +52,29 @@ describe("全网 Skill 索引快照", () => {
     expect(entries).toHaveLength(20);
     expect(new Set(entries.map((e) => e.slug)).size).toBe(20);
     expect(entries.every((e) => e.kind === "skill" && e.href.startsWith("/skills/?q="))).toBe(true);
+  });
+});
+
+describe("raw 直链推导", () => {
+  it("把 blob 链接换成 raw，保留分支与路径", () => {
+    expect(
+      rawUrl("https://github.com/anthropics/skills/blob/main/skills/pdf/SKILL.md"),
+    ).toBe("https://raw.githubusercontent.com/anthropics/skills/main/skills/pdf/SKILL.md");
+    // 分支名里带斜杠也不能被拆错
+    expect(rawUrl("https://github.com/o/r/blob/feat/x/docs/SKILL.md")).toBe(
+      "https://raw.githubusercontent.com/o/r/feat/x/docs/SKILL.md",
+    );
+  });
+
+  it("非 GitHub / 非 blob 链接原样返回", () => {
+    expect(rawUrl("https://example.com/a/SKILL.md")).toBe("https://example.com/a/SKILL.md");
+  });
+
+  it("快照里 1000 条全部能转成可访问的 raw 地址", () => {
+    for (const it of data.items) {
+      expect(rawUrl(it.url)).toMatch(
+        /^https:\/\/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/.+\/SKILL\.md$/,
+      );
+    }
   });
 });

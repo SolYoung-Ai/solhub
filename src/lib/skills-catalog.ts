@@ -139,3 +139,16 @@ export function useCatalogSearchEntries(locale: Locale): SearchIndexEntry[] {
   }, [locale]);
   return entries;
 }
+
+/**
+ * 把 GitHub 的 blob 链接换成 raw 直链。
+ * 教程让用户「把链接发给 Agent 让它装技能」，raw 链接里只有 SKILL.md 原文，
+ * Agent 能整段读到；blob 链接拿到的是带导航、Star、按钮的网页，容易被一起喂进去。
+ * 只做前缀替换，所以分支名里带斜杠也不影响。
+ */
+export function rawUrl(url: string): string {
+  return url.replace(
+    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\//,
+    "https://raw.githubusercontent.com/$1/$2/",
+  );
+}
