@@ -30,6 +30,12 @@ jobs:
 
       - name: Build
         run: BASE_PATH=/ npm run build
+        env:
+          # 广告开关：仓库 Settings → Secrets and variables → Actions → Variables 里配，
+          # 不配就是空字符串，构建产物里不会出现任何广告代码。
+          PUBLIC_ADSENSE_CLIENT: ${{ vars.PUBLIC_ADSENSE_CLIENT }}
+          PUBLIC_ADSENSE_SLOT_ARTICLE: ${{ vars.PUBLIC_ADSENSE_SLOT_ARTICLE }}
+          PUBLIC_ADSENSE_SLOT_LIST: ${{ vars.PUBLIC_ADSENSE_SLOT_LIST }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

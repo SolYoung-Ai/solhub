@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import SkillsExplorer from "@/islands/SkillsExplorer.tsx";
+import AdSlot from "@/components/AdSlot.astro";
 import SkillsCatalog from "@/islands/SkillsCatalog.tsx";
 import SkillGuide from "@/islands/SkillGuide.tsx";
 import { skills, SKILLS_SNAPSHOT } from "@/data/skills";
@@ -80,6 +81,11 @@ const collectedSources = catalogMeta.sources.filter((s) => s.included > 0);
     <div class="container-page">
       <SkillsExplorer client:load skills={skills} locale={locale} />
     </div>
+  </section>
+
+  <!-- 广告位：精选区与全量索引之间的天然断点 -->
+  <section class="container-page py-2">
+    <AdSlot unit="list" locale={locale} />
   </section>
 
   <section id="catalog" class="scroll-mt-20 border-t border-border bg-secondary/20 py-8 sm:py-10">

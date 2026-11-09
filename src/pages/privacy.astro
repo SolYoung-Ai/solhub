@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
+import { adsEnabled } from "@/lib/ads";
 import type { Locale } from "@/i18n";
 
 interface Props {
@@ -9,18 +10,17 @@ interface Props {
 const locale = Astro.props.locale ?? "zh";
 const en = locale === "en";
 
-const updated = "2026-11-01";
+const updated = "2026-11-10";
 const contact = "solyoungwork@gmail.com";
 const contactLink = `<a href="mailto:${contact}">${contact}</a>`;
 
 const metaDesc = en
-  ? "SolHub privacy: what we collect (email, display name, posts, submissions), where it lives (Cloudflare KV, public GitHub repo), what is public, and how to delete it. No ads, no tracking, tools run locally."
-  : "SolHub 隐私说明：我们收集什么（邮箱、显示名、帖子、产品提交）、数据存在哪里（Cloudflare KV、公开 GitHub 仓库）、哪些内容公开可见、以及如何删除。没有广告，没有跟踪，工具本地运行。";
+  ? `SolHub privacy: what we collect (email, display name, posts, submissions), where it lives (Cloudflare KV, public GitHub repo), what is public, and how to delete it. ${adsEnabled ? "Google AdSense slots on content pages, with consent control." : "No ads, no tracking"}, tools run locally.`
+  : `SolHub 隐私说明：我们收集什么（邮箱、显示名、帖子、产品提交）、数据存在哪里（Cloudflare KV、公开 GitHub 仓库）、哪些内容公开可见、以及如何删除。${adsEnabled ? "内容页有 Google AdSense 广告位，可关闭个性化。" : "没有广告，没有跟踪"}，工具本地运行。`;
 
 const copy = en
   ? {
-      lede:
-        "SolHub keeps one rule: <strong>collect only what the product needs</strong>. No ads, no profiling, no uploading your tool inputs. Everything below follows the real data flow — if it isn't written here, we don't collect it.",
+      lede: `SolHub keeps one rule: <strong>collect only what the product needs</strong>. ${adsEnabled ? "Content pages carry Google AdSense slots; we never run behavioural profiling of our own and never upload your tool inputs." : "No ads, no profiling, no uploading your tool inputs."} Everything below follows the real data flow — if it isn't written here, we don't collect it.`,
       updatedLabel: "Last updated",
       tocLabel: "On this page",
       toc: [
@@ -138,8 +138,33 @@ const copy = en
             v: "sessionStorage, admins only. The console passcode; it dies when you close the tab.",
           },
         ],
-        footnote:
-          "No advertising identifiers, no cross-site pixels. The only third-party requests are the font stylesheet and calls to our own API host.",
+        footnote: adsEnabled
+          ? "Besides our own cookie, Google AdSense may store advertising cookies (see the section below). No other third-party pixels or analytics scripts."
+          : "No advertising identifiers, no cross-site pixels. The only third-party requests are the font stylesheet and calls to our own API host.",
+      },
+      ads: {
+        title: "Advertising",
+        intro:
+          "Content pages carry one or two Google AdSense slots. SolHub has no advertiser relationships of its own and no access to the personal data Google uses to pick an ad.",
+        items: [
+          {
+            k: "Who serves the ads",
+            v: "Google AdSense (Google Ireland Ltd. / Google LLC). The ad script is loaded from pagead2.googlesyndication.com and, like any web request, reveals your IP address and user agent to Google.",
+          },
+          {
+            k: "Cookies",
+            v: "Google and its partners may set cookies or read device identifiers to measure and personalise ads. Those cookies belong to Google, not to SolHub, and we cannot read them.",
+          },
+          {
+            k: "Consent",
+            v: "Visitors in the EEA, UK and Switzerland see a Google-certified consent prompt and can accept or reject personalised advertising; rejecting still shows non-personalised ads. You can also turn off personalised ads for your whole Google account at adssettings.google.com.",
+          },
+          {
+            k: "What we never pass",
+            v: "We never send your email, display name, password data or tool inputs to any ad system. Ad slots are never placed on login, account, submission or admin pages.",
+          },
+        ],
+        footnote: "AdSense's own data practices: policies.google.com/technologies/partner-sites",
       },
       public: {
         title: "What others can see",
@@ -158,7 +183,9 @@ const copy = en
       never: {
         title: "What we never do",
         items: [
-          "No advertising, no user profiling, no selling or sharing data with marketing third parties.",
+          adsEnabled
+            ? "No own ad network and no selling or sharing data with marketing third parties. Ads come from Google AdSense and are labelled as ads."
+            : "No advertising, no user profiling, no selling or sharing data with marketing third parties.",
           "No third-party analytics or tracking scripts — no Google Analytics, no pixel, no attribution SDK.",
           "Online tools (QR, JSON-LD, robots.txt, UTM, Markdown and the rest) compute entirely in your browser; your input is never uploaded.",
         ],
@@ -188,8 +215,7 @@ const copy = en
       },
     }
   : {
-      lede:
-        "SolHub 只有一条原则：<strong>只收产品真正需要的数据</strong>。不做广告，不做用户画像，工具输入不上传。下面按真实的数据流向逐条写清楚——没写进这份说明的数据，我们就没有收集。",
+      lede: `SolHub 只有一条原则：<strong>只收产品真正需要的数据</strong>。${adsEnabled ? "内容页有 Google AdSense 广告位，我们自己不做用户画像，工具输入依然不上传。" : "不做广告，不做用户画像，工具输入不上传。"}下面按真实的数据流向逐条写清楚——没写进这份说明的数据，我们就没有收集。`,
       updatedLabel: "最后更新",
       tocLabel: "本页内容",
       toc: [
@@ -307,8 +333,33 @@ const copy = en
             v: "sessionStorage，仅管理员。管理后台口令，关掉标签页即失效。",
           },
         ],
-        footnote:
-          "没有广告标识符，没有跨站像素。第三方请求只有字体样式表，以及发往本站自有接口域名的接口调用。",
+        footnote: adsEnabled
+          ? "除本站自己的 Cookie 外，Google AdSense 可能写入广告 Cookie（见下一节）。没有其它第三方像素或统计脚本。"
+          : "没有广告标识符，没有跨站像素。第三方请求只有字体样式表，以及发往本站自有接口域名的接口调用。",
+      },
+      ads: {
+        title: "广告",
+        intro:
+          "内容页有 1–2 个 Google AdSense 广告位。SolHub 自己没有广告客户，也无权访问 Google 用于挑选广告的个人数据。",
+        items: [
+          {
+            k: "谁在投放",
+            v: "Google AdSense（Google Ireland Ltd. / Google LLC）。广告脚本从 pagead2.googlesyndication.com 加载，和其它网络请求一样，会把你的 IP 与浏览器标识暴露给 Google。",
+          },
+          {
+            k: "Cookie",
+            v: "Google 及其合作伙伴可能写入 Cookie 或读取设备标识，用于广告投放与效果统计。这些 Cookie 属于 Google，不属于 SolHub，我们读不到。",
+          },
+          {
+            k: "同意与个性化",
+            v: "欧洲经济区、英国、瑞士的访客会看到 Google 认证的同意弹窗，可选择接受或拒绝个性化广告；拒绝后仍会展示非个性化广告。任何地区都可以在 adssettings.google.com 一次性关闭 Google 账号的个性化广告。",
+          },
+          {
+            k: "我们绝不外传",
+            v: "邮箱、显示名、密码数据与工具输入不会以任何形式发给广告系统。登录页、账号页、提交页与后台一律不放广告位。",
+          },
+        ],
+        footnote: "AdSense 自身的数据处理说明：policies.google.com/technologies/partner-sites",
       },
       public: {
         title: "哪些内容别人能看到",
@@ -327,7 +378,9 @@ const copy = en
       never: {
         title: "我们不做的事",
         items: [
-          "不投放广告、不做用户画像、不出售或共享数据给第三方营销。",
+          adsEnabled
+            ? "不自建广告联盟、不做用户画像、不出售或共享数据给第三方营销；站内广告位来自 Google AdSense，且一律标注「广告」。"
+            : "不投放广告、不做用户画像、不出售或共享数据给第三方营销。",
           "不加载第三方统计与跟踪脚本——没有 Google Analytics、没有埋点、没有归因 SDK。",
           "所有在线工具（二维码、JSON-LD、robots.txt、UTM、Markdown 等）全部在浏览器本地计算，输入不会上传。",
         ],
@@ -356,6 +409,11 @@ const copy = en
         body: `本说明更新时会同步修改页面顶部的日期，重要变更会在站点公告。有问题或请求：${contactLink}。`,
       },
     };
+
+/* 广告章节只在真的开了广告位时才出现：避免「声明了广告但页面上没有」的信号漂移 */
+const toc = adsEnabled
+  ? [...copy.toc.slice(0, 4), { id: "ads", label: copy.ads.title }, ...copy.toc.slice(4)]
+  : copy.toc;
 ---
 
 <BaseLayout
@@ -388,7 +446,7 @@ const copy = en
         </p>
         <ul class="flex flex-wrap gap-1.5 text-[13px] leading-6 lg:block lg:space-y-1.5">
           {
-            copy.toc.map((item, i) => (
+            toc.map((item, i) => (
               <li class="lg:flex lg:gap-2">
                 <span class="hidden font-mono text-[11px] text-muted-foreground/60 lg:inline">
                   {String(i + 1).padStart(2, "0")}
@@ -471,6 +529,26 @@ const copy = en
           }
         </div>
         <p>{copy.local.footnote}</p>
+
+        {
+          adsEnabled && (
+            <>
+              <h2 id="ads" class="scroll-mt-24">
+                {copy.ads.title}
+              </h2>
+              <p>{copy.ads.intro}</p>
+              <div class="my-5 divide-y divide-border overflow-hidden rounded-[16px] border border-border bg-card">
+                {copy.ads.items.map((item) => (
+                  <div class="px-4 py-3">
+                    <div class="text-[13px] font-semibold text-foreground">{item.k}</div>
+                    <div class="mt-0.5 text-[13px] leading-6 text-muted-foreground">{item.v}</div>
+                  </div>
+                ))}
+              </div>
+              <p class="text-[12px] leading-6 text-muted-foreground">{copy.ads.footnote}</p>
+            </>
+          )
+        }
 
         <!-- 5 公开 -->
         <h2 id="public" class="scroll-mt-24">{copy.public.title}</h2>

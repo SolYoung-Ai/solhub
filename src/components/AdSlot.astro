@@ -1,0 +1,52 @@
+---
+/**
+ * 单个广告位。
+ * - 没配置 client / 该位置没配 slot 时整块不渲染（连占位 div 都没有）
+ * - 广告未填充时由 CSS 的 :has() 收起外层容器，不留空白
+ * - 手机端整宽自适应，桌面端跟随容器宽度
+ */
+import { adSlot, adsClient, adsEnabled, type AdUnit } from "@/lib/ads";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  unit: AdUnit;
+  locale?: Locale;
+  class?: string;
+}
+
+const { unit, locale = "zh", class: className } = Astro.props;
+const slot = adsEnabled ? adSlot(unit) : "";
+const show = adsEnabled && slot !== "";
+const label = locale === "en" ? "Advertisement" : "广告";
+---
+
+{
+  show && (
+    <aside class:list={["ad-slot", className]} aria-label={label} data-ad-unit={unit}>
+      <span class="ad-slot__label">{label}</span>
+      <ins
+        class="adsbygoogle ad-slot__ins"
+        data-ad-client={adsClient}
+        data-ad-slot={slot}
+        data-ad-format="auto"
+        data-full-width-responsive="true"
+      />
+      <script is:inline>
+        (() => {
+          const self = document.currentScript;
+          /* 广告脚本被拦截（国内网络 / 插件常见）时不要抛错污染控制台 */
+          try {
+            (window.adsbygoogle = window.adsbygoogle || []).push({});
+          } catch (e) {}
+          /* 8 秒仍没有填充状态就收起整块：宁可没有广告，也不要留一块空白 */
+          const box = self && self.closest(".ad-slot");
+          if (!box) return;
+          setTimeout(() => {
+            const ins = box.querySelector(".ad-slot__ins");
+            if (ins && !ins.getAttribute("data-ad-status")) box.style.display = "none";
+          }, 8000);
+        })();
+      </script>
+    </aside>
+  )
+}

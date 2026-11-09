@@ -11,7 +11,8 @@
     "check": "astro check",
     "test": "vitest run",
     "test:watch": "vitest",
-    "skills:catalog": "node scripts/build-skills-catalog.mjs"
+    "skills:catalog": "node scripts/build-skills-catalog.mjs",
+    "ads:init": "node scripts/setup-adsense.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^7.1.0",

@@ -2,6 +2,7 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { products } from "@/data/products";
 import LaunchesExplorer from "@/islands/LaunchesExplorer.tsx";
+import AdSlot from "@/components/AdSlot.astro";
 import type { Locale } from "@/i18n";
 
 interface Props {
@@ -45,5 +46,10 @@ const metaDesc = en
     <div class="container-page">
       <LaunchesExplorer client:load products={products} locale={locale} />
     </div>
+  </section>
+
+  <!-- 广告位：列表读完再出，不打断浏览 -->
+  <section class="container-page pb-10">
+    <AdSlot unit="list" locale={locale} />
   </section>
 </BaseLayout>

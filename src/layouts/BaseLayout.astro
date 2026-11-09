@@ -9,6 +9,7 @@ import type { Locale } from "@/i18n";
 import HeaderApp from "@/islands/HeaderApp.tsx";
 import Footer from "@/components/Footer.astro";
 import InstallHead from "@/components/InstallHead.astro";
+import AdsHead from "@/components/AdsHead.astro";
 import "../styles/global.css";
 
 interface Props {
@@ -78,6 +79,9 @@ const orgJsonLd = {
 
     {/* 装成桌面 / 主屏应用：manifest、iOS meta、service worker */}
     <InstallHead />
+
+    {/* 广告引导脚本：只有配了 PUBLIC_ADSENSE_CLIENT 才输出，默认零请求 */}
+    <AdsHead />
 
     <!-- 语言切换（alternate） -->
     <link rel="alternate" hreflang="zh-CN" href={absoluteUrl(route, "zh")} />

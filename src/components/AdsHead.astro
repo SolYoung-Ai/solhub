@@ -1,0 +1,21 @@
+---
+/**
+ * AdSense 引导脚本：只有配置了 PUBLIC_ADSENSE_CLIENT 才输出。
+ * 放在 <head>，async 加载不阻塞首屏；AdSense 抓取验证也认这个 meta。
+ */
+import { adsClient, adsEnabled } from "@/lib/ads";
+---
+
+{
+  adsEnabled && (
+    <>
+      <meta name="google-adsense-account" content={adsClient} />
+      <script
+        is:inline
+        async
+        src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsClient}`}
+        crossorigin="anonymous"
+      />
+    </>
+  )
+}

@@ -896,3 +896,46 @@ html.dark .seg-thumb {
     0 1px 3px rgb(0 0 0 / 0.5),
     inset 0 1px 0 rgb(255 255 255 / 0.12);
 }
+
+/* 广告位（Google AdSense）
+   刻意不进毛玻璃体系：广告创意自带底色，叠 blur 只会糊成一团。
+   只保留发丝边 + 极浅玻璃底，视觉上像「页面上的一块公告板」。
+   「广告」标识是《广告法》要求，不可省，也不可做成看不清的小灰字。 */
+.ad-slot {
+  position: relative;
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background-color: var(--color-card);
+}
+.ad-slot__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+.ad-slot__ins {
+  display: block;
+  width: 100%;
+  min-height: 280px;
+  border-radius: 10px;
+  background-color: transparent;
+}
+/* 未填充（无库存 / 脚本被拦）时收起整块，避免留一块空白 */
+.ad-slot__ins[data-ad-status="unfilled"] {
+  min-height: 0;
+}
+.ad-slot:has(.ad-slot__ins[data-ad-status="unfilled"]) {
+  display: none;
+}
+@media (max-width: 640px) {
+  .ad-slot__ins {
+    min-height: 250px;
+  }
+}
