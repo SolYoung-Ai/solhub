@@ -191,7 +191,7 @@ export default function SkillsExplorer({
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             aria-label={en ? "Filter by category" : "按分类筛选"}
-            className="input !h-10 min-w-0 flex-1 cursor-pointer !py-0 text-xs sm:flex-none sm:max-w-[150px]"
+            className="input !h-10 min-w-0 flex-1 cursor-pointer !py-0 text-xs sm:flex-none sm:max-w-[150px] select"
           >
             <option value="all">{en ? "All categories" : "全部分类"}</option>
             {skillCategories.map((c) => (
@@ -205,7 +205,7 @@ export default function SkillsExplorer({
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
             aria-label={en ? "Sort" : "排序"}
-            className="input !h-10 min-w-0 flex-1 cursor-pointer !py-0 text-xs sm:flex-none sm:max-w-[130px]"
+            className="input !h-10 min-w-0 flex-1 cursor-pointer !py-0 text-xs sm:flex-none sm:max-w-[130px] select"
           >
             <option value="heat">{en ? "Most popular" : "综合热度"}</option>
             <option value="name">{en ? "Name A–Z" : "名称 A–Z"}</option>

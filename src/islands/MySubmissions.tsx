@@ -1191,7 +1191,7 @@ function SkillFormFields({
         <select
           value={form.category}
           onChange={(e) => set("category", e.target.value)}
-          className="input w-full cursor-pointer !py-0"
+          className="input w-full cursor-pointer !py-0 select"
           aria-label={en ? "Skill category" : "Skill 分类"}
         >
           {skillCategories.map((c) => (

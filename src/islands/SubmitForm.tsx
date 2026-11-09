@@ -482,7 +482,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
               />
             </Field>
             <Field label={en ? "Compatible agents" : "兼容平台"} required>
-              <select value={form.platform} onChange={(e) => set("platform", e.target.value)} className="input" aria-required="true">
+              <select value={form.platform} onChange={(e) => set("platform", e.target.value)} className="input select" aria-required="true">
                 {SKILL_PLATFORMS.map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
             </Field>
@@ -537,7 +537,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label={en ? "Category" : "分类"} required>
-            <select value={form.category} onChange={(e) => set("category", e.target.value)} className="input" aria-required="true">
+            <select value={form.category} onChange={(e) => set("category", e.target.value)} className="input select" aria-required="true">
               {isSkill
                 ? skillCategories.map((c) => (
                   <option key={c.slug} value={c.slug}>{en ? c.nameEn : c.name}</option>

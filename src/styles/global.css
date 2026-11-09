@@ -635,6 +635,21 @@ html.viewport-mobile .app-tabbar {
       inset 0 1px 2px rgb(0 0 0 / 0.3),
       0 0 0 4px rgb(240 133 63 / 0.18);
   }
+  /* 下拉框：关掉浏览器原生的箭头，自己画一个。
+     原生箭头固定在 padding 内侧 4px，圆角一大就被圆角弧线切掉（截图里的样子），
+     加 padding-right 也挪不动它；只能 appearance:none 后用背景图画。
+     pr-9 给箭头留位，箭头距右边 0.75rem，比圆角半径小不会压到弧线。 */
+  .select {
+    @apply cursor-pointer appearance-none pr-9;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2374716a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 0.9rem 0.9rem;
+  }
+  html.dark .select {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a49d92' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+
   .badge {
     @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-4 font-medium;
     background-color: rgb(255 255 255 / 0.45);

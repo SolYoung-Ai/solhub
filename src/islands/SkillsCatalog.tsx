@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   Check,
   Copy,
+  Flame,
   Loader2,
   Search,
   Star,
@@ -15,7 +16,7 @@ import { loadCatalog, rawUrl, type CatalogData, type CatalogItem } from "@/lib/s
 import type { Locale } from "@/i18n";
 
 const PAGE_SIZE = 24;
-type SortKey = "official" | "stars" | "name" | "source";
+type SortKey = "heat" | "official" | "stars" | "name" | "source";
 
 function formatCount(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
@@ -34,7 +35,9 @@ export default function SkillsCatalog({ locale = "zh" }: { locale?: Locale }) {
   const [query, setQuery] = useState("");
   const [source, setSource] = useState("all");
   const [category, setCategory] = useState("all");
-  const [sort, setSort] = useState<SortKey>("official");
+  /* 默认按热度：快照本身就是按 heat 降序生成的（rank 已写死），
+     进来看到的第一屏就是全网最热的 Skill */
+  const [sort, setSort] = useState<SortKey>("heat");
   const [page, setPage] = useState(1);
 
   const start = () => {
@@ -108,7 +111,9 @@ export default function SkillsCatalog({ locale = "zh" }: { locale?: Locale }) {
       );
     });
     const sorted = [...matched];
-    if (sort === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "heat")
+      sorted.sort((a, b) => (b.heat ?? 0) - (a.heat ?? 0) || (a.rank ?? 0) - (b.rank ?? 0));
+    else if (sort === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
     else if (sort === "source")
       sorted.sort((a, b) => a.repo.localeCompare(b.repo) || a.name.localeCompare(b.name));
     else if (sort === "stars")
@@ -174,7 +179,7 @@ export default function SkillsCatalog({ locale = "zh" }: { locale?: Locale }) {
             value={source}
             onChange={(e) => setSource(e.target.value)}
             aria-label={en ? "Filter by source repository" : "按来源仓库筛选"}
-            className="input !h-10 min-w-0 flex-1 cursor-pointer !py-0 text-xs sm:max-w-[210px] sm:flex-none"
+            className="input !h-10 min-w-0 flex-1 cursor-pointer !py-0 text-xs sm:max-w-[210px] sm:flex-none select"
           >
             <option value="all">{en ? "All sources" : "全部来源"}</option>
             {sources.map((s) => (
@@ -188,7 +193,7 @@ export default function SkillsCatalog({ locale = "zh" }: { locale?: Locale }) {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             aria-label={en ? "Filter by category" : "按分类筛选"}
-            className="input !h-10 min-w-0 flex-1 cursor-pointer !py-0 text-xs sm:max-w-[140px] sm:flex-none"
+            className="input !h-10 min-w-0 flex-1 cursor-pointer !py-0 text-xs sm:max-w-[140px] sm:flex-none select"
           >
             <option value="all">{en ? "All categories" : "全部分类"}</option>
             {skillCategories.map((c) => (
@@ -202,8 +207,9 @@ export default function SkillsCatalog({ locale = "zh" }: { locale?: Locale }) {
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
             aria-label={en ? "Sort" : "排序"}
-            className="input !h-10 min-w-0 flex-1 cursor-pointer !py-0 text-xs sm:max-w-[130px] sm:flex-none"
+            className="input !h-10 min-w-0 flex-1 cursor-pointer !py-0 text-xs sm:max-w-[130px] sm:flex-none select"
           >
+            <option value="heat">{en ? "Hottest" : "按热度"}</option>
             <option value="official">{en ? "Official first" : "官方优先"}</option>
             <option value="stars">{en ? "Repo stars" : "仓库 Star"}</option>
             <option value="name">{en ? "Name A–Z" : "名称 A–Z"}</option>
@@ -286,7 +292,7 @@ export default function SkillsCatalog({ locale = "zh" }: { locale?: Locale }) {
                 value={current}
                 onChange={(e) => setPage(Number(e.target.value))}
                 aria-label={en ? "Jump to page" : "跳到第几页"}
-                className="input !h-8 w-[92px] cursor-pointer !py-0 text-xs"
+                className="input !h-8 w-[92px] cursor-pointer !py-0 text-xs select"
               >
                 {Array.from({ length: totalPages }, (_, i) => (
                   <option key={i + 1} value={i + 1}>
@@ -324,6 +330,14 @@ function CatalogCard({ item, en }: { item: CatalogItem; en: boolean }) {
       <div className="flex min-w-0 items-start gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {typeof item.rank === "number" && (
+              <span
+                title={en ? `Rank #${item.rank} by heat` : `热度榜第 ${item.rank} 名`}
+                className="shrink-0 rounded-[6px] bg-accent/12 px-1 py-px font-mono text-[10px] font-bold leading-4 text-accent"
+              >
+                {item.rank}
+              </span>
+            )}
             <h3 className="min-w-0 break-all font-mono text-[13px] font-bold leading-5 text-foreground">
               {item.name}
             </h3>
@@ -342,9 +356,22 @@ function CatalogCard({ item, en }: { item: CatalogItem; en: boolean }) {
             {item.repo}
           </a>
         </div>
-        <span className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground" title={en ? "Stars of the source repository" : "所属仓库 Star"}>
-          <Star className="h-2.5 w-2.5" aria-hidden="true" />
-          {formatCount(item.stars)}
+        <span className="flex shrink-0 items-center gap-1">
+          {typeof item.heat === "number" && (
+            <span
+              className="flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent"
+              title={en
+                ? "Heat = repo stars (75%, log-scaled) + recency of last push (25%)"
+                : "热度 = 仓库 Star（对数归一，75%）+ 最近推送新鲜度（25%）"}
+            >
+              <Flame className="h-2.5 w-2.5" aria-hidden="true" />
+              {item.heat}
+            </span>
+          )}
+          <span className="flex items-center gap-1 rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground" title={en ? "Stars of the source repository" : "所属仓库 Star"}>
+            <Star className="h-2.5 w-2.5" aria-hidden="true" />
+            {formatCount(item.stars)}
+          </span>
         </span>
       </div>
 

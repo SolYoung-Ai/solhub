@@ -48,6 +48,9 @@ export interface CatalogMeta {
   totalCandidates: number;
   method: string;
   methodZh: string;
+  sortedBy?: string;
+  heatMethod?: string;
+  heatMethodZh?: string;
   sources: CatalogSource[];
   references: CatalogReference[];
 }
@@ -64,6 +67,10 @@ export interface CatalogItem {
   stars: number;
   topics: string[];
   pushedAt: string;
+  /** 热度 0–100：仓库 Star 对数归一（75%）+ 推送新鲜度（25%），官方 +5 */
+  heat?: number;
+  /** 榜单名次，1 = 最热；快照已按热度降序写死 */
+  rank?: number;
   url: string;
   github: string;
   path: string;
