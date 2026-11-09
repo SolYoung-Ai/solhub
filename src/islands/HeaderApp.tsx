@@ -223,7 +223,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
           <div className="mt-auto flex flex-col gap-3 pt-6">
             <div className="side-tools flex flex-col items-center gap-1 xl:flex-row xl:gap-1">
               <LangButton locale={locale} currentRoute={currentRoute} />
-              <ThemeButton />
+              <ThemeButton en={en} />
             </div>
 
             {/* 账号 */}
@@ -273,7 +273,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
           <span className="font-display text-[17px] font-bold tracking-tight text-foreground">SolHub</span>
         </a>
 
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="topbar-tools ml-auto flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
@@ -282,6 +282,11 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
           >
             <Search className="h-3.5 w-3.5" />
           </button>
+
+          {/* 深浅主题 / 语言切换原先只放在桌面侧栏底部，手机端完全没有入口。
+              这里与搜索按钮共用同一套 32px 描边方块，320px 窄屏也放得下。 */}
+          <ThemeButton en={en} />
+          <LangButton locale={locale} currentRoute={currentRoute} />
 
           {user ? (
             <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
@@ -445,15 +450,12 @@ function LangButton({ locale, currentRoute }: { locale: Locale; currentRoute: st
   );
 }
 
-function ThemeButton() {
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    try { setDark(document.documentElement.classList.contains("dark")); } catch {}
-  }, []);
+function ThemeButton({ en = false }: { en?: boolean }) {
   const toggle = () => {
-    const next = !dark;
-    setDark(next);
     const root = document.documentElement;
+    /* 直接读 DOM 而不是 React state：桌面侧栏与手机顶栏是同一个按钮的两个实例，
+       各自持 state 会不同步（切了手机那个，窗口拉宽后桌面那个还显示旧图标）。 */
+    const next = !root.classList.contains("dark");
     root.classList.add("theme-transition");
     if (next) root.classList.add("dark"); else root.classList.remove("dark");
     try { localStorage.setItem("solhub:theme", next ? "dark" : "light"); } catch {}
@@ -462,9 +464,12 @@ function ThemeButton() {
     if (tc) tc.setAttribute("content", next ? "#0a0908" : "#ffffff");
     window.setTimeout(() => root.classList.remove("theme-transition"), 350);
   };
+  /* 两个图标同时渲染，由 html.dark 的 CSS 决定显隐：
+     首帧（含 island SSR / hydrate 之前）就是正确图标，不会闪一下月亮。 */
   return (
-    <IconButton label={dark ? "切换到浅色" : "切换到深色"} onClick={toggle} ariaPressed={dark}>
-      {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+    <IconButton label={en ? "Toggle dark / light theme" : "切换深浅主题"} onClick={toggle}>
+      <Sun className="theme-icon-sun h-3.5 w-3.5" aria-hidden="true" />
+      <Moon className="theme-icon-moon h-3.5 w-3.5" aria-hidden="true" />
     </IconButton>
   );
 }
