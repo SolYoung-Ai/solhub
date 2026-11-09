@@ -19,6 +19,7 @@ const menuLinks: MenuLink[] = [
   /* ?install=1 由 InstallApp 读取并直接弹安装引导：这样手机端也有入口，
      不用挤进已经很满的顶栏（页面会重载一次，换来零 JS 依赖的链接） */
   { label: locale === "en" ? "Install desktop app" : "安装到桌面 App", href: "?install=1#top" },
+  { label: locale === "en" ? "Sponsor SolHub ↗" : "赞助合作 ↗", href: p("/sponsors/", locale) },
   { label: translate(dict, "nav.about"), href: p("/about/", locale) },
   { label: locale === "en" ? "Recruit creators ↗" : "全球招募 ↗", href: p("/join/", locale) },
   { label: translate(dict, "footer.privacy"), href: p("/privacy/", locale) },

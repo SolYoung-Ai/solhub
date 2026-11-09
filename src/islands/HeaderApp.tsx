@@ -5,6 +5,7 @@ import {
   Compass,
   Languages,
   LogOut,
+  Megaphone,
   Moon,
   Package,
   Plus,
@@ -77,6 +78,8 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
     { label: translate(dict, "nav.launches"), path: "/launches/", icon: Package, color: "#e87028", match: (r) => r.startsWith("/launches/") },
     { label: translate(dict, "nav.skills"), path: "/skills/", icon: Sparkles, color: "#ec4899", match: (r) => r.startsWith("/skills/") },
     { label: translate(dict, "nav.world"), path: "/world/", icon: Users, color: "#14b8a6", match: (r) => r.startsWith("/world/") },
+    /* 赞助位是招商页，放「我」之前：有存在感才能卖出去，但不挤占前三项主路径 */
+    { label: translate(dict, "nav.sponsors"), path: "/sponsors/", icon: Megaphone, color: "#d99a2b", match: (r) => r.startsWith("/sponsors/") },
     { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, color: "#8b5cf6", match: (r) => r.startsWith("/my-submissions/") },
   ];
 
