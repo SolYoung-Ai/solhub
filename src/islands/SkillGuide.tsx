@@ -5,6 +5,7 @@ import {
   Check,
   Copy,
   HelpCircle,
+  MousePointer2,
   Sparkles,
   Terminal,
   X,
@@ -13,14 +14,27 @@ import { p } from "@/lib/paths";
 import { copyText } from "@/lib/utils";
 import type { Locale } from "@/i18n";
 
+type Track = "easy" | "dev";
+type Step = {
+  title: string;
+  body: string;
+  code?: string;
+  note?: string;
+  example?: string;
+  uploadMock?: boolean;
+};
+
 /**
  * Skill 库标题旁的「如何使用 Skill」小标签 + 使用教程弹窗。
+ * 默认走「零基础 · 用豆包」路线：全程图形界面，不出现命令行；
+ * 原来的命令行内容收进第二个 tab，供开发者按需切换。
  * 弹窗挂到 document.body（Portal），避免被侧栏 / 容器的 overflow 与
  * backdrop-filter 包含块裁掉。支持 /skills/?guide=1 直达。
  */
 export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
   const en = locale === "en";
   const [open, setOpen] = useState(false);
+  const [track, setTrack] = useState<Track>("easy");
   const closeRef = useRef<HTMLButtonElement>(null);
 
   /* 关闭时清掉 ?guide=1，避免刷新后又自动弹出来 */
@@ -60,12 +74,55 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
     };
   }, [open]);
 
-  const steps: {
-    title: string;
-    body: string;
-    code?: string;
-    note?: string;
-  }[] = en
+  const easySteps: Step[] = en
+    ? [
+        {
+          title: "A Skill is just an instruction sheet for AI",
+          body: "Think “turn a PDF into a table” or “build a page that follows our design rules”. Give it to an AI assistant such as Doubao and it learns one repeatable way of doing that job. It is not an app, nothing is installed on SolHub — it is simply a text file the AI reads.",
+          note: "One-line rule: a Skill tells the AI HOW to work. A connector (MCP) tells it WHERE to connect. They are different things.",
+        },
+        {
+          title: "Pick one here and save the file",
+          body: "Search this page (try pdf, ppt or frontend), then click “View SKILL.md” on the card. On GitHub, click Raw in the top-right corner so you see only the file itself, copy all its text, paste it into a plain-text editor, save it as SKILL.md, and put that file in its own folder — for example “PDF helper”.",
+          note: "The filename must be exactly SKILL.md — not SKILL.md.txt and not skill.md. Keep the name/description block at the top, and don't copy any GitHub buttons or menu text into the file.",
+        },
+        {
+          title: "Open Doubao and choose “Upload Skill”",
+          body: "In Doubao’s skills page, find “Upload Skill”, then drag that folder into the dashed area or click “Select folder / Select file”. Once uploaded, it appears in your skill list.",
+          uploadMock: true,
+          note: "Doubao checks two things: the folder (or ZIP) contains SKILL.md, and that file has a YAML skill name and description. Everything indexed on SolHub already meets both.",
+        },
+        {
+          title: "Just talk to it — no commands",
+          body: "Say what you need in plain words and the assistant picks the right Skill. To be explicit, name it. If nothing happens, start a new chat and try again.",
+          example: "“Extract the tables from this PDF into a spreadsheet.”",
+        },
+      ]
+    : [
+        {
+          title: "Skill 就是给 AI 的一份「操作手册」",
+          body: "比如「把 PDF 整理成表格」「按设计规范做网页」。把它交给豆包，豆包就学会了一种固定干活方式。它不是软件、不用安装，也不会改动 SolHub 网站——只是 AI 要读的一份说明文件。",
+          note: "一句话记住：Skill 管「怎么干」，连接器（MCP）管「连到哪」。这两个不是一回事。",
+        },
+        {
+          title: "在 SolHub 挑一个，把文件存到电脑",
+          body: "在本页搜你要的功能（试试 pdf、ppt、前端），点卡片上的「查看 SKILL.md」打开原文。在 GitHub 页面点右上角的 Raw，只看文件本身；把里面的文字全部复制，粘到记事本里保存为 SKILL.md，再单独放进一个文件夹，例如「PDF 助手」。",
+          note: "文件名必须正好是 SKILL.md（大小写一样），别存成 SKILL.md.txt 或 skill.md；开头那几行「名称 / 描述」必须保留，也别把网页上的按钮、菜单文字一起复制进去。",
+        },
+        {
+          title: "打开豆包，点「上传技能」",
+          body: "在豆包的技能页找到「上传技能」，把刚才那个文件夹拖进虚线框，或点「选择文件夹 / 选择文件」。上传成功后，它会出现在你的技能列表里。",
+          uploadMock: true,
+          note: "豆包会检查两件事：文件夹（或压缩包）里有 SKILL.md；SKILL.md 开头写了技能名称和描述。SolHub 收录的都满足，直接用就行。",
+        },
+        {
+          title: "像聊天一样说句话，就能用",
+          body: "不用记命令。直接说出你要做的事，豆包会自己判断该用哪个 Skill；想更准就点名「用 PDF 技能帮我……」。没反应的话，新开一个对话再试。",
+          example: "「帮我把这份 PDF 里的表格整理成 Excel」",
+        },
+      ];
+
+  const devSteps: Step[] = en
     ? [
         {
           title: "What a Skill actually is",
@@ -119,6 +176,8 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
         },
       ];
 
+  const steps = track === "easy" ? easySteps : devSteps;
+
   return (
     <>
       <button
@@ -148,8 +207,8 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
                 </h2>
                 <p className="mt-1 text-[12px] leading-5 text-muted-foreground">
                   {en
-                    ? "From finding a skill to triggering it in your agent — about 3 minutes."
-                    : "从找到、安装到触发，3 分钟搞懂 Skill 怎么用。"}
+                    ? "No coding, no terminal. Follow along with Doubao and your AI learns a new trick in 3 minutes."
+                    : "不用写代码、不用装软件，跟着点，3 分钟让豆包学会一个新本事。"}
                 </p>
               </div>
               <button
@@ -163,11 +222,49 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
               </button>
             </div>
 
+            {/* 两条路线：默认零基础，命令行内容收进第二个 tab */}
+            <div className="shrink-0 border-b border-border px-5 py-3 sm:px-6">
+              <div role="tablist" aria-label={en ? "Choose a guide" : "选择教程路线"} className="inline-flex rounded-[9px] border border-border bg-secondary/50 p-0.5">
+                {([
+                  { key: "easy" as const, zh: "零基础 · 用豆包", en: "Beginner · Doubao" },
+                  { key: "dev" as const, zh: "开发者 · 命令行", en: "Developer · CLI" },
+                ]).map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={track === t.key}
+                    onClick={() => setTrack(t.key)}
+                    className={[
+                      "inline-flex items-center gap-1.5 rounded-[7px] px-3 py-1.5 text-[12px] font-medium transition-colors",
+                      track === t.key
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    ].join(" ")}
+                  >
+                    {t.key === "easy"
+                      ? <MousePointer2 className="h-3 w-3" aria-hidden="true" />
+                      : <Terminal className="h-3 w-3" aria-hidden="true" />}
+                    {en ? t.en : t.zh}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+                {track === "easy"
+                  ? en
+                    ? "Mouse only — ideal if this is your first Skill. No commands anywhere below."
+                    : "全程用鼠标，适合第一次接触 Skill。下面不会出现任何命令。"
+                  : en
+                    ? "Terminal required — for Claude Code, Cursor, Codex and similar agents."
+                    : "需要终端，适合 Claude Code、Cursor、Codex 等开发工具。"}
+              </p>
+            </div>
+
             {/* 步骤 */}
             <div className="min-w-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
               <ol className="space-y-5">
                 {steps.map((s, i) => (
-                  <li key={s.title} className="flex min-w-0 gap-3">
+                  <li key={`${track}-${s.title}`} className="flex min-w-0 gap-3">
                     <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/10 text-[11px] font-bold text-accent" aria-hidden="true">
                       {i + 1}
                     </span>
@@ -175,6 +272,15 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
                       <h3 className="text-[13px] font-bold text-foreground">{s.title}</h3>
                       <p className="mt-1 text-[13px] leading-6 text-muted-foreground">{s.body}</p>
                       {s.code && <CodeBlock text={s.code} en={en} />}
+                      {s.example && (
+                        <div className="mt-2">
+                          <p className="mb-1 text-[11px] text-muted-foreground">{en ? "You can just say:" : "你可以直接说："}</p>
+                          <p className="inline-block max-w-full rounded-[10px] rounded-tl-[2px] border border-border bg-secondary/50 px-3 py-2 text-[12px] leading-5 text-foreground">
+                            {s.example}
+                          </p>
+                        </div>
+                      )}
+                      {s.uploadMock && <UploadMock en={en} />}
                       {s.note && (
                         <p className="mt-2 rounded-[8px] border border-border bg-secondary/40 px-3 py-2 text-[12px] leading-5 text-muted-foreground">
                           {s.note}
@@ -185,12 +291,38 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
                 ))}
               </ol>
 
+              {/* 零基础路线专属：把用户最容易走错的入口做成反例 */}
+              {track === "easy" && (
+                <div className="guide-wrong-border mt-6 rounded-[10px] border bg-secondary/30 px-4 py-3">
+                  <h3 className="flex items-center gap-1.5 text-[13px] font-bold text-foreground">
+                    <X className="guide-wrong-text h-3.5 w-3.5" aria-hidden="true" />
+                    {en ? "Don't get lost — 3 common mistakes" : "别走错入口 — 最容易踩的 3 个坑"}
+                  </h3>
+                  <ol className="mt-2 space-y-2 text-[12px] leading-5 text-muted-foreground">
+                    <li>{en
+                      ? "1. “New custom connector” (server name, URL, headers) is for MCP connectors that link external data — not for installing a Skill."
+                      : "1.「新建自定义连接器」要填服务器名称、URL、Headers，那是接外部数据的 MCP 连接器，不是装 Skill 的地方。"}</li>
+                    <li>{en
+                      ? "2. Don't upload a whole GitHub repo ZIP: its root has no SKILL.md, so validation fails."
+                      : "2. 别把整个 GitHub 仓库的 ZIP 传上去：根目录没有 SKILL.md，会校验失败。"}</li>
+                    <li>{en
+                      ? "3. Upload one folder containing one SKILL.md. The filename and its first lines must stay exactly as they are."
+                      : "3. 只传「一个文件夹 + 里面的一个 SKILL.md」，文件名和开头那几行别改。"}</li>
+                  </ol>
+                  <ConnectorMock en={en} />
+                </div>
+              )}
+
               <div className="mt-6 flex flex-wrap items-center gap-2 rounded-[10px] border border-accent/25 bg-accent/[0.06] px-4 py-3">
                 <Terminal className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
                 <p className="min-w-0 flex-1 text-[12px] leading-5 text-muted-foreground">
-                  {en
-                    ? "Only install skills from sources you trust — a SKILL.md can contain shell commands. SolHub reviews submissions, but always check the repo yourself before running anything."
-                    : "只安装你信任来源的 Skill：SKILL.md 里可能包含 shell 命令。SolHub 会核验投稿，但运行前仍建议自己看一眼仓库。"}
+                  {track === "easy"
+                    ? en
+                      ? "Only upload skills from sources you trust — a SKILL.md can contain commands. SolHub verifies submissions, but have a quick look at the source before you use one."
+                      : "只上传你信任来源的 Skill：SKILL.md 里可能藏着命令。SolHub 会核验投稿，用之前还是建议自己扫一眼原文。"
+                    : en
+                      ? "Only install skills from sources you trust — a SKILL.md can contain shell commands. SolHub reviews submissions, but always check the repo yourself before running anything."
+                      : "只安装你信任来源的 Skill：SKILL.md 里可能包含 shell 命令。SolHub 会核验投稿，但运行前仍建议自己看一眼仓库。"}
                 </p>
               </div>
             </div>
@@ -218,6 +350,72 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
         document.body,
       )}
     </>
+  );
+}
+
+/** 把豆包「上传技能」弹窗的关键文字做成清晰可复用的示意图，深浅主题都可读、随语言切换 */
+function UploadMock({ en }: { en: boolean }) {
+  return (
+    <div className="mt-2 rounded-[10px] border border-border bg-secondary/30 p-3">
+      <p className="mb-2 text-[11px] text-muted-foreground">
+        {en ? "What you'll see in Doubao (illustration)" : "豆包里的界面长这样（示意）"}
+      </p>
+      <div className="rounded-[10px] border border-border bg-card px-4 py-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[13px] font-bold text-foreground">{en ? "Upload Skill" : "上传技能"}</span>
+          <span className="text-[14px] leading-none text-muted-foreground" aria-hidden="true">×</span>
+        </div>
+        <div className="mt-2 rounded-[8px] border border-dashed border-border px-3 py-4 text-center text-[12px] leading-5 text-muted-foreground">
+          {en ? "Drag files here, or click " : "拖拽文件至此，或点击 "}
+          <span className="text-accent">{en ? "Select folder / Select file" : "选择文件夹 / 选择文件"}</span>
+        </div>
+        <ul className="mt-2 space-y-0.5 text-[11px] leading-4 text-muted-foreground">
+          <li>· {en ? "The ZIP or folder must contain a SKILL.md file" : "压缩包或文件夹需包含 SKILL.md 文件"}</li>
+          <li>· {en ? "SKILL.md needs a YAML skill name and description" : "SKILL.md 需包含 YAML 格式的技能名称和描述"}</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/** 反例：MCP 连接器弹窗，明确告诉用户「不是这里」 */
+function ConnectorMock({ en }: { en: boolean }) {
+  return (
+    <div className="guide-wrong-border mt-3 rounded-[10px] border bg-card px-4 py-3">
+      <p className="guide-wrong-text mb-2 flex items-center gap-1.5 text-[11px] font-medium">
+        <X className="h-3 w-3" aria-hidden="true" />
+        {en ? "Not this dialog" : "不是这个弹窗"}
+      </p>
+      <div className="opacity-75">
+        <p className="text-[13px] font-bold text-foreground">{en ? "New custom connector" : "新建自定义连接器"}</p>
+        <p className="text-[11px] text-muted-foreground">
+          {en ? "Custom connectors only work on this computer" : "自定义连接器仅支持在本地电脑中使用"}
+        </p>
+        <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+          <div className="min-w-0">
+            <p className="text-foreground">{en ? "Server name *" : "服务器名称 *"}</p>
+            <p className="mt-1 truncate rounded-[6px] border border-border px-2 py-1 text-muted-foreground">
+              {en ? "Enter a name" : "请输入"}
+            </p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-foreground">{en ? "Transport" : "传输类型"}</p>
+            <p className="mt-1 truncate rounded-[6px] border border-border px-2 py-1 text-muted-foreground">HTTP</p>
+          </div>
+          <div className="col-span-2 min-w-0">
+            <p className="text-foreground">{en ? "Server URL *" : "服务器 URL *"}</p>
+            <p className="mt-1 truncate rounded-[6px] border border-border px-2 py-1 text-muted-foreground">
+              https://mcp.example.com/mcp
+            </p>
+          </div>
+        </div>
+      </div>
+      <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+        {en
+          ? "This is for MCP connectors (external services and data). To install a Skill, use “Upload Skill” above."
+          : "这是接外部服务的 MCP 连接器；装 Skill 要找上面的「上传技能」入口。"}
+      </p>
+    </div>
   );
 }
 

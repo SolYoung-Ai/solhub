@@ -283,6 +283,12 @@ html.dark .app-sidebar .side-row[aria-current="page"] {
 .theme-icon-sun { display: none; }
 html.dark .theme-icon-sun { display: block; }
 html.dark .theme-icon-moon { display: none; }
+/* 教程弹窗「别走错入口」的警示红：站点用 html.dark 而非系统配色，
+   所以不能写 Tailwind 的 dark: 变体，这里按主题给出两组对比度足够的红。 */
+.guide-wrong-text { color: #a32d2d; }
+.guide-wrong-border { border-color: rgb(226 75 74 / 0.4); }
+html.dark .guide-wrong-text { color: #f09595; }
+html.dark .guide-wrong-border { border-color: rgb(240 149 149 / 0.45); }
 html.dark .app-topbar {
   --color-border: rgb(255 255 255 / 0.12);
 
