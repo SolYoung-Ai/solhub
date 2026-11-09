@@ -549,7 +549,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         </p>
       )}
       {/* ---------- X 风格个人主页头部 ---------- */}
-      <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+      <div className="overflow-hidden rounded-[16px] border border-border bg-card">
         {/* 封面条 */}
         <div className="h-28 bg-gradient-to-r from-accent/25 via-accent/10 to-transparent sm:h-36" aria-hidden="true" />
 
@@ -749,7 +749,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
               </span>
             </div>
             {!isGithub && (
-              <label className={`flex items-start gap-2.5 rounded-[10px] border border-border bg-secondary/40 px-3 py-2.5 ${user.emailVerified ? "cursor-pointer" : "opacity-60"}`}>
+              <label className={`flex items-start gap-2.5 rounded-[16px] border border-border bg-secondary/40 px-3 py-2.5 ${user.emailVerified ? "cursor-pointer" : "opacity-60"}`}>
                 <input
                   type="checkbox"
                   checked={pf.emailPublic}
@@ -831,7 +831,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         </a>
       </div>
       {products.length === 0 ? (
-        <div className="mt-4 rounded-[10px] border border-dashed border-border bg-secondary/30 py-14 text-center">
+        <div className="mt-4 rounded-[16px] border border-dashed border-border bg-secondary/30 py-14 text-center">
           <PackagePlus className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium text-foreground/70">{en ? "No products yet" : "暂无提交的产品"}</p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -971,7 +971,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
           )}
 
           {mySkills.length === 0 && editingSkillId !== "__new__" ? (
-            <div className="mt-4 rounded-[10px] border border-dashed border-border bg-secondary/30 py-14 text-center">
+            <div className="mt-4 rounded-[16px] border border-dashed border-border bg-secondary/30 py-14 text-center">
               <Sparkles className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
               <p className="mt-3 text-sm font-medium text-foreground/70">{en ? "No Skill submissions yet" : "暂无提交的 Skill"}</p>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -1088,7 +1088,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> {en ? "Loading…" : "加载中…"}
             </div>
           ) : followList.length === 0 ? (
-            <div className="mt-4 rounded-[10px] border border-dashed border-border bg-secondary/30 py-14 text-center">
+            <div className="mt-4 rounded-[16px] border border-dashed border-border bg-secondary/30 py-14 text-center">
               <p className="text-sm font-medium text-foreground/70">
                 {tab === "following"
                   ? (en ? "You're not following anyone yet" : "还没有关注任何人")
@@ -1106,7 +1106,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
           ) : (
             <ul className="mt-4 grid gap-3 sm:grid-cols-2">
               {followList.map((u) => (
-                <li key={u.login} className="flex items-center gap-3 rounded-[10px] border border-border bg-card px-4 py-3">
+                <li key={u.login} className="flex items-center gap-3 rounded-[16px] border border-border bg-card px-4 py-3">
                   {u.avatar ? (
                     <img src={u.avatar} alt="" className="h-9 w-9 rounded-full border border-border object-cover" />
                   ) : (

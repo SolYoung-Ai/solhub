@@ -279,13 +279,13 @@ export default function Creators({
     /* SSR 阶段拿不到 ?h=：先给加载态，避免水合前闪一下「未找到」 */
     if (!shellReady) {
       return (
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-center gap-2 rounded-[12px] border border-border bg-card py-16 text-[13px] text-muted-foreground">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-center gap-2 rounded-[18px] border border-border bg-card py-16 text-[13px] text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> {en ? "Loading…" : "加载中…"}
         </div>
       );
     }
     return (
-      <div className="mx-auto w-full max-w-2xl rounded-[12px] border border-dashed border-border bg-card px-6 py-16 text-center">
+      <div className="mx-auto w-full max-w-2xl rounded-[18px] border border-dashed border-border bg-card px-6 py-16 text-center">
         <UserRound className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
         <h1 className="mt-3 font-display text-lg font-bold text-foreground">
           {en ? "Creator not found" : "没有找到这位创作者"}
@@ -304,7 +304,7 @@ export default function Creators({
   if (viewUser) {
     return (
       <div className="mx-auto w-full max-w-2xl pb-10">
-        <div className="overflow-hidden rounded-[12px] border border-border bg-card">
+        <div className="overflow-hidden rounded-[18px] border border-border bg-card">
           <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
             {standalone ? (
               <a
@@ -528,7 +528,7 @@ export default function Creators({
   return (
     <div className="mx-auto flex w-full max-w-[1180px] items-start gap-6 pb-10">
       <div className="min-w-0 flex-1">
-        <section className="overflow-hidden rounded-[12px] border border-border bg-card">
+        <section className="overflow-hidden rounded-[18px] border border-border bg-card">
           {/* 标题栏 */}
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
             <div className="min-w-0">
@@ -718,7 +718,7 @@ export default function Creators({
 
       {/* 右栏 */}
       <aside className="sticky top-4 hidden w-[290px] shrink-0 space-y-4 xl:block" aria-label={en ? "Sidebar" : "侧栏"}>
-        <section className="rounded-[12px] border border-border bg-card px-4 py-4">
+        <section className="rounded-[18px] border border-border bg-card px-4 py-4">
           <p className="font-display text-[14px] font-bold text-foreground">{en ? "Your product here" : "把你的作品放上来"}</p>
           <p className="mt-1.5 text-[12.5px] leading-6 text-muted-foreground">
             {en
@@ -734,7 +734,7 @@ export default function Creators({
           </a>
         </section>
 
-        <section className="overflow-hidden rounded-[12px] border border-border bg-card">
+        <section className="overflow-hidden rounded-[18px] border border-border bg-card">
           <div className="border-b border-border px-4 py-3">
             <h2 className="font-display text-[14px] font-bold text-foreground">{en ? "About creators" : "关于创作者"}</h2>
           </div>
@@ -748,7 +748,7 @@ export default function Creators({
         </section>
 
         {/* 全球创作者招募：夹在「关于创作者」与「回到我的主页」之间，跳转到 /join/ */}
-        <section className="overflow-hidden rounded-[12px] border border-accent/30 bg-card">
+        <section className="overflow-hidden rounded-[18px] border border-accent/30 bg-card">
           <div className="flex items-center gap-2 border-b border-accent/20 bg-accent/5 px-4 py-3">
             <Globe2 className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
             <h2 className="font-display text-[14px] font-bold text-foreground">
@@ -771,7 +771,7 @@ export default function Creators({
           </div>
         </section>
 
-        <section className="rounded-[12px] border border-border bg-card px-4 py-3">
+        <section className="rounded-[18px] border border-border bg-card px-4 py-3">
           {me ? (
             <a
               href={p(`/world/?u=${encodeURIComponent(me.handle || me.login)}`, locale)}

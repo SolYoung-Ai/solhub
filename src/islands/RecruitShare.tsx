@@ -73,7 +73,7 @@ export default function RecruitShare({ locale = "zh" }: Props) {
     <div>
       {inviter && (
         <div
-          className="mb-4 flex items-center gap-2 rounded-[10px] border border-accent/25 bg-accent/5 px-3.5 py-2.5 text-[13px] text-foreground/80"
+          className="mb-4 flex items-center gap-2 rounded-[16px] border border-accent/25 bg-accent/5 px-3.5 py-2.5 text-[13px] text-foreground/80"
           role="status"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-accent" aria-hidden="true">

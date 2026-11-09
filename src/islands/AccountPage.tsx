@@ -106,7 +106,7 @@ function AccountPage({ locale = "zh" }: { locale?: Locale }) {
   return (
     <div className="pb-10">
       {/* 身份卡：这是谁的账号（只读概览，编辑公开资料请去个人主页） */}
-      <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+      <div className="overflow-hidden rounded-[16px] border border-border bg-card">
         <div className="flex items-center gap-4 px-5 py-5 sm:px-7">
           {avatar ? (
             <img src={avatar} alt="" className="h-16 w-16 shrink-0 rounded-full border border-border object-cover" />

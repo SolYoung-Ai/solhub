@@ -128,7 +128,7 @@ export default function SkillsCatalog({ locale = "zh" }: { locale?: Locale }) {
   return (
     <div className="min-w-0">
       {/* 口径说明：明确「真实」的边界，不把自动归类说成人工审核 */}
-      <div className="mb-4 rounded-[10px] border border-border bg-secondary/30 px-4 py-3">
+      <div className="mb-4 rounded-[16px] border border-border bg-secondary/30 px-4 py-3">
         <p className="text-[12px] leading-5 text-muted-foreground">
           {en
             ? "Every entry below is a real SKILL.md file in a public GitHub repository. Names and descriptions are read verbatim from each file's YAML frontmatter — no generated text, no invented star counts or install commands. Categories are auto-assigned by keyword. Star counts belong to the source repository, not the individual skill."

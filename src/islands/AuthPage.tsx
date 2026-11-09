@@ -135,7 +135,7 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
           <ul className="mt-6 space-y-5">
             {benefits.map((b) => (
               <li key={b.title} className="flex gap-3">
-                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-accent/10 text-accent">
+                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] border border-border bg-card text-accent shadow-sm">
                   {b.icon}
                 </span>
                 <div>
@@ -145,25 +145,25 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
               </li>
             ))}
           </ul>
-          <p className="mt-8 rounded-[8px] border border-dashed border-border bg-secondary/40 p-4 text-xs leading-6 text-muted-foreground">
+          <p className="mt-8 rounded-[18px] border border-border bg-card p-4 text-xs leading-6 text-muted-foreground">
             {en
               ? "Sessions are stored in secure HttpOnly cookies; passwords are hashed with PBKDF2 (100k iterations). We can never see your password."
               : "会话保存在安全的 HttpOnly Cookie 中；密码经 PBKDF2（10 万次迭代）加盐哈希存储，任何人（包括我们）都无法查看原文。"}
           </p>
         </div>
 
-        {/* 右侧：表单卡片 */}
+        {/* 右侧：表单卡片 —— 厚玻璃面板，边缘高光 + 大范围落影，浮在页面色场之上 */}
         <div className="order-1 lg:order-2">
-          <div className="rounded-[10px] border border-border bg-card p-6 shadow-sm sm:p-8">
-            {/* Tab 切换 */}
-            <div role="tablist" className="mb-6 grid grid-cols-2 gap-1 rounded-[8px] border border-border bg-secondary/50 p-1">
+          <div className="glass-panel rounded-[26px] p-6 sm:p-8">
+            {/* Tab 切换：iOS 分段控件（凹槽 + 浮起的玻璃滑块） */}
+            <div role="tablist" className="seg mb-6 grid grid-cols-2 gap-1 rounded-[15px] p-1">
               <button
                 type="button"
                 role="tab"
                 aria-selected={mode === "login"}
                 onClick={() => { setMode("login"); setError(null); }}
-                className={`flex items-center justify-center gap-1.5 rounded-[6px] py-2 text-sm font-medium transition-colors ${
-                  mode === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                className={`flex items-center justify-center gap-1.5 rounded-[11px] py-2 text-sm font-medium transition-all duration-200 ${
+                  mode === "login" ? "seg-thumb text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <UserPlus className="h-4 w-4" aria-hidden="true" />
@@ -174,8 +174,8 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
                 role="tab"
                 aria-selected={mode === "register"}
                 onClick={() => { setMode("register"); setError(null); }}
-                className={`flex items-center justify-center gap-1.5 rounded-[6px] py-2 text-sm font-medium transition-colors ${
-                  mode === "register" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                className={`flex items-center justify-center gap-1.5 rounded-[11px] py-2 text-sm font-medium transition-all duration-200 ${
+                  mode === "register" ? "seg-thumb text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <User className="h-4 w-4" aria-hidden="true" />

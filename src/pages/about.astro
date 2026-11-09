@@ -78,7 +78,24 @@ const metaDesc = en
         <strong>Unverified</strong>{en ? " (not yet checked)." : "（尚未核验）。"}
       </p>
       <ul>
-        <li>{en ? "<strong>Automatic verification is live</strong>: for community submissions the system actually visits the link; if it loads, it is marked Verified and published instantly — a real technical check, not based on user-entered info." : "<strong>自动核验已上线</strong>：社区提交的产品，系统实际访问其链接，可正常打开即通过 Verified 并即时公开——这是真实的技术检测，而非凭用户填写的信息。"}</li>
+        <li>
+          {
+            en ? (
+              <>
+                <strong>Automatic verification is live</strong>: for community
+                submissions the system actually visits the link; if it loads, it
+                is marked Verified and published instantly — a real technical
+                check, not based on user-entered info.
+              </>
+            ) : (
+              <>
+                <strong>自动核验已上线</strong>
+                ：社区提交的产品，系统实际访问其链接，可正常打开即通过 Verified
+                并即时公开——这是真实的技术检测，而非凭用户填写的信息。
+              </>
+            )
+          }
+        </li>
         <li>{en ? "Verified means the site is reachable and consistent with the listed info; it does not certify content authenticity, ownership or compliance." : "Verified 仅代表「站点可访问、信息一致」，不代表对内容真实性、归属或合规的深度审查。"}</li>
         <li>{en ? "SolHub's editor-curated picks are still verified by a human. Meta Tag / DNS TXT ownership verification is not enabled yet." : "SolHub 编辑精选（产品列表中的人工精选位）仍由人工实际核验；Meta Tag / DNS TXT 等归属证明验证暂未启用。"}</li>
       </ul>

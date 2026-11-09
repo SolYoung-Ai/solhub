@@ -246,7 +246,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
 
                 {userMenuOpen && (
                   <div
-                    className="fixed bottom-[86px] left-3 z-50 w-[228px] overflow-hidden rounded-[10px] border border-border bg-card py-1 shadow-xl xl:bottom-[92px] xl:left-4 xl:w-[212px]"
+                    className="fixed bottom-[86px] left-3 z-50 w-[228px] glass-sheet overflow-hidden rounded-[20px] py-1 xl:bottom-[92px] xl:left-4 xl:w-[212px]"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <UserMenuItems user={user} locale={locale} en={en} onNavigate={() => setUserMenuOpen(false)} />
@@ -301,7 +301,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
               </button>
               {userMenuOpen && (
                 <div
-                  className="absolute right-0 top-10 z-50 w-[220px] overflow-hidden rounded-[10px] border border-border bg-card py-1 shadow-xl"
+                  className="absolute right-0 top-10 z-50 w-[220px] glass-sheet overflow-hidden rounded-[20px] py-1"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <UserMenuItems user={user} locale={locale} en={en} onNavigate={() => setUserMenuOpen(false)} />
@@ -461,7 +461,7 @@ function ThemeButton({ en = false }: { en?: boolean }) {
     try { localStorage.setItem("solhub:theme", next ? "dark" : "light"); } catch {}
     /* 手机地址栏/状态栏跟着切，否则深色页面顶上会挂一条白条 */
     const tc = document.querySelector('meta[name="theme-color"]');
-    if (tc) tc.setAttribute("content", next ? "#0a0908" : "#ffffff");
+    if (tc) tc.setAttribute("content", next ? "#0a0908" : "#efeef1");
     window.setTimeout(() => root.classList.remove("theme-transition"), 350);
   };
   /* 两个图标同时渲染，由 html.dark 的 CSS 决定显隐：
@@ -513,11 +513,11 @@ function SearchDialog({
 
   return (
     <div className="fixed inset-0 z-50 animate-fade-in" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 glass-scrim" onClick={onClose} aria-hidden="true" />
       {/* app-search-layer：桌面端把浮层起点让到侧栏右侧，让搜索框在内容区居中，
           而不是相对整个视口居中（否则会明显偏左，像和侧栏抢位置） */}
       <div className="app-search-layer absolute inset-x-0 top-0 mx-auto w-full max-w-2xl px-4 pt-16 sm:pt-24">
-        <div className="animate-dialog-in overflow-hidden rounded-[10px] border border-border bg-card shadow-xl">
+        <div className="animate-dialog-in glass-sheet overflow-hidden rounded-[24px]">
           <div className="flex items-center gap-2 border-b border-border px-4">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <input

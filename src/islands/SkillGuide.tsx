@@ -193,8 +193,8 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
 
       {open && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[60] animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="skill-guide-title">
-          <div className="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]" onClick={closeGuide} aria-hidden="true" />
-          <div className="animate-dialog-in absolute inset-x-0 top-0 mx-auto flex max-h-[88vh] w-[calc(100%-1.5rem)] max-w-2xl flex-col overflow-hidden rounded-[14px] border border-border bg-card shadow-2xl sm:mt-[7vh]">
+          <div className="absolute inset-0 glass-scrim" onClick={closeGuide} aria-hidden="true" />
+          <div className="animate-dialog-in glass-sheet absolute inset-x-0 top-0 mx-auto flex max-h-[88vh] w-[calc(100%-1.5rem)] max-w-2xl flex-col overflow-hidden rounded-[26px] sm:mt-[7vh]">
             {/* 头部 */}
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
               <div className="min-w-0">
@@ -224,7 +224,7 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
 
             {/* 两条路线：默认零基础，命令行内容收进第二个 tab */}
             <div className="shrink-0 border-b border-border px-5 py-3 sm:px-6">
-              <div role="tablist" aria-label={en ? "Choose a guide" : "选择教程路线"} className="inline-flex rounded-[9px] border border-border bg-secondary/50 p-0.5">
+              <div role="tablist" aria-label={en ? "Choose a guide" : "选择教程路线"} className="inline-flex seg rounded-[14px] p-1">
                 {([
                   { key: "easy" as const, zh: "零基础 · 用豆包", en: "Beginner · Doubao" },
                   { key: "dev" as const, zh: "开发者 · 命令行", en: "Developer · CLI" },
@@ -236,9 +236,9 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
                     aria-selected={track === t.key}
                     onClick={() => setTrack(t.key)}
                     className={[
-                      "inline-flex items-center gap-1.5 rounded-[7px] px-3 py-1.5 text-[12px] font-medium transition-colors",
+                      "inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-medium transition-all duration-200",
                       track === t.key
-                        ? "bg-card text-foreground shadow-sm"
+                        ? "seg-thumb text-foreground"
                         : "text-muted-foreground hover:text-foreground",
                     ].join(" ")}
                   >
@@ -275,7 +275,7 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
                       {s.example && (
                         <div className="mt-2">
                           <p className="mb-1 text-[11px] text-muted-foreground">{en ? "You can just say:" : "你可以直接说："}</p>
-                          <p className="inline-block max-w-full rounded-[10px] rounded-tl-[2px] border border-border bg-secondary/50 px-3 py-2 text-[12px] leading-5 text-foreground">
+                          <p className="inline-block max-w-full rounded-[16px] rounded-tl-[2px] border border-border bg-secondary/50 px-3 py-2 text-[12px] leading-5 text-foreground">
                             {s.example}
                           </p>
                         </div>
@@ -293,7 +293,7 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
 
               {/* 零基础路线专属：把用户最容易走错的入口做成反例 */}
               {track === "easy" && (
-                <div className="guide-wrong-border mt-6 rounded-[10px] border bg-secondary/30 px-4 py-3">
+                <div className="guide-wrong-border mt-6 rounded-[16px] border bg-secondary/30 px-4 py-3">
                   <h3 className="flex items-center gap-1.5 text-[13px] font-bold text-foreground">
                     <X className="guide-wrong-text h-3.5 w-3.5" aria-hidden="true" />
                     {en ? "Don't get lost — 3 common mistakes" : "别走错入口 — 最容易踩的 3 个坑"}
@@ -313,7 +313,7 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
                 </div>
               )}
 
-              <div className="mt-6 flex flex-wrap items-center gap-2 rounded-[10px] border border-accent/25 bg-accent/[0.06] px-4 py-3">
+              <div className="mt-6 flex flex-wrap items-center gap-2 rounded-[16px] border border-accent/25 bg-accent/[0.06] px-4 py-3">
                 <Terminal className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
                 <p className="min-w-0 flex-1 text-[12px] leading-5 text-muted-foreground">
                   {track === "easy"
@@ -356,11 +356,11 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
 /** 把豆包「上传技能」弹窗的关键文字做成清晰可复用的示意图，深浅主题都可读、随语言切换 */
 function UploadMock({ en }: { en: boolean }) {
   return (
-    <div className="mt-2 rounded-[10px] border border-border bg-secondary/30 p-3">
+    <div className="mt-2 rounded-[16px] border border-border bg-secondary/30 p-3">
       <p className="mb-2 text-[11px] text-muted-foreground">
         {en ? "What you'll see in Doubao (illustration)" : "豆包里的界面长这样（示意）"}
       </p>
-      <div className="rounded-[10px] border border-border bg-card px-4 py-3">
+      <div className="rounded-[16px] border border-border bg-card px-4 py-3">
         <div className="flex items-center justify-between">
           <span className="text-[13px] font-bold text-foreground">{en ? "Upload Skill" : "上传技能"}</span>
           <span className="text-[14px] leading-none text-muted-foreground" aria-hidden="true">×</span>
@@ -381,7 +381,7 @@ function UploadMock({ en }: { en: boolean }) {
 /** 反例：MCP 连接器弹窗，明确告诉用户「不是这里」 */
 function ConnectorMock({ en }: { en: boolean }) {
   return (
-    <div className="guide-wrong-border mt-3 rounded-[10px] border bg-card px-4 py-3">
+    <div className="guide-wrong-border mt-3 rounded-[16px] border bg-card px-4 py-3">
       <p className="guide-wrong-text mb-2 flex items-center gap-1.5 text-[11px] font-medium">
         <X className="h-3 w-3" aria-hidden="true" />
         {en ? "Not this dialog" : "不是这个弹窗"}

@@ -61,7 +61,7 @@ export default function ForgotPassword({ locale = "zh" }: { locale?: Locale }) {
 
   if (done) {
     return (
-      <div className="mx-auto w-full max-w-md rounded-[10px] border border-border bg-card p-6 shadow-sm sm:p-8">
+      <div className="mx-auto w-full max-w-md rounded-[16px] border border-border bg-card p-6 shadow-sm sm:p-8">
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
           <ShieldCheck className="h-5 w-5" aria-hidden="true" />
         </span>
@@ -81,7 +81,7 @@ export default function ForgotPassword({ locale = "zh" }: { locale?: Locale }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-[10px] border border-border bg-card p-6 shadow-sm sm:p-8">
+    <div className="mx-auto w-full max-w-md rounded-[16px] border border-border bg-card p-6 shadow-sm sm:p-8">
       <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
         <KeyRound className="h-5 w-5" aria-hidden="true" />
       </span>

@@ -267,7 +267,7 @@ export default function SkillsExplorer({
       )}
 
       {/* 底部说明 + 提交入口 */}
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border bg-secondary/30 p-4">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-border bg-secondary/30 p-4">
         <p className="min-w-0 flex-1 text-[12px] leading-5 text-muted-foreground">
           {en
             ? "Ranking is a curated snapshot, not a paid placement. Install counts and stars change over time — click through to check the latest numbers. Skill submissions are reviewed before listing."

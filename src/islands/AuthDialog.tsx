@@ -59,11 +59,11 @@ export default function AuthDialog({ locale = "zh", onClose }: { locale?: Locale
 
   return (
     <div className="fixed inset-0 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-label={en ? "Authentication" : "登录 / 注册"}>
-      <div className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 glass-scrim" onClick={onClose} aria-hidden="true" />
       {/* 整层可滚动：内容再高也不会把顶部（邮箱框）裁出屏幕 */}
       <div className="absolute inset-0 overflow-y-auto overscroll-contain">
         <div className="flex min-h-full items-center justify-center px-4 py-6">
-          <div className="animate-dialog-in relative w-full max-w-sm rounded-[10px] border border-border bg-card p-5 shadow-xl">
+          <div className="animate-dialog-in glass-sheet relative w-full max-w-sm rounded-[24px] p-5 sm:p-6">
             <button
               type="button"
               onClick={onClose}
@@ -74,14 +74,14 @@ export default function AuthDialog({ locale = "zh", onClose }: { locale?: Locale
             </button>
 
             {/* Tab 切换 */}
-            <div role="tablist" className="mb-4 grid grid-cols-2 gap-1 rounded-[8px] border border-border bg-secondary/50 p-1">
+            <div role="tablist" className="seg mb-4 grid grid-cols-2 gap-1 rounded-[14px] p-1">
               <button
                 type="button"
                 role="tab"
                 aria-selected={mode === "login"}
                 onClick={() => { setMode("login"); setError(null); }}
-                className={`flex items-center justify-center gap-1.5 rounded-[6px] py-1.5 text-[13px] font-medium transition-colors ${
-                  mode === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                className={`flex items-center justify-center gap-1.5 rounded-[10px] py-1.5 text-[13px] font-medium transition-all duration-200 ${
+                  mode === "login" ? "seg-thumb text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <LogIn className="h-3.5 w-3.5" aria-hidden="true" />
@@ -92,8 +92,8 @@ export default function AuthDialog({ locale = "zh", onClose }: { locale?: Locale
                 role="tab"
                 aria-selected={mode === "register"}
                 onClick={() => { setMode("register"); setError(null); }}
-                className={`flex items-center justify-center gap-1.5 rounded-[6px] py-1.5 text-[13px] font-medium transition-colors ${
-                  mode === "register" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                className={`flex items-center justify-center gap-1.5 rounded-[10px] py-1.5 text-[13px] font-medium transition-all duration-200 ${
+                  mode === "register" ? "seg-thumb text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
