@@ -2,6 +2,15 @@
  * SolHub 站点级配置
  * 部署时按实际情况修改。环境变量以 PUBLIC_ 开头会暴露给客户端。
  */
+/**
+ * 站长的唯一收信地址。
+ *
+ * 只在这里写一次：以前提交表单写 soyoang@、赞助页写 soyouang@，
+ * 少一个字母的那个地址是收不到信的（投稿会静默丢失），
+ * 所以全部改成引用同一个常量，改地址只需要改这一行。
+ */
+export const ADMIN_EMAIL = "soyouang@outlook.com";
+
 export const siteConfig = {
   name: "SolHub",
   tagline: "Discover. Build. Share.",
@@ -14,10 +23,12 @@ export const siteConfig = {
   defaultSite: "https://solyoung.top",
   /** GitHub 项目仓库地址；配置后页脚显示 GitHub 入口 */
   githubUrl: "https://github.com/SolYoung-Ai/solhub",
-  /** 联系方式（可选） */
-  contactEmail: "",
+  /** 联系人邮箱 */
+  contactEmail: ADMIN_EMAIL,
+  /** 产品 / Skill 邮件提交的收件地址 */
+  submitEmail: ADMIN_EMAIL,
   /** 赞助合作专用邮箱：与账号/隐私的 contactEmail 分开，避免商务邮件混进注销请求 */
-  sponsorEmail: "soyouang@outlook.com",
+  sponsorEmail: ADMIN_EMAIL,
   copyrightYear: 2026,
 };
 

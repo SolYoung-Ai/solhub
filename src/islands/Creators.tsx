@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   UserPlus,
   UserRound,
+  WifiOff,
   X,
 } from "lucide-react";
 import { p, baseUrl } from "@/lib/paths";
@@ -27,7 +28,7 @@ import { fetchMe, type AuthUser } from "@/lib/auth";
 import { copyText, ensureHttps } from "@/lib/utils";
 import {
   fetchCreators,
-  fetchProfile,
+  fetchProfileResult,
   hostOf,
   isOfficial,
   toggleFollow,
@@ -141,20 +142,32 @@ export default function Creators({
   const [query, setQuery] = useState("");
   const seq = useRef(0);
 
-  /* 主页视图：站内名录用 ?u=，对外独立展示页用 ?h= */
-  const [viewUser, setViewUser] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    const qs = new URLSearchParams(window.location.search);
-    return qs.get("u") || qs.get("h");
-  });
+  /* 主页视图：站内名录用 ?u=，对外独立展示页用 ?h=。
+     初始值必须是 null —— 不能在 useState 初始化函数里读地址栏：
+     服务端渲染拿不到 window 会返回 null，客户端首帧却读到 handle，
+     两边渲染出完全不同的 DOM（名录 vs 主页），React 判定水合失败（#418）
+     后整块重渲染，分享出去的主页链接会先闪一下名录。
+     读参数统一放到下面的 effect 里，SSR 与首帧都渲染同一个加载态。 */
+  const [viewUser, setViewUser] = useState<string | null>(null);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [profileMissing, setProfileMissing] = useState(false);
+  /* 断网 ≠ 用户不存在：单独存一个状态，否则弱网下分享链接会显示「账号已注销」 */
+  const [profileError, setProfileError] = useState(false);
+  const [profileReload, setProfileReload] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   /* 独立展示页 SSR 时读不到 URL 上的 ?h=，先用加载态占位，水合后再决定内容 */
   const [shellReady, setShellReady] = useState(false);
 
   useEffect(() => {
     void fetchMe().then(setMe);
+    /* 地址栏里的 ?u= / ?h= 只能在这里读（水合前拿不到），读完才决定显示名录还是主页 */
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const target = qs.get("u") || qs.get("h");
+      if (target) setViewUser(target);
+    } catch {
+      /* 地址栏解析失败时按名录渲染 */
+    }
     setShellReady(true);
   }, []);
 
@@ -212,19 +225,25 @@ export default function Creators({
     let alive = true;
     setProfile(null);
     setProfileMissing(false);
-    void fetchProfile(viewUser).then((res) => {
+    setProfileError(false);
+    void fetchProfileResult(viewUser).then((res) => {
       if (!alive) return;
-      setProfile(res);
-      setProfileMissing(!res);
-      /* 独立展示页：标签页显示创作者名字，而不是通用的「创作者主页」 */
-      if (standalone && res) {
-        document.title = `${res.user.name || cleanHandle(viewUser)} · SolHub`;
+      if (res.status === "ok") {
+        setProfile(res.profile);
+        /* 独立展示页：标签页显示创作者名字，而不是通用的「创作者主页」 */
+        if (standalone) {
+          document.title = `${res.profile.user.name || cleanHandle(viewUser)} · SolHub`;
+        }
+      } else if (res.status === "missing") {
+        setProfileMissing(true);
+      } else {
+        setProfileError(true);
       }
     });
     return () => {
       alive = false;
     };
-  }, [viewUser, standalone]);
+  }, [viewUser, standalone, profileReload]);
 
   const openUser = useCallback((login: string) => {
     setViewUser(login);
@@ -243,6 +262,7 @@ export default function Creators({
     setViewUser(null);
     setProfile(null);
     setProfileMissing(false);
+    setProfileError(false);
     const url = new URL(window.location.href);
     url.searchParams.delete("u");
     window.history.replaceState(null, "", url.toString());
@@ -367,7 +387,7 @@ export default function Creators({
                 </div>
 
                 <div className="mt-3">
-                  <p className="flex items-center gap-1.5 font-display text-lg font-bold text-foreground">
+                  <h1 className="flex items-center gap-1.5 font-display text-lg font-bold text-foreground">
                     {profile.user.name}
                     {profile.user.verified && <GoldBadge className="h-[17px] w-[17px]" />}
                     {isOfficial(profile.user.login) && (
@@ -375,7 +395,7 @@ export default function Creators({
                         {en ? "Official" : "官方"}
                       </span>
                     )}
-                  </p>
+                  </h1>
                   <p className="text-[13px] text-muted-foreground">@{cleanHandle(profile.user.login)}</p>
                   {profile.user.banned && (
                     <span className="mt-1 inline-flex w-fit items-center rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold leading-none text-destructive">
@@ -493,6 +513,23 @@ export default function Creators({
                 )}
               </div>
             </>
+          ) : profileError ? (
+            <div className="px-6 py-14 text-center">
+              <WifiOff className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
+              <p className="mt-3 text-sm font-medium text-foreground/70">
+                {en ? "Couldn't load this profile" : "主页没能加载出来"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {en ? "The network looks unstable. Your link is fine — try again." : "网络不太稳定，链接本身没问题，可以重试一次。"}
+              </p>
+              <button
+                type="button"
+                onClick={() => setProfileReload((n) => n + 1)}
+                className="btn btn-accent mt-4 !h-8 px-4 text-xs"
+              >
+                {en ? "Retry" : "重试"}
+              </button>
+            </div>
           ) : profileMissing ? (
             <div className="px-6 py-14 text-center">
               <UserRound className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />

@@ -21,6 +21,10 @@ interface Props {
   noIndex?: boolean;
   /** 语言；zh 默认无前缀，en 生成到 /en/ 下 */
   locale?: Locale;
+  /** 这一页只有中文版（如 /products/c-<id>/、/guanli/）：
+   *  不输出 hreflang=en、隐藏语言切换、且语言偏好跳转时跳过它，
+   *  否则英文用户会被送去一个 404 地址。 */
+  noEn?: boolean;
 }
 
 const {
@@ -30,6 +34,7 @@ const {
   ogType = "website",
   noIndex = false,
   locale = "zh",
+  noEn = false,
 } = Astro.props;
 
 const dict = getDict(locale);
@@ -57,7 +62,7 @@ const orgJsonLd = {
 ---
 
 <!doctype html>
-<html lang={htmlLang} class="theme-init">
+<html lang={htmlLang} class="theme-init" data-no-en={noEn ? "" : undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -83,9 +88,9 @@ const orgJsonLd = {
     {/* 广告引导脚本：只有配了 PUBLIC_ADSENSE_CLIENT 才输出，默认零请求 */}
     <AdsHead />
 
-    <!-- 语言切换（alternate） -->
+    <!-- 语言切换（alternate）：只有存在英文版的页面才声明 en 地址 -->
     <link rel="alternate" hreflang="zh-CN" href={absoluteUrl(route, "zh")} />
-    <link rel="alternate" hreflang="en" href={absoluteUrl(route, "en")} />
+    {!noEn && <link rel="alternate" hreflang="en" href={absoluteUrl(route, "en")} />}
     <link rel="alternate" hreflang="x-default" href={absoluteUrl(route, "zh")} />
 
     <!-- Open Graph -->
@@ -161,11 +166,14 @@ const orgJsonLd = {
           }
 
           // 3) 语言偏好：记住后自动跳转到对应语言版本（仅当路径不含目标语言前缀时）
+          //    data-no-en 的页面（社区产品页 / 管理后台）没有英文版：
+          //    这类页面必须跳过跳转，否则英文偏好用户会被送到 404 且无法返回。
           var savedLang = localStorage.getItem("solhub:lang");
           var base = (document.querySelector("meta[name='solhub-base']") || {}).getAttribute
             ? document.querySelector("meta[name='solhub-base']").getAttribute("content")
             : "";
-          if (savedLang === "en" || savedLang === "zh") {
+          var noEnPage = document.documentElement.hasAttribute("data-no-en");
+          if (!noEnPage && (savedLang === "en" || savedLang === "zh")) {
             var path = window.location.pathname;
             var hasEn = path.indexOf("/en/") !== -1 || path.endsWith("/en");
             var wantEn = savedLang === "en";
@@ -194,7 +202,7 @@ const orgJsonLd = {
         app-shell 必须在 lg 断点才变成 flex —— 手机上侧栏是 display:none，
         若整体一直是 flex，移动顶栏会成为第一个 flex item 而被挤成窄条。 */}
     <div class="app-shell">
-      <HeaderApp client:load currentRoute={currentRoute} searchIndex={searchIndex} locale={locale} />
+      <HeaderApp client:load currentRoute={currentRoute} searchIndex={searchIndex} locale={locale} noEn={noEn} />
       <div class="app-content">
         <main class="flex-1">
           <slot />

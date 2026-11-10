@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { loginEmail, registerEmail } from "@/lib/auth";
 import VerifyCodeField from "@/components/VerifyCodeField";
-import { p } from "@/lib/paths";
+import { p, baseUrl } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 
 /**
@@ -47,11 +47,24 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
     }
   }, []);
 
+  /**
+   * 登录后的回跳地址。
+   *
+   * next 有两种写法：不带语言前缀的路由（/world/），或已经带前缀的完整地址
+   * （英文站传上来的 /en/account/）。后者如果直接丢给 p()，会被拼成
+   * /en/en/account/ —— 一个不存在的地址。所以先把 base 与 /en 前缀剥掉，
+   * 再交给 p() 重新加上当前语言前缀。
+   */
   const safeNext = (): string => {
     try {
-      const n = window.sessionStorage.getItem("solhub:next") || next || "";
+      const raw = (window.sessionStorage.getItem("solhub:next") || next || "").trim();
       window.sessionStorage.removeItem("solhub:next");
-      if (n.startsWith("/") && !n.startsWith("//")) return p(n, locale);
+      if (!raw.startsWith("/") || raw.startsWith("//")) return p("/my-submissions/", locale);
+      const base = baseUrl();
+      let route = raw;
+      if (base !== "/" && route.startsWith(base)) route = "/" + route.slice(base.length);
+      route = route.replace(/^\/en(?=\/|$)/, "") || "/";
+      return p(route, locale);
     } catch { /* ignore */ }
     return p("/my-submissions/", locale);
   };
@@ -129,9 +142,9 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
             {en ? "SolHub Account" : "SolHub 账号"}
           </p>
-          <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+          <h1 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
             {en ? "One account, everything managed" : "一个账号，管理你在 SolHub 的一切"}
-          </h2>
+          </h1>
           <ul className="mt-6 space-y-5">
             {benefits.map((b) => (
               <li key={b.title} className="flex gap-3">

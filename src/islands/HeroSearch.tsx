@@ -1,16 +1,22 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Search, X } from "lucide-react";
-import { getLocale } from "@/lib/utils";
-import { getDict, translate } from "@/i18n";
+import { getDict, translate, type Locale } from "@/i18n";
 import { searchIndex, buildSearchIndex, type SearchIndexEntry } from "@/lib/search";
 import { p } from "@/lib/paths";
 import { products } from "@/data/products";
 import { skills } from "@/data/skills";
 import { useCatalogSearchEntries } from "@/lib/skills-catalog";
 
-/** 首页 Hero 搜索条：直接输入出下拉结果 */
-export default function HeroSearch() {
-  const locale = getLocale();
+/**
+ * 首页 Hero 搜索条：直接输入出下拉结果。
+ *
+ * locale 必须由页面传进来，不能用 getLocale() 在渲染期读地址栏：
+ * 服务端渲染时没有 window，getLocale() 一律返回 "zh"，而客户端首帧读到 "en"，
+ * 于是英文首页的按钮文案（Search / 搜索）在 SSR 与首帧之间不一致，
+ * React 会判定水合失败（#418）并整块重渲染。中文页因为两边都是 "zh" 才没暴露。
+ * 读地址栏只能放在 effect 里（下面的 narrow 就是这么做的）。
+ */
+export default function HeroSearch({ locale = "zh" }: { locale?: Locale }) {
   const dict = getDict(locale);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);

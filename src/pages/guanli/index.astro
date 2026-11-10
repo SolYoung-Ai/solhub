@@ -15,6 +15,7 @@ const locale = Astro.props.locale ?? "zh";
   route="/guanli/"
   locale={locale}
   noIndex={true}
+  noEn={true}
 >
   <div class="container-page py-8">
     <AdminConsole client:load locale={locale} />

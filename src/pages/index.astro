@@ -47,7 +47,9 @@ const metaDesc = en
       <p class="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-accent sm:mb-4 sm:text-[11px]">
         SolHub · Discover · Build · Share
       </p>
-      <p
+      {/* 语义上用 h1：这是首页唯一的一句主标题，爬虫与读屏都靠它判断页面主题。
+          字号/行高全部由 class 固定，换成 h1 不会改变视觉大小。 */}
+      <h1
         class={`mx-auto mt-2 max-w-2xl text-[15px] leading-7 text-muted-foreground sm:text-base ${
           en ? "min-h-[5.25rem] sm:min-h-[3.5rem]" : "min-h-[3.5rem]"
         }`}
@@ -67,7 +69,7 @@ const metaDesc = en
           punctuationPause={60}
           startDelay={100}
         />
-      </p>
+      </h1>
       {/* 无 JS 时把 sr-only 的完整文案放出来（此时不会打字） */}
       <noscript>
         <style is:inline>
@@ -76,7 +78,7 @@ const metaDesc = en
       </noscript>
 
       <div class="mx-auto mt-8 max-w-xl">
-        <HeroSearch client:load />
+        <HeroSearch client:load locale={locale} />
       </div>
 
       <div class="mt-6 flex flex-wrap items-center justify-center gap-3">

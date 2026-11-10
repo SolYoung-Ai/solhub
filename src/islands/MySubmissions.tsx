@@ -472,6 +472,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
+        <h1 className="sr-only">{en ? "My submissions" : "我的提交"}</h1>
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         {en ? "Loading…" : "加载中…"}
       </div>
@@ -482,6 +483,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   if (loadFailed && !user) {
     return (
       <div className="py-20 text-center">
+        <h1 className="sr-only">{en ? "My submissions" : "我的提交"}</h1>
         <WifiOff className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden="true" />
         <p className="mt-4 text-sm text-muted-foreground">
           {en
@@ -507,6 +509,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   if (!user) {
     return (
       <div className="py-20 text-center">
+        <h1 className="sr-only">{en ? "My submissions" : "我的提交"}</h1>
         <LogIn className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden="true" />
         <p className="mt-4 text-sm text-muted-foreground">
           {en

@@ -10,6 +10,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { productCategories } from "@/data/product-categories";
+import { siteConfig } from "@/data/site";
 import { skillCategories, skillCategoryName } from "@/data/skills";
 import { productCategoryNameLocalized } from "@/i18n/data";
 import { p } from "@/lib/paths";
@@ -199,7 +200,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       hasUploadedIcon ? `\n${en ? "(Please attach the icon image to this email)" : "（请将图标图片文件作为附件添加到本邮件）"}` : "",
       isHosted ? `\n${en ? "(Please attach the self-contained .html file to this email)" : "（请将自包含 .html 文件作为附件添加到本邮件）"}` : "",
     ].filter(Boolean);
-    const mailto = `mailto:soyoang@outlook.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join("\n"))}`;
+    const mailto = `mailto:${siteConfig.submitEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join("\n"))}`;
     return mailto;
   };
 

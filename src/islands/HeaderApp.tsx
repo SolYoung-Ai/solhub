@@ -32,6 +32,8 @@ interface Props {
   currentRoute: string;
   searchIndex: SearchIndexEntry[];
   locale?: Locale;
+  /** 这一页只有中文版：不渲染语言切换按钮（点了只会 404） */
+  noEn?: boolean;
 }
 
 /**
@@ -46,7 +48,7 @@ interface Props {
  * 设计语言沿用 SolHub：白底 + 暖灰描边 + 橙色激活态（不是 X 的黑白反色），
  * 这样侧栏只改变信息架构，不改变品牌观感。
  */
-export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: Props) {
+export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", noEn = false }: Props) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -226,7 +228,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
           {/* 底部：辅助控件 → 账号 */}
           <div className="mt-auto flex flex-col gap-3 pt-6">
             <div className="side-tools flex flex-col items-center gap-1 xl:flex-row xl:gap-1">
-              <LangButton locale={locale} currentRoute={currentRoute} />
+              {!noEn && <LangButton locale={locale} currentRoute={currentRoute} />}
               <ThemeButton en={en} />
               {/* 装到桌面：与主题 / 语言同一排 32px 方块 */}
               <InstallApp locale={locale} />
@@ -294,7 +296,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh" }: 
           <ThemeButton en={en} />
           {/* 320px 实测：五个按钮共 198px，右侧仍留 6px，不会溢出 */}
           <InstallApp locale={locale} />
-          <LangButton locale={locale} currentRoute={currentRoute} />
+          {!noEn && <LangButton locale={locale} currentRoute={currentRoute} />}
 
           {user ? (
             <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
@@ -459,7 +461,9 @@ function LangButton({ locale, currentRoute }: { locale: Locale; currentRoute: st
       onClick={() => { try { localStorage.setItem("solhub:lang", other); } catch {} }}
       aria-label={other === "en" ? "Switch to English" : "切换到中文"}
       title={other === "en" ? "Switch to English" : "切换到中文"}
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-border bg-card text-foreground/70 transition-colors hover:border-foreground/30 hover:text-foreground"
+      /* lang-btn：只有中文版的页面（<html data-no-en>）用 CSS 隐藏它，
+         否则点一下就会跳到不存在的英文地址（404）。 */
+      className="lang-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-border bg-card text-foreground/70 transition-colors hover:border-foreground/30 hover:text-foreground"
     >
       <Languages className="h-3.5 w-3.5" aria-hidden="true" />
     </a>
@@ -511,6 +515,18 @@ function SearchDialog({
   const skillHref = p(`/skills/?q=${encodeURIComponent(query.trim())}`, locale);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
+  /* 底栏写着「Esc 关闭」，就必须真的能关。
+     监听挂在 document 上：焦点可能在结果链接上，按键未必落在 input 里。 */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
   useEffect(() => {
     setResults(searchIndex(query, fullIndex, locale).slice(0, 24));
     setActive(0);

@@ -139,12 +139,31 @@ export async function fetchCreators(
 }
 
 export async function fetchProfile(login: string): Promise<PublicProfile | null> {
+  const r = await fetchProfileResult(login);
+  return r.status === "ok" ? r.profile : null;
+}
+
+/**
+ * 主页查询的三种结果分开返回：命中 / 不存在 / 网络失败。
+ * 只用 null 无法区分后两者，断网时会把「网络不通」显示成「用户不存在」，
+ * 分享出去的链接在弱网下看起来就像账号被删了。
+ */
+export type ProfileResult =
+  | { status: "ok"; profile: PublicProfile }
+  | { status: "missing" }
+  | { status: "error" };
+
+export async function fetchProfileResult(login: string): Promise<ProfileResult> {
   try {
     const res = await request(`${base()}/users/${encodeURIComponent(login)}`, { cache: "no-store" }, { retries: 1 });
-    if (!res.ok) return null;
-    return (await res.json()) as PublicProfile;
+    if (res.status === 404) return { status: "missing" };
+    if (!res.ok) return { status: "error" };
+    const data = (await res.json()) as PublicProfile | null;
+    /* 兼容老接口「查不到时返回 200 + 空对象」的写法 */
+    if (!data || !data.user) return { status: "missing" };
+    return { status: "ok", profile: data };
   } catch {
-    return null;
+    return { status: "error" };
   }
 }
 

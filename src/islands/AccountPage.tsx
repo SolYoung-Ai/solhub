@@ -76,7 +76,7 @@ function AccountPage({ locale = "zh" }: { locale?: Locale }) {
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <a
-            href={p("/login/?next=" + encodeURIComponent(p("/account/", locale)), locale)}
+            href={p("/login/?next=" + encodeURIComponent("/account/"), locale)}
             className="btn btn-accent !h-10 px-5"
           >
             {en ? "Log in / Sign up" : "登录 / 注册"}
