@@ -91,6 +91,10 @@ export interface Sponsor {
   status: SponsorStatus;
   /** 角标文案，例如「示例 · 站内产品」 */
   badge?: { zh: string; en: string };
+  /** 开始支持的月份，展示墙上的 "since 2026.11" */
+  since?: string;
+  /** 展示墙头图位用的长描述（一两句，说清为什么值得点） */
+  bio?: { zh: string; en: string };
 }
 
 export const sponsors: Sponsor[] = [
@@ -105,6 +109,11 @@ export const sponsors: Sponsor[] = [
     tier: "headline",
     status: "sample",
     badge: { zh: "示例 · 头图位", en: "Sample · headline" },
+    since: "2026.11",
+    bio: {
+      zh: "把 Next.js、Go、静态站推到自己的云账号上，一条命令、一份配置，不需要为每个平台重写一遍部署脚本。",
+      en: "Ship Next.js, Go or a static site to your own cloud account with one command and one config — no per-platform rewrite.",
+    },
   },
   {
     id: "pixelforge",
@@ -117,6 +126,11 @@ export const sponsors: Sponsor[] = [
     tier: "inline",
     status: "sample",
     badge: { zh: "示例 · 列表位", en: "Sample · inline" },
+    since: "2026.11",
+    bio: {
+      zh: "给一个人的产品团队准备的排版、配色与组件库，不要求你先请一位设计师。",
+      en: "Type, colour and components for a one-person product team — no designer required first.",
+    },
   },
   {
     id: "solclip",
@@ -130,6 +144,11 @@ export const sponsors: Sponsor[] = [
     tier: "partner",
     status: "sample",
     badge: { zh: "示例 · 站内产品", en: "Sample · listed product" },
+    since: "2026.10",
+    bio: {
+      zh: "SolHub 收录的第一个视频工具：粘贴公开分享链接，就能存下素材、取出文案与字幕。",
+      en: "The first video tool listed on SolHub: paste a public link, keep the file, pull out the caption and subtitles.",
+    },
   },
 ];
 

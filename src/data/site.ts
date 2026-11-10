@@ -16,6 +16,8 @@ export const siteConfig = {
   githubUrl: "https://github.com/SolYoung-Ai/solhub",
   /** 联系方式（可选） */
   contactEmail: "",
+  /** 赞助合作专用邮箱：与账号/隐私的 contactEmail 分开，避免商务邮件混进注销请求 */
+  sponsorEmail: "soyouang@outlook.com",
   copyrightYear: 2026,
 };
 

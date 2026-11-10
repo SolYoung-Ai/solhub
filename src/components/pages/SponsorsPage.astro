@@ -11,6 +11,7 @@
  */
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import SponsorCard from "@/components/SponsorCard.astro";
+import { siteConfig } from "@/data/site";
 import { skills } from "@/data/skills";
 import catalogMeta from "@/data/skills-catalog-meta.json";
 import { sponsorTiers, sponsors, liveSponsors, tierOf } from "@/data/sponsors";
@@ -24,7 +25,7 @@ interface Props {
 const locale = Astro.props.locale ?? "zh";
 const en = locale === "en";
 
-const contact = "solyoungwork@gmail.com";
+const contact = siteConfig.sponsorEmail;
 const mailto = (tier: string) =>
   `mailto:${contact}?subject=${encodeURIComponent(`${en ? "Sponsor SolHub" : "赞助 SolHub"} · ${tier}`)}`;
 
@@ -39,7 +40,7 @@ const metaDesc = en
 
 const copy = en
   ? {
-      eyebrow: "Sponsorship",
+      eyebrow: "Become a sponsor",
       title: "Put your product where developers are already looking",
       lede: "No pop-ups, no interstitials, no reordering the content. Three places on the whole site, where people actually read — all labelled as sponsored.",
       stats: [
@@ -105,7 +106,7 @@ const copy = en
       backHome: "Back to home",
     }
   : {
-      eyebrow: "赞助位",
+      eyebrow: "赞助商入驻",
       title: "把产品放进开发者正在看的地方",
       lede: "不做弹窗、不插播、不重排内容。全站只有三处，放在人真的会读的位置，而且一律标注「赞助」。",
       stats: [
@@ -171,7 +172,12 @@ const copy = en
     };
 ---
 
-<BaseLayout title={en ? "Sponsorship" : "赞助商"} description={metaDesc} route="/sponsors/" locale={locale}>
+<BaseLayout
+  title={en ? "Sponsorship" : "赞助商入驻"}
+  description={metaDesc}
+  route="/sponsors/join/"
+  locale={locale}
+>
   <!-- 首屏 -->
   <section class="border-b border-border bg-secondary/30 py-9 sm:py-12">
     <div class="container-page">
@@ -412,6 +418,9 @@ const copy = en
         }
       </div>
       <div class="mt-6 flex flex-wrap gap-2">
+        <a href={p("/sponsors/", locale)} class="btn btn-outline !h-9 px-4 text-xs">
+          {en ? "See current sponsors" : "看当前赞助商"}
+        </a>
         <a href={p("/", locale)} class="btn btn-outline !h-9 px-4 text-xs">{copy.backHome}</a>
         <a href={p("/about/", locale)} class="btn btn-outline !h-9 px-4 text-xs">{en ? "About SolHub" : "关于 SolHub"}</a>
       </div>

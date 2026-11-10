@@ -1,0 +1,344 @@
+---
+/**
+ * 赞助商展示墙（/sponsors/）
+ *
+ * 与「入驻页」(/sponsors/join/) 分工：
+ * - 这里给访客看：谁在支持这个站、卡长什么样、钱花在哪
+ * - 那里给广告主看：档位、价格、素材、审核标准
+ *
+ * 目前 liveSponsors 为空，页面处于「预览 + 招募」态：渲染的是 sample 卡（带「示例」角标），
+ * 顶部横幅明说位置都还没被认领。有人成交后只需把 status 改成 "live"，横幅与角标自动切换。
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import SponsorCard from "@/components/SponsorCard.astro";
+import { siteConfig } from "@/data/site";
+import { sponsorTiers, sponsors, liveSponsors } from "@/data/sponsors";
+import { p } from "@/lib/paths";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+const joinHref = p("/sponsors/join/", locale);
+
+const spotlights = sponsors.filter((s) => s.tier === "headline");
+const inlines = sponsors.filter((s) => s.tier === "inline");
+const partners = sponsors.filter((s) => s.tier === "partner");
+const openSlots = sponsorTiers.length - liveSponsors.length;
+const isPreview = liveSponsors.length === 0;
+
+const copy = en
+  ? {
+      eyebrow: "Supporters",
+      title: "The products that keep SolHub free",
+      lede: "No membership, no paywall, no ad network. The domain, the server and the machine time that crawls a thousand SKILL.md files every week are paid for by the handful of products below.",
+      previewBadge: "First term open",
+      previewText:
+        "The three slots are still unclaimed — the cards below show the exact shape each one takes. Sample brands are marked.",
+      liveBadge: "This term",
+      liveText: "These products are paying for a slot right now. Every card below is labelled as sponsored where it appears.",
+      slots: "slots claimed",
+      cta: "Become a sponsor",
+      ctaNote: "Takes 3 minutes to book, one invoice, no contract.",
+      spotlightTitle: "Headline",
+      spotlightNote: "Homepage hero, full width, one seat",
+      inlineTitle: "Inline",
+      inlineNote: "3rd slot in the product and Skill lists — where readers are choosing a tool",
+      partnerTitle: "Community partners",
+      partnerNote: "Footer and About page, unlimited seats",
+      openSeat: "Open",
+      previewLabel: "Sample card",
+      promiseTitle: "What sponsorship never buys",
+      promises: [
+        { t: "Ranking", d: "Paid slots never reorder products or Skills. Organic order stays organic." },
+        { t: "Verification", d: "A Verified mark is earned by a manual check, never by payment." },
+        { t: "Words", d: "No ghost-written reviews, no “editor's pick” for sale." },
+      ],
+      whyTitle: "Why not just run AdSense?",
+      whyBody:
+        "Because a page full of banners makes a directory worthless. Three labelled slots pay the bills and leave the rest of the page readable — and readers can ignore them without losing anything.",
+      joinTitle: "Want this slot?",
+      joinBody: "Public prices, a manual review, and the card goes live the same day.",
+      joinCta: "Sponsorship details",
+    }
+  : {
+      eyebrow: "支持者",
+      title: "让 SolHub 保持免费的那些产品",
+      lede: "没有会员费，没有付费墙，也没有广告联盟。域名、服务器，以及每周抓取一千个 SKILL.md 的机器时间，由下面这几位买单。",
+      previewBadge: "首期招募中",
+      previewText: "三个位置都还没被认领——下面展示的是每档卡片的确切样式，标「示例」的是样张。",
+      liveBadge: "本期",
+      liveText: "下面这些产品正在付费展示。它们出现在哪里，哪里就带「赞助」标注。",
+      slots: "席已认领",
+      cta: "成为赞助商",
+      ctaNote: "3 分钟就能定下来，一张发票，没有合同条款。",
+      spotlightTitle: "头图位",
+      spotlightNote: "首页首屏整宽，每期 1 席",
+      inlineTitle: "列表位",
+      inlineNote: "产品与 Skill 列表第 3 位——读者正在挑工具的那一刻",
+      partnerTitle: "社区伙伴",
+      partnerNote: "页脚与关于页，不限席位",
+      openSeat: "可预订",
+      previewLabel: "示例卡",
+      promiseTitle: "赞助买不到什么",
+      promises: [
+        { t: "排名", d: "付费位不会改变产品与 Skill 的排序，自然排序永远是自然的。" },
+        { t: "核验", d: "Verified 只能靠人工核验拿到，付钱买不到。" },
+        { t: "评价", d: "不代写评测，也没有可以出售的「编辑推荐」。" },
+      ],
+      whyTitle: "为什么不直接挂 AdSense？",
+      whyBody:
+        "因为满屏横幅会毁掉一个目录站。三个带标注的位置已经够付账单，剩下的页面还能读——读者也可以完全忽略它们，不损失任何东西。",
+      joinTitle: "想要这个位置？",
+      joinBody: "价格公开、人工审核，当天就能上线。",
+      joinCta: "查看入驻说明",
+    };
+
+const metaDesc = en
+  ? "The products supporting SolHub: no membership, no paywall, no ad network — three labelled sponsor slots."
+  : "支持 SolHub 的产品：没有会员费、没有付费墙、没有广告联盟，只有三个带标注的赞助位。";
+---
+
+<BaseLayout title={en ? "Sponsors" : "赞助商"} description={metaDesc} route="/sponsors/" locale={locale}>
+  <!-- 首屏 -->
+  <section class="border-b border-border bg-secondary/30 py-9 sm:py-12">
+    <div class="container-page">
+      <p class="mb-3 font-mono text-[11px] font-semibold tracking-[0.22em] text-accent uppercase">
+        {copy.eyebrow}
+      </p>
+      <h1 class="max-w-3xl font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+        {copy.title}
+      </h1>
+      <p class="mt-3 max-w-2xl text-[15px] leading-7 text-muted-foreground">{copy.lede}</p>
+
+      <!-- 席位进度：三段方块，填满即售罄。比写一句「还有 3 席」直观。 -->
+      <div class="mt-7 flex flex-wrap items-center gap-x-4 gap-y-3">
+        <div class="flex items-center gap-1.5" aria-hidden="true">
+          {
+            sponsorTiers.map((t) => (
+              <span
+                class:list={[
+                  "h-2.5 w-9 rounded-full",
+                  liveSponsors.some((s) => s.tier === t.id) ? "bg-accent" : "bg-border",
+                ]}
+              />
+            ))
+          }
+        </div>
+        <p class="text-[12px] text-muted-foreground">
+          <span class="font-semibold text-foreground">{liveSponsors.length}</span> / {sponsorTiers.length} {copy.slots}
+        </p>
+        <a href={joinHref} class="btn btn-accent !h-9 px-4 text-xs">{copy.cta}</a>
+        <span class="text-[11px] text-muted-foreground/80">{copy.ctaNote}</span>
+      </div>
+
+      <!-- 状态横幅：预览态 / 有真实赞助商态，二选一 -->
+      <div
+        class:list={[
+          "mt-6 flex items-start gap-2.5 rounded-[14px] border px-4 py-3 text-[12px] leading-6",
+          isPreview
+            ? "border-accent/30 bg-accent/5 text-foreground/80"
+            : "border-border bg-card text-muted-foreground",
+        ]}
+      >
+        <span
+          class:list={[
+            "mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+            isPreview ? "bg-accent text-accent-foreground" : "bg-success/15 text-success",
+          ]}
+        >
+          {isPreview ? copy.previewBadge : copy.liveBadge}
+        </span>
+        <p class="min-w-0">{isPreview ? copy.previewText : copy.liveText}</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 头图位：一张大卡，排面给足 -->
+  <section class="py-9 sm:py-11">
+    <div class="container-page">
+      <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="font-display text-lg font-extrabold tracking-tight text-foreground">{copy.spotlightTitle}</h2>
+        <p class="text-[11px] text-muted-foreground">{copy.spotlightNote}</p>
+      </div>
+
+      {
+        spotlights.length > 0 ? (
+          spotlights.map((s) => (
+            <div class="card relative overflow-hidden p-5 sm:p-7" data-sponsor={s.id}>
+              <div class="flex flex-col gap-5 sm:flex-row sm:items-start">
+                <span
+                  class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[18px] text-xl font-bold text-white sm:h-20 sm:w-20"
+                  style={`background-color:${s.accent}`}
+                  aria-hidden="true"
+                >
+                  {s.icon ? <img src={p(s.icon)} alt="" class="h-full w-full object-cover" /> : s.initial}
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="font-display text-xl font-extrabold tracking-tight text-foreground">{s.name}</span>
+                    {s.badge && (
+                      <span class="rounded-full border border-warning/35 bg-warning/10 px-2 py-0.5 text-[10px] font-semibold text-warning">
+                        {en ? s.badge.en : s.badge.zh}
+                      </span>
+                    )}
+                    <span class="font-mono text-[10px] text-muted-foreground/80">since {s.since ?? "—"}</span>
+                  </div>
+                  <p class="mt-2 max-w-2xl text-[14px] leading-7 text-muted-foreground">
+                    {s.bio ? (en ? s.bio.en : s.bio.zh) : s.tagline ? (en ? s.tagline.en : s.tagline.zh) : ""}
+                  </p>
+                  <div class="mt-3 flex flex-wrap items-center gap-1.5">
+                    {(en
+                      ? ["Hero banner 30 days", "One launch note", "Monthly report"]
+                      : ["首屏横幅 30 天", "一次上线公告", "月度回执"]
+                    ).map((line) => (
+                      <span class="rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+                        {line}
+                      </span>
+                    ))}
+                  </div>
+                  <div class="mt-4 flex flex-wrap items-center gap-3">
+                    <a
+                      href={s.url ? (s.url.startsWith("http") ? s.url : p(s.url, locale)) : joinHref}
+                      target={s.url.startsWith("http") ? "_blank" : undefined}
+                      rel={s.url.startsWith("http") ? "noopener noreferrer" : undefined}
+                      class="btn btn-outline !h-9 px-4 text-xs"
+                    >
+                      {s.url ? (en ? "Visit site" : "访问官网") : en ? "Book this slot" : "预订这个位置"}
+                    </a>
+                    {s.offer && (
+                      <span class="text-[12px] font-medium text-accent">{en ? s.offer.en : s.offer.zh}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div class="flex flex-col items-center justify-center gap-2 rounded-[18px] border border-dashed border-border px-6 py-14 text-center">
+            <p class="text-[13px] font-semibold text-foreground">{en ? "This slot is open" : "这一格还在等一位赞助商"}</p>
+            <p class="text-[12px] text-muted-foreground">{en ? "Homepage hero, 30 days, one seat." : "首页首屏，30 天，每期仅 1 席。"}</p>
+            <a href={joinHref} class="btn btn-outline mt-2 !h-9 px-4 text-xs">{copy.openSeat} →</a>
+          </div>
+        )
+      }
+    </div>
+  </section>
+
+  <!-- 列表位 -->
+  <section class="border-t border-border bg-secondary/20 py-9 sm:py-11">
+    <div class="container-page">
+      <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="font-display text-lg font-extrabold tracking-tight text-foreground">{copy.inlineTitle}</h2>
+        <p class="text-[11px] text-muted-foreground">{copy.inlineNote}</p>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {inlines.map((s) => <SponsorCard sponsor={s} variant="card" locale={locale} />)}
+        {
+          liveSponsors.filter((s) => s.tier === "inline").length === 0 && (
+            <a
+              href={joinHref}
+              class="flex min-h-[180px] flex-col items-center justify-center gap-1.5 rounded-[16px] border border-dashed border-border px-4 py-8 text-center transition-colors hover:border-accent/50 hover:bg-accent/5"
+            >
+              <span class="text-[13px] font-semibold text-foreground">{en ? "Open seat" : "虚位以待"}</span>
+              <span class="text-[11px] text-muted-foreground">{en ? "1 seat per page" : "每页 1 席"}</span>
+            </a>
+          )
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- 社区伙伴：胶囊墙 -->
+  <section class="py-9 sm:py-11">
+    <div class="container-page">
+      <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="font-display text-lg font-extrabold tracking-tight text-foreground">{copy.partnerTitle}</h2>
+        <p class="text-[11px] text-muted-foreground">{copy.partnerNote}</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {
+          partners.map((s) => (
+            <a
+              href={s.url ? (s.url.startsWith("http") ? s.url : p(s.url, locale)) : joinHref}
+              target={s.url.startsWith("http") ? "_blank" : undefined}
+              rel={s.url.startsWith("http") ? "noopener noreferrer" : undefined}
+              class="group inline-flex items-center gap-2 rounded-full border border-border bg-card py-1.5 pr-3 pl-1.5 transition-colors hover:border-accent/50"
+              title={en ? s.tagline.en : s.tagline.zh}
+            >
+              <span
+                class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10px] font-bold text-white"
+                style={`background-color:${s.accent}`}
+                aria-hidden="true"
+              >
+                {s.icon ? <img src={p(s.icon)} alt="" class="h-full w-full object-cover" /> : s.initial}
+              </span>
+              <span class="text-[12px] font-medium text-foreground">{s.name}</span>
+              {s.since && <span class="font-mono text-[10px] text-muted-foreground/70">{s.since}</span>}
+            </a>
+          ))
+        }
+        {
+          Array.from({ length: Math.max(2, 4 - partners.length) }).map(() => (
+            <a
+              href={joinHref}
+              class="inline-flex items-center gap-2 rounded-full border border-dashed border-border px-3 py-2 text-[12px] text-muted-foreground transition-colors hover:border-accent/50 hover:text-foreground"
+            >
+              <span class="h-6 w-6 rounded-full border border-dashed border-border" aria-hidden="true" />
+              {en ? "Open" : "待认领"}
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- 三条承诺 + 为什么不挂 AdSense -->
+  <section class="border-t border-border bg-secondary/20 py-9 sm:py-11">
+    <div class="container-page grid gap-6 lg:grid-cols-[1.15fr_1fr]">
+      <div>
+        <h2 class="font-display text-lg font-extrabold tracking-tight text-foreground sm:text-xl">{copy.promiseTitle}</h2>
+        <div class="mt-4 grid gap-3 sm:grid-cols-3">
+          {
+            copy.promises.map((item) => (
+              <div class="rounded-[14px] border border-border bg-card p-4">
+                <p class="flex items-center gap-1.5 text-[12px] font-bold text-muted-foreground">
+                  <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 text-success" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                  {item.t}
+                </p>
+                <p class="mt-2 text-[12px] leading-6 text-muted-foreground">{item.d}</p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+      <div class="rounded-[16px] border border-border bg-card p-5">
+        <h2 class="text-[13px] font-bold text-foreground">{copy.whyTitle}</h2>
+        <p class="mt-2 text-[12px] leading-6 text-muted-foreground">{copy.whyBody}</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 底部 CTA -->
+  <section class="py-9 sm:py-11">
+    <div class="container-page">
+      <div class="flex flex-col items-start justify-between gap-4 rounded-[18px] border border-border bg-card px-5 py-6 sm:flex-row sm:items-center sm:px-7">
+        <div class="min-w-0">
+          <p class="font-display text-lg font-extrabold tracking-tight text-foreground">{copy.joinTitle}</p>
+          <p class="mt-1 text-[12px] text-muted-foreground">{copy.joinBody}</p>
+        </div>
+        <div class="flex shrink-0 flex-wrap items-center gap-2">
+          <a href={joinHref} class="btn btn-accent !h-10 px-5 text-sm">{copy.joinCta}</a>
+          <a href={`mailto:${siteConfig.sponsorEmail}`} class="text-[11px] text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground">
+            {siteConfig.sponsorEmail}
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
