@@ -1,0 +1,15 @@
+---
+import AdLanding from "@/components/pages/AdLanding.astro";
+import { ADS, rankAds } from "@/data/ads";
+import type { Locale } from "@/i18n";
+
+/* 只给「在展示期内」的广告生成页面：过期即不再产出，链接自然 404 */
+export function getStaticPaths() {
+  return rankAds(ADS).map((ad) => ({
+    params: { id: ad.id },
+    props: { ad, locale: "zh" as Locale },
+  }));
+}
+---
+
+<AdLanding {...Astro.props} />

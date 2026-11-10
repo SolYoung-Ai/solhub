@@ -1,20 +1,14 @@
 ---
 /**
- * 赞助商页面（/sponsors/ 与 /en/sponsors/ 共用）
+ * 赞助商入驻（/sponsors/join/）
  *
- * 这页同时做两件事：
- * 1. 招商：档位、价格、审核标准、素材清单，都是为了让一个小团队 3 分钟内能决定
- * 2. 兑现：列当前赞助商；没有成交时用「虚位」卡占位，比「暂无」更能促单
- *
- * 数字只用可核验的（收录数、索引条数、可售位置数）。PV / UV 一律不写死，
- * 因为现在没有接统计——编一个数字，招商页立刻就废了。
+ * 规则只有三条：自由出价、按金额排名、展示 30 天自动下架。
+ * 没有套餐表——所以这页的重点不是「选哪档」，而是**把邮件写对**：
+ * 一封信里把名称、链接、素材、出价、档期讲清楚，来回次数能少一半。
  */
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import SponsorCard from "@/components/SponsorCard.astro";
 import { siteConfig } from "@/data/site";
-import { skills } from "@/data/skills";
-import catalogMeta from "@/data/skills-catalog-meta.json";
-import { sponsorTiers, sponsors, liveSponsors, tierOf } from "@/data/sponsors";
+import { ADS, AD_DAYS, floorPrice, rankAds } from "@/data/ads";
 import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 
@@ -24,161 +18,186 @@ interface Props {
 
 const locale = Astro.props.locale ?? "zh";
 const en = locale === "en";
+const mail = siteConfig.sponsorEmail;
+const wallHref = p("/sponsors/", locale);
 
-const contact = siteConfig.sponsorEmail;
-const mailto = (tier: string) =>
-  `mailto:${contact}?subject=${encodeURIComponent(`${en ? "Sponsor SolHub" : "赞助 SolHub"} · ${tier}`)}`;
+const builtAt = new Date().toISOString();
+const leadingBid = floorPrice(ADS, new Date(builtAt));
+const liveCount = rankAds(ADS, new Date(builtAt)).length;
 
-const totalSkills = skills.length + catalogMeta.total;
-const seats = sponsorTiers.length;
+const subject = en ? "Sponsor SolHub · <your name>" : "赞助 SolHub · <你的名称>";
+const body = en
+  ? `Hi,
 
-const sample = (tier: string) => sponsors.find((s) => s.tier === tier);
+I would like to place a card on SolHub's sponsor wall.
+
+1. Name (max 20 chars):
+2. One line (max 40 chars):
+3. Link:
+4. Type (product / service / event / hiring / other):
+5. Bid (CNY per 30 days):
+6. Preferred start date:
+7. Logo: attached, or a download link
+
+I confirm the link works and the thing advertised is real, and I understand the card stays up for 30 days and then drops off.
+
+Thanks,
+<your name>`
+  : `你好，
+
+我想在 SolHub 的赞助位上放一张卡片：
+
+1. 名称（20 字以内）：
+2. 一句话（40 字以内）：
+3. 链接：
+4. 类型（产品 / 服务 / 活动 / 招募 / 其他）：
+5. 出价（元 / 30 天）：
+6. 希望开始日期：
+7. Logo：附件，或可下载的地址
+
+我确认链接可以打开、所宣传的内容是真实存在的，并了解卡片展示 30 天后会自动下架。
+
+谢谢
+<你的名字>`;
+
+const mailto = `mailto:${mail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
 const metaDesc = en
-  ? "Sponsor SolHub: three slots (headline, inline list, community partner), public pricing, manual review. Reaching indie developers and small teams who are actively choosing tools."
-  : "赞助 SolHub：头图位、列表插入位、社区伙伴三档，价格公开，人工审核。触达正在挑选工具的独立开发者与小团队。";
+  ? "Book a SolHub sponsor slot: bid any amount, ranked by bid, 30 days on the wall, reply within 24 hours. Email template included."
+  : "SolHub 赞助位入驻：自由出价、按金额排名、展示 30 天、24 小时内回复。附可直接复制的邮件模板。";
 
 const copy = en
   ? {
       eyebrow: "Become a sponsor",
-      title: "Put your product where developers are already looking",
-      lede: "No pop-ups, no interstitials, no reordering the content. Three places on the whole site, where people actually read — all labelled as sponsored.",
-      stats: [
-        { value: String(totalSkills), label: "Skills indexed, every source linked" },
-        { value: String(seats), label: "paid slots on the whole site" },
-        { value: "100%", label: "reviewed by hand — every link opened" },
+      title: "Bid any amount. The wall sorts itself.",
+      lede: "No packages, no tiers. You name a number, the card is ranked against everyone else's bid. It stays up for 30 days and then drops off on its own.",
+      facts: [
+        { v: `${AD_DAYS}`, l: "days on the wall, then automatic removal" },
+        { v: "24h", l: "reply window, every working day" },
+        { v: "1:1", l: "one card, one shareable page" },
       ],
-      ctaPrimary: "Book a slot",
-      ctaSecondary: "See the tiers",
-      trafficNote:
-        "Readership: no invented traffic number on this page. Ask by email and I'll send a screenshot straight from the analytics panel.",
-      tiersTitle: "Three slots, public pricing",
-      tiersLede: "Per month, paid up front for the first term. One invoice, no auction, no bidding war.",
-      perMonth: "/ month",
-      perksLabel: "What you get",
-      book: "Book this tier",
-      samplesTitle: "What a sponsored card looks like",
-      samplesLede: "Three samples below — they show the exact shape of each tier. The two invented brands are marked as samples; the third is a real listed product.",
-      inlineNote: "In the real list this card sits in the 3rd slot, at the same height as the product cards around it. It is labelled “Sponsored” and never changes organic order or verification status.",
-      recruitTitle: "First term: slots open",
-      recruitLede: "No sponsors have been taken yet — every slot for this term is open at list price, and the first one gets a mention in the launch note.",
-      sponsorsTitle: "Current sponsors",
-      sponsorsLede: "These brands are paying for a slot right now. Their cards are labelled as sponsored wherever they appear.",
-      seatOpen: "Open",
-      stepsTitle: "How it works: four steps, reviewed by a human",
+      refTitle: "What a slot goes for",
+      refBody:
+        leadingBid > 0
+          ? `The card at the top was placed at ¥${leadingBid} for ${AD_DAYS} days. To appear first, bid above it; to simply be on the wall, any amount works — the order just follows the numbers.`
+          : "No bids on the wall right now, so any amount takes the top spot.",
+      refNote: "Bids are ranked, not published. Nobody sees what you paid except you and me.",
+      stepsTitle: "Four steps",
       steps: [
-        { t: "1 Pick a term", d: "One month or one quarter, starting on the 1st." },
-        { t: "2 Send assets", d: "Logo (SVG or 512px PNG), one line, one link, optional offer." },
-        { t: "3 Manual review", d: "I check it is relevant to developers and the link opens." },
-        { t: "4 Live + report", d: "Goes live the same day; impressions and clicks at month end." },
+        { t: "1 Write the email", d: "Use the template below — name, link, bid, dates." },
+        { t: "2 Get a reply", d: "Within 24 hours: slot confirmed, or a reason it can't run." },
+        { t: "3 Pay", d: "Bank transfer or Alipay. No contract, no auto-renewal." },
+        { t: "4 Go live", d: "Card and its own page go up the same day, 30 days on the clock." },
       ],
-      applyTitle: "Book a slot",
-      applyBody: `Email ${contact} with the tier you want and the month. Payment is a plain invoice (bank transfer or Alipay); no contract beyond “it runs for the term you paid for”.`,
-      applyListTitle: "What to send",
-      applyList: [
-        "Logo: SVG, or PNG at 512×512 with a transparent background",
-        "Name: under 20 characters, exactly as it should appear",
-        "One line: under 40 characters, describing what it does — not a slogan",
-        "Link: where the card should go",
-        "Optional: one offer code for SolHub readers",
+      tplTitle: "Email template",
+      tplNote: "Copy it, fill in the brackets, send. A complete email usually means one round trip instead of five.",
+      copyBtn: "Copy template",
+      copied: "Copied",
+      openBtn: "Open in mail app",
+      mailLabel: "Send to",
+      assetsTitle: "What the email needs",
+      assets: [
+        "Logo: PNG 512×512 with transparency, or SVG",
+        "Name: max 20 characters, exactly as it should appear on the card",
+        "One line: max 40 characters — describes what it is, not a slogan",
+        "Link: the page the card should send people to",
+        "Bid: a number in CNY per 30 days",
       ],
-      applyCta: "Email to book",
-      rulesTitle: "What I take, and what I don't",
+      rulesTitle: "What I accept",
       rulesYes: [
-        "Developer tools, infra, design and productivity software",
-        "Products that a reader can actually try — a working link is required",
-        "Open-source projects looking for sponsors, and co-branded offers",
+        "Products, services and tools a reader can actually open",
+        "Events, hiring posts, open-source projects looking for contributors",
+        "One-off launches that deserve a card for a month",
       ],
       rulesNo: [
-        "Gambling, lending, crypto speculation, “get rich” courses",
+        "Gambling, lending, crypto speculation, get-rich courses",
         "Anything that needs a download to “unlock” the product",
-        "SEO farms, link directories, content that is not a real product",
-        "Adult content, or anything that would embarrass a reader at work",
+        "SEO farms, link directories, pages that are not a real thing",
+        "Adult content, or anything a reader would not open at work",
       ],
-      rulesFoot: "A slot is never sold as an endorsement. Sponsorship does not buy a Verified mark, a ranking position, or a review.",
+      promiseTitle: "What a slot never buys",
+      promises: [
+        { t: "Ranking of products", d: "Paid cards never reorder the product or Skill lists." },
+        { t: "Verification", d: "A Verified mark is earned by a manual check, never by payment." },
+        { t: "Editorial", d: "No ghost-written reviews, no for-sale “editor's pick”." },
+      ],
       faqTitle: "Questions",
       faq: [
-        { q: "Can I pay with resources instead of money?", a: "For the community partner tier, yes — a discount code for readers, an open-source sponsorship, or a co-branded article. The headline and inline slots are paid only." },
-        { q: "What if I want to stop early?", a: "Tell me before the term ends and the slot comes down the same day; there is no refund for the remaining days, but you can move it to another month." },
-        { q: "Do you report numbers?", a: "Yes — impressions and clicks at the end of the term. Traffic figures before you buy are available on request as a screenshot from the analytics panel, rather than a number invented for this page." },
-        { q: "Will ads appear on every page?", a: "No. Three placements only: homepage hero, the 3rd slot in the lists, and the footer. Login, account, submission and admin pages never carry a sponsored card." },
+        { q: "Can I change the copy mid-term?", a: "Yes, once, free — email the new text and it goes up the same day. Logo swaps are fine too." },
+        { q: "Can I run less than 30 days?", a: "No. The term is fixed at 30 days so ranking stays simple and fair. You can ask to end early, but there is no pro-rata refund." },
+        { q: "What happens when it expires?", a: "The card and its page disappear from the wall automatically. Your page URL stops working — if you want it to keep living elsewhere, host it on your own domain." },
+        { q: "Can I renew?", a: "Yes, bid again. Renewals get no priority over new bids — the wall always sorts by amount, then by who came first." },
       ],
-      backHome: "Back to home",
+      backWall: "See the wall",
+      backHome: "Back home",
     }
   : {
       eyebrow: "赞助商入驻",
-      title: "把产品放进开发者正在看的地方",
-      lede: "不做弹窗、不插播、不重排内容。全站只有三处，放在人真的会读的位置，而且一律标注「赞助」。",
-      stats: [
-        { value: String(totalSkills), label: "条 Skill 索引，来源可点开核验" },
-        { value: String(seats), label: "个付费位，全站就这么多" },
-        { value: "100%", label: "人工审核，每条链接都点开过" },
+      title: "自由出价，墙自己会排",
+      lede: "没有套餐，也没有档位。你说一个数，卡片就按这个数和其他人的出价排队；展示 30 天，到点自动下架。",
+      facts: [
+        { v: `${AD_DAYS}`, l: "天展示，到期自动撤下" },
+        { v: "24h", l: "内回复，每个工作日都看邮件" },
+        { v: "1:1", l: "一张卡，一个可分享的独立页" },
       ],
-      ctaPrimary: "预订位置",
-      ctaSecondary: "看三档权益",
-      trafficNote: "读者规模：流量数字不在这页上编——发邮件给我，我把统计后台的截图发你。",
-      tiersTitle: "三档位置，价格公开",
-      tiersLede: "按月计价，首期一次付清。一张发票，不竞拍、不竞价。",
-      perMonth: "/ 月",
-      perksLabel: "包含什么",
-      book: "预订这一档",
-      samplesTitle: "赞助卡长什么样",
-      samplesLede: "下面三张就是三档的真实形态。前两张是虚构品牌（标了「示例」），第三张是站内已收录的真实产品。",
-      inlineNote: "真实投放时这张卡出现在列表第 3 位，高度与周围产品卡对齐。它带「赞助」标注，不改变自然排序，也不影响任何核验状态。",
-      recruitTitle: "首期开放，位置还在",
-      recruitLede: "目前还没有成交的赞助商，这一期的位置都还在，按标价，并在上线公告里带一次点名。",
-      sponsorsTitle: "当前赞助商",
-      sponsorsLede: "下面这些品牌正在付费展示。它们的卡片出现在哪里，哪里就带「赞助」标注。",
-      seatOpen: "虚位以待",
-      stepsTitle: "怎么买：四步，人工审核",
+      refTitle: "现在一个位置大概什么价",
+      refBody:
+        leadingBid > 0
+          ? `排在第一位的卡片出价是 ¥${leadingBid} / ${AD_DAYS} 天。想排在第一就报一个更高的数；只想上榜，多少都行——顺序只跟数字有关。`
+          : "现在榜上还没有出价，任何金额都能排第一。",
+      refNote: "出价只用于排序，不公开。除了你我，没人知道你付了多少。",
+      stepsTitle: "四步",
       steps: [
-        { t: "1 选档期", d: "一个月或一个季度，从 1 号起算。" },
-        { t: "2 发素材", d: "Logo（SVG 或 512px PNG）、一句话、一条链接、可选优惠。" },
-        { t: "3 人工审核", d: "我亲自看：是否与开发者相关，链接能不能打开。" },
-        { t: "4 上线 + 回执", d: "当天上线；月底给曝光与点击数据。" },
+        { t: "1 写邮件", d: "用下面的模板：名称、链接、出价、档期。" },
+        { t: "2 等回复", d: "24 小时内回复：确认位置，或者说明为什么不能上。" },
+        { t: "3 付款", d: "银行转账或支付宝。没有合同，不自动续费。" },
+        { t: "4 上线", d: "当天上线，卡片和独立页一起，30 天开始计时。" },
       ],
-      applyTitle: "预订位置",
-      applyBody: `发邮件到 ${contact}，写清要哪一档、哪个月。付款就是一张普通发票（银行转账或支付宝），除「按你付的档期展示」之外没有别的合同条款。`,
-      applyListTitle: "需要发这些",
-      applyList: [
-        "Logo：SVG，或 512×512 透明背景 PNG",
-        "名称：20 字以内，就是要显示的那几个字",
-        "一句话：40 字以内，说清它做什么，不要广告语",
-        "链接：卡片该点去哪里",
-        "可选：一条 SolHub 读者的专属优惠码",
+      tplTitle: "邮件模板",
+      tplNote: "复制、填空、发送。一封写全的邮件，通常一次就够，不用来回五趟。",
+      copyBtn: "复制模板",
+      copied: "已复制",
+      openBtn: "用邮件客户端打开",
+      mailLabel: "发到",
+      assetsTitle: "邮件里要带这些",
+      assets: [
+        "Logo：512×512 透明 PNG，或 SVG",
+        "名称：20 字以内，就是要显示在卡片上的那几个字",
+        "一句话：40 字以内，说清它是什么，不要广告语",
+        "链接：卡片该把人送到哪里",
+        "出价：人民币，按 30 天报一个数",
       ],
-      applyCta: "发邮件预订",
-      rulesTitle: "收什么，不收什么",
+      rulesTitle: "我接什么",
       rulesYes: [
-        "开发者工具、基础设施、设计与效率软件",
-        "读者能真的试用起来的产品——链接必须能打开",
-        "找赞助的开源项目、联名与联合优惠",
+        "读者能真的打开、真的用起来的产品与服务",
+        "活动、招聘、找贡献者的开源项目",
+        "一次性发布，值得挂一个月的那种",
       ],
       rulesNo: [
         "博彩、借贷、币圈投机、「教你暴富」类课程",
-        "要先下载才能「解锁」的产品",
-        "SEO 站群、链接目录、不是真产品的页面",
-        "成人内容，或任何让人在办公室打开会尴尬的东西",
+        "要先下载才能「解锁」所宣传内容的东西",
+        "SEO 站群、链接目录、背后不是真产品的页面",
+        "成人内容，或任何让人在办公室不敢点开的东西",
       ],
-      rulesFoot: "赞助位从不出售「背书」。买赞助不会得到 Verified 标记、不会改变排名，也不会换来一篇好评。",
+      promiseTitle: "赞助买不到什么",
+      promises: [
+        { t: "产品排名", d: "付费卡不会改变产品与 Skill 列表的排序。" },
+        { t: "核验标记", d: "Verified 只能靠人工核验拿到，付钱买不到。" },
+        { t: "编辑内容", d: "不代写评测，也没有可以出售的「编辑推荐」。" },
+      ],
       faqTitle: "常见问题",
       faq: [
-        { q: "可以用资源换，不付钱吗？", a: "社区伙伴这一档可以：读者折扣码、开源赞助、联名内容都行。头图位与列表位只收现金。" },
-        { q: "中途想停怎么办？", a: "档期结束前告诉我，位置当天就下；剩余天数不退，但可以挪到下个月用。" },
-        { q: "会给数据吗？", a: "会，期末给曝光与点击。购买前想看流量，我可以把统计后台的截图发给你——而不是在这个页面上编一个好看的数字。" },
-        { q: "广告到处都是吗？", a: "不是。全站只有三处：首页头图、列表第 3 位、页脚。登录、账号、提交、后台永远不放赞助卡。" },
+        { q: "中途能改文案吗？", a: "能，免费改一次：把新文案发我，当天替换。换 logo 也可以。" },
+        { q: "能只投一周吗？", a: "不行。档期固定 30 天，排序规则才简单公平。可以要求提前下架，但剩余天数不退。" },
+        { q: "到期之后会怎样？", a: "卡片和它的独立页自动从墙上消失，那个链接也就失效了。想让它长期存在，请自己域名上也放一份。" },
+        { q: "可以续吗？", a: "可以，重新出价即可。续期不插队——墙永远先按金额，再按谁先来。" },
       ],
+      backWall: "看看现在的墙",
       backHome: "回到首页",
     };
 ---
 
-<BaseLayout
-  title={en ? "Sponsorship" : "赞助商入驻"}
-  description={metaDesc}
-  route="/sponsors/join/"
-  locale={locale}
->
-  <!-- 首屏 -->
+<BaseLayout title={en ? "Sponsorship" : "赞助商入驻"} description={metaDesc} route="/sponsors/join/" locale={locale}>
   <section class="border-b border-border bg-secondary/30 py-9 sm:py-12">
     <div class="container-page">
       <p class="mb-3 font-mono text-[11px] font-semibold tracking-[0.22em] text-accent uppercase">
@@ -191,146 +210,39 @@ const copy = en
 
       <dl class="mt-6 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
         {
-          copy.stats.map((s) => (
+          copy.facts.map((f) => (
             <div class="rounded-[14px] border border-border bg-card px-4 py-3">
-              <dt class="font-display text-xl font-extrabold tracking-tight text-foreground">{s.value}</dt>
-              <dd class="mt-0.5 text-[11px] leading-4 text-muted-foreground">{s.label}</dd>
+              <dt class="font-display text-xl font-extrabold tracking-tight text-foreground">{f.v}</dt>
+              <dd class="mt-0.5 text-[11px] leading-4 text-muted-foreground">{f.l}</dd>
             </div>
           ))
         }
       </dl>
 
       <div class="mt-6 flex flex-wrap items-center gap-2">
-        <a href="#apply" class="btn btn-accent !h-10 px-5 text-sm">{copy.ctaPrimary}</a>
-        <a href="#tiers" class="btn btn-outline !h-10 px-5 text-sm">{copy.ctaSecondary}</a>
-        <a href={mailto(en ? "Ask" : "咨询")} class="text-[12px] text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground">
-          {contact}
-        </a>
-      </div>
-      <p class="mt-4 max-w-2xl text-[11px] leading-5 text-muted-foreground/80">{copy.trafficNote}</p>
-    </div>
-  </section>
-
-  <!-- 三档 -->
-  <section id="tiers" class="scroll-mt-20 py-9 sm:py-11">
-    <div class="container-page">
-      <h2 class="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">{copy.tiersTitle}</h2>
-      <p class="mt-2 max-w-2xl text-[13px] leading-6 text-muted-foreground">{copy.tiersLede}</p>
-
-      <div class="mt-6 grid gap-4 sm:grid-cols-3">
-        {
-          sponsorTiers.map((tier) => (
-            <div
-              class:list={[
-                "card relative flex flex-col p-5",
-                tier.featured && "ring-2 ring-accent/35",
-              ]}
-            >
-              {tier.featured && (
-                <span class="absolute -top-2.5 left-4 rounded-full bg-accent px-2.5 py-0.5 text-[10px] font-bold text-accent-foreground">
-                  {en ? "Most booked" : "最常买"}
-                </span>
-              )}
-              <h3 class="font-display text-[15px] font-bold tracking-tight text-foreground">
-                {en ? tier.name.en : tier.name.zh}
-              </h3>
-              <p class="mt-1 text-[12px] text-muted-foreground">{en ? tier.slot.en : tier.slot.zh}</p>
-
-              <p class="mt-4 flex items-baseline gap-1">
-                <span class="font-display text-2xl font-extrabold tracking-tight text-accent">¥{tier.price.toLocaleString("zh-CN")}</span>
-                <span class="text-[11px] text-muted-foreground">{copy.perMonth}</span>
-              </p>
-
-              <p class="mt-4 font-mono text-[10px] tracking-[0.14em] text-muted-foreground/70 uppercase">{copy.perksLabel}</p>
-              <ul class="mt-2 space-y-1.5">
-                {tier.perks.map((perk) => (
-                  <li class="flex items-start gap-2 text-[12px] leading-5 text-muted-foreground">
-                    <svg viewBox="0 0 24 24" class="mt-1 h-3 w-3 shrink-0 text-success" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="m5 13 4 4L19 7" />
-                    </svg>
-                    <span>{en ? perk.en : perk.zh}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <div class="mt-auto pt-4">
-                <p class="mb-2 text-[11px] text-muted-foreground/80">{en ? tier.seats.en : tier.seats.zh}</p>
-                <a href={mailto(en ? tier.name.en : tier.name.zh)} class:list={["btn !h-9 w-full text-xs", tier.featured ? "btn-accent" : "btn-outline"]}>
-                  {copy.book}
-                </a>
-              </div>
-            </div>
-          ))
-        }
+        <a href="#template" class="btn btn-accent !h-10 px-5 text-sm">{copy.tplTitle}</a>
+        <a href={mailto} class="btn btn-outline !h-10 px-5 text-sm">{copy.openBtn}</a>
+        <span class="font-mono text-[11px] text-muted-foreground">{mail}</span>
       </div>
     </div>
   </section>
 
-  <!-- 示例卡 -->
-  <section id="samples" class="scroll-mt-20 border-t border-border bg-secondary/20 py-9 sm:py-11">
+  <!-- 参考价 -->
+  <section class="py-8 sm:py-10">
     <div class="container-page">
-      <h2 class="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">{copy.samplesTitle}</h2>
-      <p class="mt-2 max-w-2xl text-[13px] leading-6 text-muted-foreground">{copy.samplesLede}</p>
-
-      <div class="mt-5 space-y-4">
-        {sample("headline") && <SponsorCard sponsor={sample("headline")!} variant="strip" locale={locale} />}
-
-        <div class="grid gap-4 lg:grid-cols-[minmax(0,320px)_1fr] lg:items-center">
-          {sample("inline") && <SponsorCard sponsor={sample("inline")!} variant="card" locale={locale} />}
-          <p class="rounded-[14px] border border-dashed border-border px-4 py-3 text-[12px] leading-6 text-muted-foreground">
-            {copy.inlineNote}
-          </p>
-        </div>
-
-        {sample("partner") && <SponsorCard sponsor={sample("partner")!} variant="bar" locale={locale} />}
+      <div class="rounded-[16px] border border-border border-l-2 border-l-accent bg-card px-5 py-4">
+        <p class="text-[13px] font-bold text-foreground">{copy.refTitle}</p>
+        <p class="mt-1.5 max-w-3xl text-[13px] leading-6 text-muted-foreground">{copy.refBody}</p>
+        <p class="mt-2 text-[11px] text-muted-foreground/80">{copy.refNote}</p>
       </div>
-    </div>
-  </section>
-
-  <!-- 招募 / 现有赞助商 -->
-  <section id="seats" class="scroll-mt-20 py-9 sm:py-11">
-    <div class="container-page">
-      <h2 class="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
-        {liveSponsors.length > 0 ? copy.sponsorsTitle : copy.recruitTitle}
-      </h2>
-      <p class="mt-2 max-w-2xl text-[13px] leading-6 text-muted-foreground">
-        {liveSponsors.length > 0 ? copy.sponsorsLede : copy.recruitLede}
-      </p>
-
-      {
-        liveSponsors.length > 0 ? (
-          <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {liveSponsors.map((s) => (
-              <SponsorCard sponsor={s} variant={tierOf(s.tier).cardVariant} locale={locale} />
-            ))}
-          </div>
-        ) : (
-          <div class="mt-6 grid gap-3 sm:grid-cols-3">
-            {sponsorTiers.map((tier) => (
-              <a
-                href={mailto(en ? tier.name.en : tier.name.zh)}
-                class="group flex items-center justify-between gap-2 rounded-[14px] border border-dashed border-border px-4 py-4 transition-colors hover:border-accent/50 hover:bg-accent/5"
-              >
-                <span class="min-w-0">
-                  <span class="block truncate text-[13px] font-semibold text-foreground">{en ? tier.name.en : tier.name.zh}</span>
-                  <span class="mt-0.5 block text-[11px] text-muted-foreground">¥{tier.price.toLocaleString("zh-CN")}{copy.perMonth}</span>
-                </span>
-                <span class="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground transition-colors group-hover:text-accent">
-                  {copy.seatOpen} →
-                </span>
-              </a>
-            ))}
-          </div>
-        )
-      }
     </div>
   </section>
 
   <!-- 四步 -->
   <section class="border-t border-border bg-secondary/20 py-9 sm:py-11">
     <div class="container-page">
-      <h2 class="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">{copy.stepsTitle}</h2>
-      <ol class="mt-5 grid gap-3 sm:grid-cols-4">
+      <h2 class="font-display text-lg font-extrabold tracking-tight text-foreground sm:text-xl">{copy.stepsTitle}</h2>
+      <ol class="mt-4 grid gap-3 sm:grid-cols-4">
         {
           copy.steps.map((step) => (
             <li class="rounded-[14px] border border-border bg-card p-4">
@@ -343,43 +255,71 @@ const copy = en
     </div>
   </section>
 
-  <!-- 预订 + 素材清单 -->
-  <section id="apply" class="scroll-mt-20 py-9 sm:py-11">
-    <div class="container-page grid gap-6 lg:grid-cols-[1.1fr_1fr] lg:items-start">
+  <!-- 邮件模板：这页最重要的部分 -->
+  <section id="template" class="scroll-mt-20 py-9 sm:py-11">
+    <div class="container-page grid gap-6 lg:grid-cols-[1.15fr_1fr] lg:items-start">
       <div>
-        <h2 class="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">{copy.applyTitle}</h2>
-        <p class="mt-3 text-[13px] leading-6 text-muted-foreground">{copy.applyBody}</p>
-        <a href={mailto(en ? "Booking" : "预订")} class="btn btn-accent mt-5 !h-10 px-5 text-sm">{copy.applyCta}</a>
-        <p class="mt-3 font-mono text-[11px] text-muted-foreground">{contact}</p>
+        <h2 class="font-display text-lg font-extrabold tracking-tight text-foreground sm:text-xl">{copy.tplTitle}</h2>
+        <p class="mt-2 max-w-xl text-[12px] leading-6 text-muted-foreground">{copy.tplNote}</p>
+
+        <div class="mt-4 overflow-hidden rounded-[16px] border border-border bg-card">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+            <p class="font-mono text-[11px] text-muted-foreground">
+              {copy.mailLabel}：<span class="text-foreground">{mail}</span>
+            </p>
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                id="copy-tpl"
+                data-copied={copy.copied}
+                data-label={copy.copyBtn}
+                class="btn btn-outline !h-8 px-3 text-[11px]"
+              >
+                {copy.copyBtn}
+              </button>
+              <a href={mailto} class="btn btn-accent !h-8 px-3 text-[11px]">{copy.openBtn}</a>
+            </div>
+          </div>
+          <pre
+            id="mail-template"
+            class="max-h-[420px] overflow-auto px-4 py-3.5 font-mono text-[11.5px] leading-6 whitespace-pre-wrap text-foreground/85"
+          >{`${en ? "Subject" : "主题"}：${subject}
+
+${body}`}</pre>
+        </div>
       </div>
-      <div class="card p-5">
-        <p class="text-[12px] font-bold text-foreground">{copy.applyListTitle}</p>
+
+      <div class="rounded-[16px] border border-border bg-card p-5">
+        <p class="text-[12px] font-bold text-foreground">{copy.assetsTitle}</p>
         <ul class="mt-3 space-y-2">
-          {copy.applyList.map((item) => (
+          {copy.assets.map((item) => (
             <li class="flex items-start gap-2 text-[12px] leading-6 text-muted-foreground">
               <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-accent" aria-hidden="true" />
               <span>{item}</span>
             </li>
           ))}
         </ul>
+        <p class="mt-4 border-t border-border pt-3 text-[11px] leading-5 text-muted-foreground/80">
+          {en
+            ? "One complete email is usually enough. Missing the bid or the link is what turns this into a five-day thread."
+            : "一封写全的邮件就够了。缺出价或缺链接，是来回拉扯几天的主要原因。"}
+        </p>
       </div>
     </div>
   </section>
 
-  <!-- 审核标准 -->
+  <!-- 审核 -->
   <section class="border-t border-border bg-secondary/20 py-9 sm:py-11">
     <div class="container-page">
-      <h2 class="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">{copy.rulesTitle}</h2>
-      <div class="mt-5 grid gap-4 sm:grid-cols-2 sm:items-start">
+      <h2 class="font-display text-lg font-extrabold tracking-tight text-foreground sm:text-xl">{copy.rulesTitle}</h2>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2 sm:items-start">
         <div class="card p-5">
           <p class="flex items-center gap-2 text-[13px] font-bold text-success">
             <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 13 4 4L19 7" /></svg>
             {en ? "Accepted" : "接受"}
           </p>
           <ul class="mt-3 space-y-2">
-            {copy.rulesYes.map((r) => (
-              <li class="text-[12px] leading-6 text-muted-foreground">· {r}</li>
-            ))}
+            {copy.rulesYes.map((r) => <li class="text-[12px] leading-6 text-muted-foreground">· {r}</li>)}
           </ul>
         </div>
         <div class="card p-5">
@@ -388,14 +328,25 @@ const copy = en
             {en ? "Refused" : "不接受"}
           </p>
           <ul class="mt-3 space-y-2">
-            {copy.rulesNo.map((r) => (
-              <li class="text-[12px] leading-6 text-muted-foreground">· {r}</li>
-            ))}
+            {copy.rulesNo.map((r) => <li class="text-[12px] leading-6 text-muted-foreground">· {r}</li>)}
           </ul>
         </div>
       </div>
-      <p class="mt-4 rounded-[14px] border border-border border-l-2 border-l-accent bg-card px-4 py-3 text-[12px] leading-6 text-muted-foreground">
-        {copy.rulesFoot}
+
+      <div class="mt-4 grid gap-3 sm:grid-cols-3">
+        {
+          copy.promises.map((promise) => (
+            <div class="rounded-[14px] border border-border bg-card p-4">
+              <p class="text-[12px] font-bold text-foreground">{promise.t}</p>
+              <p class="mt-1 text-[12px] leading-6 text-muted-foreground">{promise.d}</p>
+            </div>
+          ))
+        }
+      </div>
+      <p class="mt-3 text-[11px] leading-5 text-muted-foreground/80">
+        {en
+          ? "Every card is labelled “Sponsor” and “Ad”. Bids are ranked but not published."
+          : "每张卡片都同时标「赞助商」和「广告」；出价参与排序，但不对外公开。"}
       </p>
     </div>
   </section>
@@ -403,7 +354,7 @@ const copy = en
   <!-- FAQ -->
   <section class="py-9 sm:py-11">
     <div class="container-page max-w-3xl">
-      <h2 class="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">{copy.faqTitle}</h2>
+      <h2 class="font-display text-lg font-extrabold tracking-tight text-foreground sm:text-xl">{copy.faqTitle}</h2>
       <div class="mt-4 divide-y divide-border overflow-hidden rounded-[16px] border border-border bg-card">
         {
           copy.faq.map((item) => (
@@ -417,13 +368,38 @@ const copy = en
           ))
         }
       </div>
+
       <div class="mt-6 flex flex-wrap gap-2">
-        <a href={p("/sponsors/", locale)} class="btn btn-outline !h-9 px-4 text-xs">
-          {en ? "See current sponsors" : "看当前赞助商"}
-        </a>
+        <a href={wallHref} class="btn btn-accent !h-9 px-4 text-xs">{copy.backWall}</a>
         <a href={p("/", locale)} class="btn btn-outline !h-9 px-4 text-xs">{copy.backHome}</a>
         <a href={p("/about/", locale)} class="btn btn-outline !h-9 px-4 text-xs">{en ? "About SolHub" : "关于 SolHub"}</a>
       </div>
     </div>
   </section>
+
+  <script is:inline>
+    (() => {
+      const btn = document.getElementById("copy-tpl");
+      const pre = document.getElementById("mail-template");
+      if (!btn || !pre) return;
+      const label = btn.getAttribute("data-label") || "复制模板";
+      const copied = btn.getAttribute("data-copied") || "已复制";
+      btn.addEventListener("click", async () => {
+        const text = pre.textContent || "";
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          /* 老浏览器 / 非 HTTPS 兜底：选中后提示手动复制 */
+          const range = document.createRange();
+          range.selectNodeContents(pre);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+          return;
+        }
+        btn.textContent = copied;
+        setTimeout(() => { btn.textContent = label; }, 1800);
+      });
+    })();
+  </script>
 </BaseLayout>

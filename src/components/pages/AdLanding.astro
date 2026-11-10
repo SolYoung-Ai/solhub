@@ -1,0 +1,181 @@
+---
+/**
+ * 单条广告的独立页（/sponsors/<id>/）
+ *
+ * 存在的意义是「可分享」：把链接丢进群里，点开就是这条广告本身，
+ * 不夹带产品目录、不夹带别的广告。到期后由 getStaticPaths 直接不生成。
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { ADS, AD_DAYS, daysLeft, expiresAt, rankAds, type Ad } from "@/data/ads";
+import { p } from "@/lib/paths";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  ad: Ad;
+  locale?: Locale;
+}
+
+const { ad } = Astro.props;
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+
+/* 构建时的排名与剩余天数：静态页不需要实时，到期靠下次构建 + 墙上的前端兜底 */
+const ranked = rankAds(ADS);
+const rank = ranked.findIndex((item) => item.id === ad.id) + 1;
+const left = daysLeft(ad);
+const until = expiresAt(ad);
+const untilText = `${until.getFullYear()}-${String(until.getMonth() + 1).padStart(2, "0")}-${String(until.getDate()).padStart(2, "0")}`;
+
+const tagline = en ? ad.tagline.en : ad.tagline.zh;
+const body = en ? ad.body.en : ad.body.zh;
+
+const metaDesc = `${ad.name} — ${tagline}`;
+---
+
+<BaseLayout title={`${ad.name} · ${en ? "Sponsor" : "赞助商"}`} description={metaDesc} route={`/sponsors/${ad.id}/`} locale={locale}>
+  <section class="border-b border-border bg-secondary/30 py-6 sm:py-8">
+    <div class="container-page">
+      <a
+        href={p("/sponsors/", locale)}
+        class="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <span aria-hidden="true">←</span>
+        {en ? "All sponsored placements" : "全部赞助位"}
+      </a>
+    </div>
+  </section>
+
+  <section class="py-8 sm:py-11">
+    <div class="container-page hidden">
+      <div id="ad-expired" class="rounded-[16px] border border-border border-l-2 border-l-warning bg-card px-5 py-6">
+        <p class="text-[13px] font-bold text-foreground">
+          {en ? "This ad has ended" : "这条广告已经结束"}
+        </p>
+        <p class="mt-1.5 text-[12px] leading-6 text-muted-foreground">
+          {en
+            ? `It ran for ${AD_DAYS} days and came down on ${untilText}. Cards drop off automatically — nothing to cancel.`
+            : `它展示了 ${AD_DAYS} 天，已于 ${untilText} 自动下架。到期即撤，不需要任何人来取消。`}
+        </p>
+        <a href={p("/sponsors/", locale)} class="btn btn-outline mt-4 !h-9 px-4 text-xs">
+          {en ? "See what is live now" : "看看现在在展示的广告"} →
+        </a>
+      </div>
+    </div>
+
+    <div id="ad-live" class="container-page grid gap-8 lg:grid-cols-[1fr_300px] lg:items-start">
+      <article class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="rounded-full bg-[#d99a2b] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white">
+            {en ? "Sponsor" : "赞助商"}
+          </span>
+          <span class="rounded-full border border-border px-2.5 py-1 text-[10px] font-medium text-muted-foreground">
+            {en ? "Ad" : "广告"}
+          </span>
+          <span class="rounded-full border border-border bg-card px-2.5 py-1 text-[10px] text-muted-foreground">
+            {en ? ad.kind.en : ad.kind.zh}
+          </span>
+        </div>
+
+        <div class="mt-5 flex items-start gap-4">
+          <span
+            class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[18px] text-xl font-bold text-white sm:h-20 sm:w-20"
+            style={`background-color:${ad.accent}`}
+            aria-hidden="true"
+          >
+            {ad.icon ? <img src={p(ad.icon)} alt="" class="h-full w-full object-cover" /> : ad.initial}
+          </span>
+          <div class="min-w-0">
+            <h1 class="font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+              {ad.name}
+            </h1>
+            <p class="mt-1.5 text-[14px] leading-7 text-muted-foreground">{tagline}</p>
+          </div>
+        </div>
+
+        <p class="mt-6 max-w-3xl text-[14px] leading-8 text-foreground/85">{body}</p>
+
+        <div class="mt-7 flex flex-wrap items-center gap-3">
+          <a
+            href={ad.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-primary !h-11 px-6 text-sm"
+          >
+            {en ? "Visit site" : "访问官网"} ↗
+          </a>
+          <button
+            type="button"
+            id="copy-link"
+            data-label={en ? "Copy link" : "复制链接"}
+            data-copied={en ? "Copied" : "已复制"}
+            class="btn btn-outline !h-11 px-5 text-sm"
+          >
+            {en ? "Copy link" : "复制链接"}
+          </button>
+        </div>
+
+        <p class="mt-3 font-mono text-[11px] text-muted-foreground/80">{ad.displayUrl}</p>
+      </article>
+
+      <aside class="space-y-4">
+        <dl class="card divide-y divide-border p-5 text-sm">
+          <div class="flex items-center justify-between py-2">
+            <dt class="text-muted-foreground">{en ? "Position" : "当前排位"}</dt>
+            <dd class="font-display font-bold text-foreground">#{rank}</dd>
+          </div>
+          <div class="flex items-center justify-between py-2">
+            <dt class="text-muted-foreground">{en ? "Term" : "展示期"}</dt>
+            <dd class="font-medium text-foreground">{AD_DAYS} {en ? "days" : "天"}</dd>
+          </div>
+          <div class="flex items-center justify-between py-2">
+            <dt class="text-muted-foreground">{en ? "Days left" : "剩余"}</dt>
+            <dd class="font-medium text-foreground">{left} {en ? "days" : "天"}</dd>
+          </div>
+          <div class="flex items-center justify-between py-2">
+            <dt class="text-muted-foreground">{en ? "Ends" : "到期"}</dt>
+            <dd class="font-mono text-[12px] font-medium text-foreground">{untilText}</dd>
+          </div>
+        </dl>
+
+        <div class="card p-5">
+          <p class="text-[12px] leading-6 text-muted-foreground">
+            {en
+              ? "This card is a paid placement, positioned by bid and labelled as an ad. SolHub's editorial ranking of products and Skills is not affected."
+              : "这张卡是付费位置，按出价排序并标注为广告。它不影响 SolHub 对产品与 Skill 的编辑排序。"}
+          </p>
+          <a href={p("/sponsors/join/", locale)} class="btn btn-outline mt-3 w-full !h-9 text-xs">
+            {en ? "Put your ad here" : "我也要这个位置"}
+          </a>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <script is:inline define:vars={{ endsAt: until.toISOString() }}>
+    (() => {
+      /* 静态页不会自己消失，所以到期后由浏览器兜底「下架」：主内容收起，换成结束提示 */
+      if (Date.now() < new Date(endsAt).getTime()) return;
+      document.getElementById("ad-live")?.classList.add("hidden");
+      const box = document.getElementById("ad-expired");
+      if (box) box.parentElement?.classList.remove("hidden");
+    })();
+  </script>
+
+  <script is:inline>
+    (() => {
+      const btn = document.getElementById("copy-link");
+      if (!btn) return;
+      const label = btn.getAttribute("data-label") || "复制链接";
+      const copied = btn.getAttribute("data-copied") || "已复制";
+      btn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(window.location.href);
+          btn.textContent = copied;
+          setTimeout(() => { btn.textContent = label; }, 1800);
+        } catch {
+          btn.textContent = window.location.href;
+        }
+      });
+    })();
+  </script>
+</BaseLayout>
