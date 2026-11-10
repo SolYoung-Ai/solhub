@@ -22,23 +22,21 @@ const en = locale === "en";
 const builtAt = new Date().toISOString();
 
 const metaDesc = en
-  ? "Sponsors on SolHub: paid placements, all labelled as ads, separate from editorial picks."
-  : "SolHub 的赞助商：全部标注为广告，与编辑推荐分开，不影响产品与 Skill 的排序。";
+  ? "Sponsors on SolHub: paid placements, ordered by the amount sponsored. Product and Skill rankings are unchanged."
+  : "SolHub 的赞助商：按赞助金额排序，全部标注为广告；产品与 Skill 的排序规则不变。";
 
 const copy = en
   ? {
       eyebrow: "Advertising",
       title: "Sponsors",
-      lede: "These are sponsored placements on SolHub, and every one is labelled as an ad. They sit apart from our editorial picks — products and Skills are ranked by the same rules whether these cards are here or not.",
+      lede: "Sponsorship content on SolHub, ordered by the amount sponsored. The ranking rules for products and Skills stay exactly the same.",
       boardTitle: "Current sponsors",
-      note: "Each card is marked “Sponsor” and “Ad”. Open one to see it on its own page.",
     }
   : {
       eyebrow: "广告",
       title: "赞助商",
-      lede: "下面是 SolHub 上的赞助内容，每一条都标注了「广告」。它们和我们推荐的产品是两回事——不管有没有这些卡片，产品与 Skill 的排序规则都不变。",
+      lede: "下面是 SolHub 上的赞助内容，按照赞助金额排序，产品与 Skill 的排序规则都不变。",
       boardTitle: "当前赞助商",
-      note: "每张卡片都同时标了「赞助商」和「广告」，点开是它自己的页面。",
     };
 ---
 
@@ -57,10 +55,7 @@ const copy = en
 
   <section class="py-8 sm:py-10">
     <div class="container-page">
-      <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 class="font-display text-lg font-extrabold tracking-tight text-foreground sm:text-xl">{copy.boardTitle}</h2>
-        <p class="max-w-lg text-[11px] leading-5 text-muted-foreground">{copy.note}</p>
-      </div>
+      <h2 class="mb-4 font-display text-lg font-extrabold tracking-tight text-foreground sm:text-xl">{copy.boardTitle}</h2>
 
       <AdsBoard client:load ads={ADS} builtAt={builtAt} locale={locale} />
     </div>
