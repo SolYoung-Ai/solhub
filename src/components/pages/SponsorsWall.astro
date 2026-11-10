@@ -22,27 +22,27 @@ const en = locale === "en";
 const builtAt = new Date().toISOString();
 
 const metaDesc = en
-  ? "Paid placements on SolHub, clearly labelled as ads. They never affect how products and Skills are ranked."
-  : "SolHub 上的付费广告位，全部标注为广告；不影响产品与 Skill 的排序。";
+  ? "Sponsors on SolHub: paid placements, all labelled as ads, separate from editorial picks."
+  : "SolHub 的赞助商：全部标注为广告，与编辑推荐分开，不影响产品与 Skill 的排序。";
 
 const copy = en
   ? {
       eyebrow: "Advertising",
-      title: "The ads that keep SolHub free",
-      lede: "These are paid placements. They are labelled, ordered by how much was bid, and have nothing to do with our editorial picks — products and Skills are ranked exactly the same with or without them.",
-      boardTitle: "Current ads",
-      note: "Every card is marked “Sponsor” and “Ad”. Click one to see it on its own page.",
+      title: "Sponsors",
+      lede: "These are sponsored placements on SolHub, and every one is labelled as an ad. They sit apart from our editorial picks — products and Skills are ranked by the same rules whether these cards are here or not.",
+      boardTitle: "Current sponsors",
+      note: "Each card is marked “Sponsor” and “Ad”. Open one to see it on its own page.",
     }
   : {
       eyebrow: "广告",
-      title: "让 SolHub 保持免费的那些广告",
-      lede: "以下是付费广告位，全部标了「赞助商」和「广告」。它们与编辑推荐无关，也不会改变产品与 Skill 的排序——有没有这些广告，榜单都是同一套规则。",
-      boardTitle: "当前广告",
+      title: "赞助商",
+      lede: "下面是 SolHub 上的赞助内容，每一条都标注了「广告」。它们和我们推荐的产品是两回事——不管有没有这些卡片，产品与 Skill 的排序规则都不变。",
+      boardTitle: "当前赞助商",
       note: "每张卡片都同时标了「赞助商」和「广告」，点开是它自己的页面。",
     };
 ---
 
-<BaseLayout title={en ? "Ads" : "广告"} description={metaDesc} route="/sponsors/" locale={locale}>
+<BaseLayout title={en ? "Sponsors" : "赞助商"} description={metaDesc} route="/sponsors/" locale={locale}>
   <section class="border-b border-border bg-secondary/30 py-9 sm:py-12">
     <div class="container-page">
       <p class="mb-3 font-mono text-[11px] font-semibold tracking-[0.22em] text-accent uppercase">
