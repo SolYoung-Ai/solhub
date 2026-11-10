@@ -430,6 +430,21 @@ async function main() {
   console.log(
     `   热度：Top1=${items[0].heat}（${items[0].name} / ${items[0].stars}★）· Top100=${items[99]?.heat} · 榜尾=${items[items.length - 1].heat}${dropped > 0 ? ` · 按热度淘汰 ${dropped} 条` : ""}`,
   );
+
+  /* 快照是整体重写的，译文在 src/data/skills-zh.json 里另存。
+     这里立刻合并一次，避免重跑快照后页面忽然全变英文。 */
+  await runMergeZh();
+}
+
+async function runMergeZh() {
+  try {
+    const { execFileSync } = await import("node:child_process");
+    const script = path.join(ROOT, "scripts", "merge-skills-zh.mjs");
+    const out = execFileSync(process.execPath, [script], { encoding: "utf8" });
+    process.stdout.write(out.replace(/^/gm, "   "));
+  } catch (e) {
+    console.warn("⚠ 中文简介合并失败（不影响快照本身）：", e?.message ?? e);
+  }
 }
 
 main().catch((e) => {

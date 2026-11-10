@@ -59,6 +59,8 @@ export interface CatalogItem {
   id: string;
   name: string;
   description: string;
+  /** 中文简介：由 src/data/skills-zh.json 合并进来，缺失时回落到英文原文 */
+  descriptionZh?: string;
   repo: string;
   sourceLabel: string;
   sourceLabelEn: string;
@@ -118,6 +120,7 @@ export function catalogSearchEntries(items: CatalogItem[], locale: Locale): Sear
       it.path,
       it.sourceLabelEn,
       it.description,
+      it.descriptionZh ?? "",
       "SKILL.md",
       "skill",
       "agent",

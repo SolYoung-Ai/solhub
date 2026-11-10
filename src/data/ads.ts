@@ -39,8 +39,6 @@ export interface Ad {
   startsAt: string;
   /** logo 视觉微调：横版 logo 自带留白，需要放大才和方形图标差不多重 */
   logoZoom?: number;
-  /** logo 视觉微调：横版 logo 自带留白，需要放大才和方形图标差不多重 */
-  logoZoom?: number;
 }
 
 export const ADS: Ad[] = [

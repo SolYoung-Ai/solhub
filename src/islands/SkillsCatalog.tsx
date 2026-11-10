@@ -375,9 +375,12 @@ function CatalogCard({ item, en }: { item: CatalogItem; en: boolean }) {
         </span>
       </div>
 
-      {/* 描述为 SKILL.md frontmatter 原文，不翻译、不改写 */}
-      <p className="mt-2 line-clamp-2 min-w-0 text-[12px] leading-5 text-foreground/80">
-        {item.description}
+      {/* 中文站优先显示中文简介，缺译时回落英文原文；悬停可看英文原句 */}
+      <p
+        className="mt-2 line-clamp-2 min-w-0 text-[12px] leading-5 text-foreground/80"
+        title={!en && item.descriptionZh ? item.description : undefined}
+      >
+        {en ? item.description : item.descriptionZh || item.description}
       </p>
 
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
