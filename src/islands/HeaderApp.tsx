@@ -66,23 +66,23 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", no
     return () => window.removeEventListener("click", close);
   }, [userMenuOpen]);
 
-  /* 每个导航项一个彩色图标块：颜色只用来区分栏目，文字与背景仍是 SolHub 的
-     暖白 / 暖灰 / 品牌橙体系，所以整体观感不变，只是多了一层识别度。 */
+  /* 导航图标统一用「中性灰 → 橙色」这一套：不在每个栏目上挂一个彩色图标块。
+     六个不同的饱和色（蓝/橙/粉/金/青/紫）是之前整站最显眼的「彩色」来源，
+     和「白底 + 一个橙」的基调冲突；现在颜色只用来标记当前栏目，不承担装饰。 */
   const NAV: {
     label: string;
     path: string;
     icon: typeof Compass;
-    color: string;
     match: (r: string) => boolean;
     bottom?: boolean;
   }[] = [
-    { label: translate(dict, "nav.discover"), path: "/", icon: Compass, color: "#3b82f6", match: (r) => r === "/" },
-    { label: translate(dict, "nav.launches"), path: "/launches/", icon: Package, color: "#e87028", match: (r) => r.startsWith("/launches/") },
-    { label: translate(dict, "nav.skills"), path: "/skills/", icon: Sparkles, color: "#ec4899", match: (r) => r.startsWith("/skills/") },
+    { label: translate(dict, "nav.discover"), path: "/", icon: Compass, match: (r) => r === "/" },
+    { label: translate(dict, "nav.launches"), path: "/launches/", icon: Package, match: (r) => r.startsWith("/launches/") },
+    { label: translate(dict, "nav.skills"), path: "/skills/", icon: Sparkles, match: (r) => r.startsWith("/skills/") },
     /* 赞助位是现金入口，紧跟 Skill：这里卖的是注意力，不是产品目录的第二份 */
-    { label: translate(dict, "nav.sponsors"), path: "/sponsors/", icon: Megaphone, color: "#d99a2b", match: (r) => r.startsWith("/sponsors/") },
-    { label: translate(dict, "nav.world"), path: "/world/", icon: Users, color: "#14b8a6", match: (r) => r.startsWith("/world/") },
-    { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, color: "#8b5cf6", match: (r) => r.startsWith("/my-submissions/") },
+    { label: translate(dict, "nav.sponsors"), path: "/sponsors/", icon: Megaphone, match: (r) => r.startsWith("/sponsors/") },
+    { label: translate(dict, "nav.world"), path: "/world/", icon: Users, match: (r) => r.startsWith("/world/") },
+    { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, match: (r) => r.startsWith("/my-submissions/") },
   ];
 
   useEffect(() => {
@@ -180,13 +180,14 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", no
                 >
                   <span
                     className={cx(
-                      "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] transition-opacity",
-                      on ? "opacity-100 shadow-xs" : "opacity-80 group-hover:opacity-100",
+                      "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] transition-colors",
+                      on
+                        ? "bg-accent/12 text-accent"
+                        : "text-foreground/45 group-hover:text-foreground/70",
                     )}
-                    style={{ backgroundColor: item.color }}
                     aria-hidden="true"
                   >
-                    <Icon className="h-[15px] w-[15px] text-white" strokeWidth={2} />
+                    <Icon className="h-[16px] w-[16px]" strokeWidth={on ? 2.1 : 1.8} />
                   </span>
                   <span className={cx("side-label hidden min-w-0 truncate xl:block", on && "font-semibold")}>{item.label}</span>
                 </a>
@@ -203,10 +204,10 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", no
             className="side-row group flex items-center justify-center gap-2.5 rounded-[8px] border border-transparent px-2 py-[7px] text-[14px] text-foreground/60 transition-colors hover:bg-secondary/70 hover:text-foreground xl:justify-start"
           >
             <span
-              className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[#a8a29e] opacity-80 transition-opacity group-hover:opacity-100"
+              className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] text-foreground/45 transition-colors group-hover:text-foreground/70"
               aria-hidden="true"
             >
-              <Search className="h-[15px] w-[15px] text-white" strokeWidth={2} />
+              <Search className="h-[16px] w-[16px]" strokeWidth={1.8} />
             </span>
             <span className="side-label hidden min-w-0 truncate xl:block">{en ? "Search" : "搜索"}</span>
           </button>
@@ -344,9 +345,8 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", no
               aria-current={on ? "page" : undefined}
               className={cx(
                 "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] leading-none transition-colors",
-                on ? "font-semibold" : "text-muted-foreground",
+                on ? "font-semibold text-accent" : "text-muted-foreground",
               )}
-              style={on ? { color: item.color } : undefined}
             >
               <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={on ? 2.1 : 1.7} />
               <span className="truncate">{item.label}</span>
@@ -481,7 +481,7 @@ function ThemeButton({ en = false }: { en?: boolean }) {
     try { localStorage.setItem("solhub:theme", next ? "dark" : "light"); } catch {}
     /* 手机地址栏/状态栏跟着切，否则深色页面顶上会挂一条白条 */
     const tc = document.querySelector('meta[name="theme-color"]');
-    if (tc) tc.setAttribute("content", next ? "#0a0908" : "#efeef1");
+    if (tc) tc.setAttribute("content", next ? "#0a0908" : "#fbfaf9");
     window.setTimeout(() => root.classList.remove("theme-transition"), 350);
   };
   /* 两个图标同时渲染，由 html.dark 的 CSS 决定显隐：
@@ -593,7 +593,7 @@ function SearchDialog({
                   <span className="flex min-w-0 items-center gap-2">
                     <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
                     {r.kind === "skill" && (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#ec4899]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#db2777]">
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
                         <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
                         Skill
                       </span>

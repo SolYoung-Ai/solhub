@@ -312,8 +312,9 @@ function SkillCard({
       {/* 头部 */}
       <div className="flex min-w-0 items-start gap-3">
         <span
-          className="mt-0.5 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] text-[12px] font-bold text-white"
-          style={{ backgroundColor: cat?.color ?? "#a8a29e" }}
+          className={`mt-0.5 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] font-mono text-[12px] font-bold ${
+            rank <= 3 ? "bg-accent/12 text-accent" : "bg-secondary text-muted-foreground"
+          }`}
           aria-hidden="true"
         >
           {rank < 10 ? `0${rank}` : rank}
@@ -360,11 +361,8 @@ function SkillCard({
       {/* 分类 / 平台 / 标签 */}
       <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-          <span
-            className="h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{ backgroundColor: cat?.color ?? "#a8a29e" }}
-            aria-hidden="true"
-          />
+          {/* 分类只用文字，不再给每个分类配一个颜色：8 种高明度色点在 1000 张卡上
+              会变成一片彩色噪点，和「白底 + 一个橙」的基调冲突。 */}
           {en ? cat?.nameEn : cat?.name}
         </span>
         {item.tags.slice(0, 4).map((tag) => (

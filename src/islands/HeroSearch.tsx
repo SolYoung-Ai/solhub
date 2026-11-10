@@ -135,7 +135,7 @@ export default function HeroSearch({ locale = "zh" }: { locale?: Locale }) {
                     className={
                       "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] " +
                       (r.kind === "skill"
-                        ? "bg-[#ec4899]/10 text-[#db2777]"
+                        ? "bg-accent/10 text-accent"
                         : "bg-secondary text-muted-foreground")
                     }
                   >

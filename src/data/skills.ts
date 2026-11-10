@@ -26,18 +26,17 @@ export interface SkillCategoryDef {
   slug: SkillCategory;
   name: string;
   nameEn: string;
-  color: string;
 }
 
 export const skillCategories: SkillCategoryDef[] = [
-  { slug: "engineering", name: "开发工程", nameEn: "Engineering", color: "#3b82f6" },
-  { slug: "design", name: "设计创意", nameEn: "Design & Creative", color: "#ec4899" },
-  { slug: "docs", name: "文档办公", nameEn: "Documents", color: "#14b8a6" },
-  { slug: "writing", name: "内容写作", nameEn: "Writing", color: "#a855f7" },
-  { slug: "research", name: "数据科研", nameEn: "Research & Data", color: "#0ea5e9" },
-  { slug: "automation", name: "效率自动化", nameEn: "Automation", color: "#f59e0b" },
-  { slug: "growth", name: "营销增长", nameEn: "Growth", color: "#84cc16" },
-  { slug: "collections", name: "合集资源", nameEn: "Collections", color: "#8b5cf6" },
+  { slug: "engineering", name: "开发工程", nameEn: "Engineering" },
+  { slug: "design", name: "设计创意", nameEn: "Design & Creative" },
+  { slug: "docs", name: "文档办公", nameEn: "Documents" },
+  { slug: "writing", name: "内容写作", nameEn: "Writing" },
+  { slug: "research", name: "数据科研", nameEn: "Research & Data" },
+  { slug: "automation", name: "效率自动化", nameEn: "Automation" },
+  { slug: "growth", name: "营销增长", nameEn: "Growth" },
+  { slug: "collections", name: "合集资源", nameEn: "Collections" },
 ];
 
 export function skillCategoryName(slug: string, locale: "zh" | "en" = "zh"): string {

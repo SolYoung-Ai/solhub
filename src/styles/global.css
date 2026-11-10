@@ -3,25 +3,27 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ============================================================
-   SolHub Design Tokens — 继承 SolYoung Studio 品牌体系
-   参考 https://solyoung.top/studio/ 实际线上样式提取：
-   前景 #1b1a18 · 强调 #e87028（橙色签名色）
-   表面一律是「半透明 + 毛玻璃」（iOS Liquid Glass），不再用实色白卡片；
-   圆角走 iOS 档位（面板 18–26px，控件 10–14px），阴影偏大范围低透明度
+   SolHub Design Tokens — 白底 + 一个橙
+   配色只有两支：近白底（#fbfaf9）+ 低饱和橙（#d96a24）。
+   橙色只做「强调」：一个实心主按钮、少量标签与小图标，
+   不做大面积色块、不做彩光晕——所以页面读起来是白纸，不是晚霞。
+   表面走「半透明 + 毛玻璃」，但底下的色场也是单色暖光，
+   玻璃只透出一点点暖，不再有蓝/粉/薄荷的糖果感。
    ============================================================ */
 @theme {
   /* 液态玻璃：卡片不再是实色块，而是「半透明白 + 毛玻璃」。
      令牌直接写成带 alpha 的颜色，全站 170+ 处 bg-card / border-border
-     不需要逐个改 JSX，就一起变成玻璃面。 */
-  --color-background: #efeef1;
+     不需要逐个改 JSX，就一起变成玻璃面。
+     底色改成近白之后，卡片必须更白更实（0.82），否则白玻璃压在白底上会消失。 */
+  --color-background: #fbfaf9;
   --color-foreground: #1b1a18;
-  --color-card: rgb(255 255 255 / 0.44);
+  --color-card: rgb(255 255 255 / 0.82);
   --color-card-foreground: #1b1a18;
-  --color-secondary: rgb(120 120 128 / 0.14);
+  --color-secondary: rgb(120 118 112 / 0.10);
   --color-secondary-foreground: #1b1a18;
-  --color-muted: rgb(120 120 128 / 0.09);
+  --color-muted: rgb(120 118 112 / 0.07);
   --color-muted-foreground: #6f6b64;
-  --color-accent: #e87028;
+  --color-accent: #d96a24;
   --color-accent-foreground: #ffffff;
   --color-destructive: #e0245e;
   --color-destructive-foreground: #ffffff;
@@ -31,7 +33,7 @@
   --color-warning-foreground: #ffffff;
   --color-border: rgb(20 18 14 / 0.10);
   --color-border-strong: rgb(20 18 14 / 0.18);
-  --color-ring: #e87028;
+  --color-ring: #d96a24;
   --color-ink: #1b1a18;
 
   --font-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC",
@@ -154,27 +156,22 @@ html.dark {
   }
 }
 
-/* 页面底色：玻璃需要「有东西可透」才成立。
-   这里在 body 上铺一层固定的柔和色场（橙 / 蓝 / 粉 / 薄荷），
-   面板半透明 + 毛玻璃叠上去才有 iOS 那种光的层次；
-   不铺色场的话，白玻璃压在白底上会变成一块看不见的白斑。
-   attachment: fixed 让色场不随滚动移动，玻璃边缘不会「流」。 */
+/* 页面底色：以白为主，只在顶部拨一点几乎看不出的暖橙。
+   以前这里铺了橙 / 蓝 / 粉 / 薄荷四层色场，玻璃面板一叠上去整站偏「糖果」；
+   现在只剩一层单色暖光（alpha ≤ 0.035），玻璃仍能透出一层色差，
+   但读起来是白纸，不是晚霞。 */
 html:not(.dark) body {
   background-image:
-    radial-gradient(58% 62% at 22% -4%, rgb(255 132 66 / 0.40), transparent 66%),
-    radial-gradient(56% 60% at 88% 0%, rgb(92 136 255 / 0.36), transparent 68%),
-    radial-gradient(58% 58% at 82% 96%, rgb(255 112 170 / 0.26), transparent 70%),
-    radial-gradient(54% 56% at 14% 92%, rgb(58 202 190 / 0.24), transparent 70%),
-    radial-gradient(46% 30% at 50% 44%, rgb(255 255 255 / 0.42), transparent 76%);
+    radial-gradient(120% 58% at 50% -18%, rgb(217 106 36 / 0.035), transparent 72%),
+    radial-gradient(70% 42% at 100% 0%, rgb(217 106 36 / 0.012), transparent 64%);
   background-attachment: fixed;
   background-repeat: no-repeat;
 }
+/* 深色同样只留一层暖光：底部不再有紫/蓝/青的彩边 */
 html.dark body {
   background-image:
-    radial-gradient(58% 62% at 18% -6%, rgb(240 133 63 / 0.34), transparent 68%),
-    radial-gradient(56% 60% at 92% -2%, rgb(86 124 255 / 0.36), transparent 70%),
-    radial-gradient(58% 56% at 80% 98%, rgb(168 96 255 / 0.26), transparent 72%),
-    radial-gradient(54% 52% at 16% 96%, rgb(52 176 196 / 0.22), transparent 72%);
+    radial-gradient(120% 64% at 50% -18%, rgb(240 133 63 / 0.10), transparent 70%),
+    radial-gradient(70% 46% at 100% 0%, rgb(240 133 63 / 0.035), transparent 66%);
   background-attachment: fixed;
   background-repeat: no-repeat;
 }
@@ -215,15 +212,13 @@ html.dark body {
   z-index: 0;
   pointer-events: none;
   border-radius: inherit;
-  background-color: rgb(255 255 255 / 0.46);
+  background-color: rgb(255 255 255 / 0.7);
   background-image:
-    /* 斜向镜面高光 + 顶部弧光，让面板有「光的流动」而不是一块纯白 */
-    linear-gradient(135deg, rgb(255 255 255 / 0.85) 0%, rgb(255 255 255 / 0.20) 28%, transparent 56%),
-    radial-gradient(110% 46% at 42% -12%, rgb(255 255 255 / 0.75), transparent 72%),
-    radial-gradient(120% 55% at 100% -8%, rgb(138 168 255 / 0.10), transparent 62%),
-    /* 一点点橙，克制到几乎看不出；直观仍是白底 */
-    radial-gradient(90% 45% at 0% 100%, rgb(232 112 40 / 0.055), transparent 65%),
-    linear-gradient(180deg, transparent 58%, rgb(120 140 180 / 0.055) 100%);
+    /* 斜向镜面高光 + 顶部弧光，让面板有「光的流动」而不是一块纯白。
+       右下角保留一点点橙（alpha 0.045），克制到几乎看不出； */
+    linear-gradient(135deg, rgb(255 255 255 / 0.9) 0%, rgb(255 255 255 / 0.34) 30%, transparent 58%),
+    radial-gradient(110% 46% at 42% -12%, rgb(255 255 255 / 0.8), transparent 72%),
+    radial-gradient(90% 45% at 0% 100%, rgb(217 106 36 / 0.045), transparent 65%);
   backdrop-filter: blur(28px) saturate(180%);
 }
 /* 内容永远在玻璃层之上 */
@@ -251,8 +246,7 @@ html.dark .app-sidebar::before {
   background-image:
     linear-gradient(135deg, rgb(255 255 255 / 0.075) 0%, transparent 46%),
     radial-gradient(110% 46% at 42% -12%, rgb(255 255 255 / 0.06), transparent 72%),
-    radial-gradient(120% 55% at 100% -8%, rgb(120 150 255 / 0.07), transparent 62%),
-    radial-gradient(90% 45% at 0% 100%, rgb(240 133 63 / 0.035), transparent 65%);
+    radial-gradient(90% 45% at 0% 100%, rgb(240 133 63 / 0.045), transparent 65%);
 }
 
 /* 玻璃面板上的选中项：白底灰填充 + 发丝边，深色沿用原暖灰 */
@@ -277,12 +271,9 @@ html.dark .app-sidebar .side-row[aria-current="page"] {
      否则 logo 会顶进状态栏；普通浏览器里 env() 为 0，样式不变。 */
   height: calc(52px + env(safe-area-inset-top, 0px));
   padding-top: env(safe-area-inset-top, 0px);
-  background-color: rgb(255 255 255 / 0.76);
-  background-image: radial-gradient(
-    120% 160% at 100% -60%,
-    rgb(138 168 255 / 0.08),
-    transparent 62%
-  );
+  background-color: rgb(255 255 255 / 0.82);
+  /* 顶栏不再带蓝色反光，只留一层自上而下的白色高光 */
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.45) 0%, transparent 70%);
   border-bottom: 1px solid rgb(15 15 20 / 0.07);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.9),
@@ -310,12 +301,8 @@ html.dark .guide-wrong-border { border-color: rgb(240 149 149 / 0.45); }
 html.dark .app-topbar {
   --color-border: rgb(255 255 255 / 0.12);
 
-  background-color: rgb(21 19 17 / 0.78);
-  background-image: radial-gradient(
-    120% 160% at 100% -60%,
-    rgb(120 150 255 / 0.07),
-    transparent 62%
-  );
+  background-color: rgb(21 19 17 / 0.82);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.05) 0%, transparent 70%);
   border-bottom-color: rgb(255 255 255 / 0.09);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.05),
@@ -330,10 +317,8 @@ html.dark .app-topbar {
   padding: 5px 6px;
   border: 1px solid rgb(15 15 20 / 0.08);
   border-radius: 22px;
-  background-color: rgb(255 255 255 / 0.78);
-  background-image:
-    radial-gradient(120% 140% at 50% -60%, rgb(138 168 255 / 0.07), transparent 66%),
-    linear-gradient(180deg, rgb(255 255 255 / 0.30) 0%, transparent 46%);
+  background-color: rgb(255 255 255 / 0.84);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.42) 0%, transparent 52%);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.95),
     0 2px 6px rgb(16 18 22 / 0.05),
@@ -355,10 +340,8 @@ html.dark .app-topbar {
 }
 html.dark .app-tabbar {
   border-color: rgb(255 255 255 / 0.11);
-  background-color: rgb(26 23 21 / 0.82);
-  background-image:
-    radial-gradient(120% 140% at 50% -60%, rgb(120 150 255 / 0.06), transparent 66%),
-    linear-gradient(180deg, rgb(255 255 255 / 0.06) 0%, transparent 46%);
+  background-color: rgb(26 23 21 / 0.86);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.06) 0%, transparent 52%);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.08),
     0 2px 8px rgb(0 0 0 / 0.4),
@@ -489,7 +472,7 @@ html.viewport-mobile .app-tabbar {
     font-feature-settings: "ss01" on;
   }
   ::selection {
-    background: rgb(232 112 40 / 0.22);
+    background: rgb(217 106 36 / 0.18);
   }
   /* 焦点环跟随元素自身的圆角（不再统一压成 2px 直角，
      否则在胶囊按钮、玻璃卡片上会出现一圈方框） */
@@ -541,11 +524,13 @@ html.viewport-mobile .app-tabbar {
       inset 0 1px 0 rgb(255 255 255 / 0.22),
       0 6px 16px -10px rgb(20 18 14 / 0.55);
   }
+  /* 主按钮的落影用中性灰，不用橙色辉光：橙色只出现在按钮本身，
+     不往周围洇开一圈彩色光圈（以前那种光晕是最显眼的「彩色」来源之一）。 */
   .btn-accent {
     @apply bg-accent text-accent-foreground hover:brightness-95 active:translate-y-px;
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.35),
-      0 8px 20px -10px rgb(232 112 40 / 0.65);
+      inset 0 1px 0 rgb(255 255 255 / 0.26),
+      0 6px 16px -10px rgb(20 18 14 / 0.42);
   }
   /* 次级 / 幽灵按钮：半透明玻璃胶囊，不再用实色底 */
   .btn-outline {
@@ -616,11 +601,11 @@ html.viewport-mobile .app-tabbar {
     transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
   }
   .input:focus {
-    border-color: rgb(232 112 40 / 0.55);
-    background-color: rgb(255 255 255 / 0.72);
+    border-color: rgb(217 106 36 / 0.5);
+    background-color: rgb(255 255 255 / 0.9);
     box-shadow:
       inset 0 1px 2px rgb(20 18 14 / 0.05),
-      0 0 0 4px rgb(232 112 40 / 0.16);
+      0 0 0 4px rgb(217 106 36 / 0.13);
   }
   html.dark .input {
     background-color: rgb(255 255 255 / 0.06);

@@ -385,7 +385,6 @@ function CatalogCard({ item, en }: { item: CatalogItem; en: boolean }) {
 
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: cat?.color ?? "#a8a29e" }} aria-hidden="true" />
           {en ? cat?.nameEn : cat?.name}
         </span>
         {item.topics.slice(0, 3).map((tag) => (
