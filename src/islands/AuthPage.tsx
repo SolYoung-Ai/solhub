@@ -142,7 +142,9 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
             {en ? "SolHub Account" : "SolHub 账号"}
           </p>
-          <h1 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+          {/* text-balance：这行中文在 1440 宽下会把「一切」拆成 一 / 切 两行，
+              末尾落一个孤字；balance 让两行长度接近，看着才不别扭 */}
+          <h1 className="mt-2 text-balance font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
             {en ? "One account, everything managed" : "一个账号，管理你在 SolHub 的一切"}
           </h1>
           <ul className="mt-6 space-y-5">
