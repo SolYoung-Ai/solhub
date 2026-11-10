@@ -3,23 +3,19 @@ import type { Ad } from "@/data/ads";
 import type { Locale } from "@/i18n";
 
 /**
- * 广告卡（赞助位）。
- * 整卡是指向独立页 /sponsors/<id>/ 的链接，所以里面不能再放 <a>，
- * 「查看详情」用 span 模拟按钮，避免嵌套链接。
+ * 广告卡（访客视角）。
+ * 只呈现：这是广告、这是谁、一句话、去哪看。
+ * 排名、剩余天数、出价这些运营信息属于广告主，不放在访客面前。
  *
- * 「赞助商」和「广告」两个标识必须同时出现且一眼可见——《广告法》要求广告可识别，
- * 也是这个页面能长期存在的前提。
+ * 整卡指向独立页 /sponsors/<id>/，所以内部不能再放 <a>，
+ * 「查看」用 span 模拟按钮。
  */
 export default function AdCard({
   ad,
-  rank,
-  days,
   locale = "zh",
   size = "grid",
 }: {
   ad: Ad;
-  rank: number;
-  days: number;
   locale?: Locale;
   size?: "hero" | "grid";
 }) {
@@ -36,7 +32,7 @@ export default function AdCard({
         "card group relative block overflow-hidden transition-transform duration-200 hover:-translate-y-0.5",
         hero ? "p-5 sm:p-7" : "p-5",
       ].join(" ")}
-      aria-label={`${en ? "Sponsored" : "赞助商"}：${ad.name}`}
+      aria-label={`${en ? "Ad" : "广告"}：${ad.name}`}
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-[#d99a2b] px-2 py-0.5 text-[10px] font-bold tracking-wide text-white">
@@ -44,10 +40,6 @@ export default function AdCard({
         </span>
         <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
           {en ? "Ad" : "广告"}
-        </span>
-        <span className="font-mono text-[10px] text-muted-foreground/80">#{rank}</span>
-        <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
-          {en ? `${days} days left` : `剩余 ${days} 天`}
         </span>
       </div>
 
@@ -96,7 +88,7 @@ export default function AdCard({
             hero ? "btn-accent !h-9 px-4 text-xs" : "btn-outline !h-8 px-3 text-[11px]",
           ].join(" ")}
         >
-          {en ? "Details" : "查看详情"} →
+          {en ? "Open" : "查看"} →
         </span>
       </div>
     </a>

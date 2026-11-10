@@ -410,7 +410,7 @@ function UserMenuItems({
         onClick={onNavigate}
         className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
       >
-        <Megaphone className="h-3.5 w-3.5" /> {translate(getDict(locale), "nav.sponsors")}
+        <Megaphone className="h-3.5 w-3.5" /> {en ? "Sponsorship" : "赞助合作"}
       </a>
       {user.isAdmin && (
         <a

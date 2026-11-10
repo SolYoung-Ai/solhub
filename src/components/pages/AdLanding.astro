@@ -6,7 +6,7 @@
  * 不夹带产品目录、不夹带别的广告。到期后由 getStaticPaths 直接不生成。
  */
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import { ADS, AD_DAYS, daysLeft, expiresAt, rankAds, type Ad } from "@/data/ads";
+import { AD_DAYS, expiresAt, type Ad } from "@/data/ads";
 import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 
@@ -19,10 +19,7 @@ const { ad } = Astro.props;
 const locale = Astro.props.locale ?? "zh";
 const en = locale === "en";
 
-/* 构建时的排名与剩余天数：静态页不需要实时，到期靠下次构建 + 墙上的前端兜底 */
-const ranked = rankAds(ADS);
-const rank = ranked.findIndex((item) => item.id === ad.id) + 1;
-const left = daysLeft(ad);
+/* 访客页不展示排位与剩余天数，只保留到期时间用于「已结束」兜底 */
 const until = expiresAt(ad);
 const untilText = `${until.getFullYear()}-${String(until.getMonth() + 1).padStart(2, "0")}-${String(until.getDate()).padStart(2, "0")}`;
 
@@ -62,7 +59,7 @@ const metaDesc = `${ad.name} — ${tagline}`;
       </div>
     </div>
 
-    <div id="ad-live" class="container-page grid gap-8 lg:grid-cols-[1fr_300px] lg:items-start">
+    <div id="ad-live" class="container-page max-w-3xl">
       <article class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">
           <span class="rounded-full bg-[#d99a2b] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white">
@@ -117,37 +114,11 @@ const metaDesc = `${ad.name} — ${tagline}`;
         <p class="mt-3 font-mono text-[11px] text-muted-foreground/80">{ad.displayUrl}</p>
       </article>
 
-      <aside class="space-y-4">
-        <dl class="card divide-y divide-border p-5 text-sm">
-          <div class="flex items-center justify-between py-2">
-            <dt class="text-muted-foreground">{en ? "Position" : "当前排位"}</dt>
-            <dd class="font-display font-bold text-foreground">#{rank}</dd>
-          </div>
-          <div class="flex items-center justify-between py-2">
-            <dt class="text-muted-foreground">{en ? "Term" : "展示期"}</dt>
-            <dd class="font-medium text-foreground">{AD_DAYS} {en ? "days" : "天"}</dd>
-          </div>
-          <div class="flex items-center justify-between py-2">
-            <dt class="text-muted-foreground">{en ? "Days left" : "剩余"}</dt>
-            <dd class="font-medium text-foreground">{left} {en ? "days" : "天"}</dd>
-          </div>
-          <div class="flex items-center justify-between py-2">
-            <dt class="text-muted-foreground">{en ? "Ends" : "到期"}</dt>
-            <dd class="font-mono text-[12px] font-medium text-foreground">{untilText}</dd>
-          </div>
-        </dl>
-
-        <div class="card p-5">
-          <p class="text-[12px] leading-6 text-muted-foreground">
-            {en
-              ? "This card is a paid placement, positioned by bid and labelled as an ad. SolHub's editorial ranking of products and Skills is not affected."
-              : "这张卡是付费位置，按出价排序并标注为广告。它不影响 SolHub 对产品与 Skill 的编辑排序。"}
-          </p>
-          <a href={p("/sponsors/join/", locale)} class="btn btn-outline mt-3 w-full !h-9 text-xs">
-            {en ? "Put your ad here" : "我也要这个位置"}
-          </a>
-        </div>
-      </aside>
+      <p class="mt-8 rounded-[14px] border border-border bg-card px-4 py-3 text-[12px] leading-6 text-muted-foreground">
+        {en
+          ? "This is a paid placement, labelled as an ad. It does not affect SolHub's editorial ranking of products and Skills."
+          : "这是一条付费广告，已标注为广告。它不影响 SolHub 对产品与 Skill 的编辑排序。"}
+      </p>
     </div>
   </section>
 

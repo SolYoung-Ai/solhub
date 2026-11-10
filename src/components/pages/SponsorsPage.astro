@@ -8,7 +8,7 @@
  */
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { siteConfig } from "@/data/site";
-import { ADS, AD_DAYS, floorPrice, rankAds } from "@/data/ads";
+import { ADS, AD_DAYS, floorPrice } from "@/data/ads";
 import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 
@@ -23,7 +23,6 @@ const wallHref = p("/sponsors/", locale);
 
 const builtAt = new Date().toISOString();
 const leadingBid = floorPrice(ADS, new Date(builtAt));
-const liveCount = rankAds(ADS, new Date(builtAt)).length;
 
 const subject = en ? "Sponsor SolHub · <your name>" : "赞助 SolHub · <你的名称>";
 const body = en
@@ -68,7 +67,7 @@ const metaDesc = en
 
 const copy = en
   ? {
-      eyebrow: "Become a sponsor",
+      eyebrow: "Sponsorship",
       title: "Bid any amount. The wall sorts itself.",
       lede: "No packages, no tiers. You name a number, the card is ranked against everyone else's bid. It stays up for 30 days and then drops off on its own.",
       facts: [
@@ -82,6 +81,12 @@ const copy = en
           ? `The card at the top was placed at ¥${leadingBid} for ${AD_DAYS} days. To appear first, bid above it; to simply be on the wall, any amount works — the order just follows the numbers.`
           : "No bids on the wall right now, so any amount takes the top spot.",
       refNote: "Bids are ranked, not published. Nobody sees what you paid except you and me.",
+      howTitle: "Three rules, nothing else",
+      how: [
+        { t: "Bid, don't pick a tier", d: "No price table. You name a number, and the card is ranked against everyone else's." },
+        { t: "30 days, automatic", d: "It goes up the day payment clears and comes down on day 30. No auto-renewal, nothing to remember to cancel." },
+        { t: "One card, one page", d: "Every ad gets its own page you can share, so a link in a group chat opens straight into it." },
+      ],
       stepsTitle: "Four steps",
       steps: [
         { t: "1 Write the email", d: "Use the template below — name, link, bid, dates." },
@@ -132,7 +137,7 @@ const copy = en
       backHome: "Back home",
     }
   : {
-      eyebrow: "赞助商入驻",
+      eyebrow: "赞助合作",
       title: "自由出价，墙自己会排",
       lede: "没有套餐，也没有档位。你说一个数，卡片就按这个数和其他人的出价排队；展示 30 天，到点自动下架。",
       facts: [
@@ -146,6 +151,12 @@ const copy = en
           ? `排在第一位的卡片出价是 ¥${leadingBid} / ${AD_DAYS} 天。想排在第一就报一个更高的数；只想上榜，多少都行——顺序只跟数字有关。`
           : "现在榜上还没有出价，任何金额都能排第一。",
       refNote: "出价只用于排序，不公开。除了你我，没人知道你付了多少。",
+      howTitle: "规则只有三条",
+      how: [
+        { t: "出价，不选套餐", d: "没有档位表。你说一个数，卡片就按这个数和其他人的出价排队。" },
+        { t: "30 天，自动下架", d: "付款到账当天上线，第 30 天自动撤下。没有自动续费，也不用你记得来取消。" },
+        { t: "一张卡，一个独立页", d: "每条广告都有自己的页面，可以直接分享，丢进群里点开就是它。" },
+      ],
       stepsTitle: "四步",
       steps: [
         { t: "1 写邮件", d: "用下面的模板：名称、链接、出价、档期。" },
@@ -197,7 +208,7 @@ const copy = en
     };
 ---
 
-<BaseLayout title={en ? "Sponsorship" : "赞助商入驻"} description={metaDesc} route="/sponsors/join/" locale={locale}>
+<BaseLayout title={en ? "Sponsorship" : "赞助合作"} description={metaDesc} route="/sponsors/join/" locale={locale}>
   <section class="border-b border-border bg-secondary/30 py-9 sm:py-12">
     <div class="container-page">
       <p class="mb-3 font-mono text-[11px] font-semibold tracking-[0.22em] text-accent uppercase">
@@ -238,10 +249,23 @@ const copy = en
     </div>
   </section>
 
-  <!-- 四步 -->
+  <!-- 规则 + 四步：原来放在访客页，那里不该出现，搬到这里 -->
   <section class="border-t border-border bg-secondary/20 py-9 sm:py-11">
     <div class="container-page">
-      <h2 class="font-display text-lg font-extrabold tracking-tight text-foreground sm:text-xl">{copy.stepsTitle}</h2>
+      <h2 class="font-display text-lg font-extrabold tracking-tight text-foreground sm:text-xl">{copy.howTitle}</h2>
+      <div class="mt-4 grid gap-3 sm:grid-cols-3">
+        {
+          copy.how.map((rule, i) => (
+            <div class="rounded-[14px] border border-border bg-card p-4">
+              <p class="font-mono text-[10px] tracking-[0.16em] text-muted-foreground/70">0{i + 1}</p>
+              <p class="mt-1.5 text-[13px] font-bold text-foreground">{rule.t}</p>
+              <p class="mt-1 text-[12px] leading-6 text-muted-foreground">{rule.d}</p>
+            </div>
+          ))
+        }
+      </div>
+
+      <h2 class="mt-8 font-display text-lg font-extrabold tracking-tight text-foreground sm:text-xl">{copy.stepsTitle}</h2>
       <ol class="mt-4 grid gap-3 sm:grid-cols-4">
         {
           copy.steps.map((step) => (
