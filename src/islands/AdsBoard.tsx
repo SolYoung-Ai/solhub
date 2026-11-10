@@ -114,9 +114,9 @@ export default function AdsBoard({
         </div>
       ) : (
         <div className="mt-5 space-y-4">
-          {results.map((ad, i) => (
+          {results.map((ad) => (
             <div key={ad.id}>
-              <AdCard ad={ad} locale={locale} size={i === 0 && !q ? "hero" : "grid"} />
+              <AdCard ad={ad} locale={locale} />
             </div>
           ))}
         </div>

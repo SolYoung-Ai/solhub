@@ -12,6 +12,9 @@
 
 export const AD_DAYS = 30;
 
+/** 最低出价（元 / 30 天）：低于这个数不接，也是入驻页唯一的价目信息 */
+export const MIN_BID = 10;
+
 export interface Ad {
   /** 独立页面路径用：/sponsors/<id>/ */
   id: string;
@@ -66,15 +69,16 @@ export const ADS: Ad[] = [
       en: "A desktop AI assistant that reads your files and runs commands",
     },
     body: {
-      zh: "WorkBuddy 是一个跑在电脑上的 AI 工作台：它不只是陪你聊天，而是真的动手——读写本地文件、运行命令、做网页、生成文档表格与演示文稿。把「帮我把这件事做完」变成做完，适合独立开发者把重复劳动整块交出去。点下面的按钮进官方活动页，新用户可以参加站内的邀请活动。",
-      en: "WorkBuddy is an AI workbench that runs on your computer. It doesn't just chat — it reads and writes local files, runs commands, builds pages, and produces docs, sheets and slides. “Please just get this done” turns into done, which is what indie developers want for the repetitive half of the work. The button below opens the official events page, where new users can join the current invite programme.",
+      zh: "WorkBuddy 是一个跑在电脑上的 AI 工作台。它不只是陪你聊天：能直接读写本地文件、运行命令、搭网页、生成文档表格与演示文稿，还有 100+ 个领域专家可切换。把「帮我把这件事做完」变成做完——适合独立开发者把重复劳动整块交出去，也适合一个人顶一个小团队。点下面的按钮进官方活动页，新用户可参加站内邀请活动。",
+      en: "WorkBuddy is an AI workbench that runs on your computer. It doesn't just chat: it reads and writes local files, runs commands, builds pages, and produces docs, sheets and slides — with 100+ specialist roles you can switch between. “Please just get this done” turns into done, which is what indie developers want for the repetitive half of the work. The button opens the official events page, where new users can join the current invite programme.",
     },
     displayUrl: "workbuddy.cn",
     url: "https://www.workbuddy.cn/events/invite?inviteCode=sh60knrnbbfzs",
+    icon: "/icons/workbuddy.svg",
     initial: "W",
     accent: "#2563eb",
     kind: { zh: "AI 助手", en: "AI assistant" },
-    keywords: ["workbuddy", "work buddy", "ai", "ai助手", "助手", "智能体", "agent", "桌面", "办公", "效率", "文档", "表格", "ppt", "自动化", "coding"],
+    keywords: ["workbuddy", "work buddy", "ai", "ai助手", "助手", "智能体", "agent", "桌面", "办公", "效率", "文档", "表格", "ppt", "自动化", "coding", "专家"],
     amount: 10,
     startsAt: "2026-11-10T00:00:00+08:00",
   },
