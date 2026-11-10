@@ -37,6 +37,10 @@ export interface Ad {
   amount: number;
   /** 起投日 ISO（含时区），+30 天即到期 */
   startsAt: string;
+  /** logo 视觉微调：横版 logo 自带留白，需要放大才和方形图标差不多重 */
+  logoZoom?: number;
+  /** logo 视觉微调：横版 logo 自带留白，需要放大才和方形图标差不多重 */
+  logoZoom?: number;
 }
 
 export const ADS: Ad[] = [
@@ -54,6 +58,7 @@ export const ADS: Ad[] = [
     displayUrl: "luna.solyoung.top",
     url: "https://luna.solyoung.top",
     icon: "/icons/lunasol.png",
+    logoZoom: 1.3,
     initial: "L",
     accent: "#e87028",
     kind: { zh: "产品", en: "Product" },

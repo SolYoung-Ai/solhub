@@ -33,13 +33,23 @@ export default function AdCard({ ad, locale = "zh" }: { ad: Ad; locale?: Locale 
       </div>
 
       <div className="mt-4 flex items-start gap-4">
+        {/* 统一的方形底板：横版 logo 与圆形 logo 放进同一尺寸的框里才协调，
+            白底 + 内边距让「扁图形」和「圆图形」的视觉重量接近 */}
         <span
-          className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[18px] text-xl font-bold text-white sm:h-[72px] sm:w-[72px]"
-          style={{ backgroundColor: ad.icon ? "transparent" : ad.accent }}
+          className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[16px] border border-border text-xl font-bold text-white sm:h-[72px] sm:w-[72px]"
+          style={{
+            backgroundColor: ad.icon ? "#ffffff" : ad.accent,
+            padding: ad.icon ? "10px" : 0,
+          }}
           aria-hidden="true"
         >
           {ad.icon ? (
-            <img src={p(ad.icon)} alt="" className="h-full w-full object-contain" />
+            <img
+              src={p(ad.icon)}
+              alt=""
+              className="h-full w-full object-contain"
+              style={{ transform: `scale(${ad.logoZoom ?? 1})` }}
+            />
           ) : (
             ad.initial
           )}
