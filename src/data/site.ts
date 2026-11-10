@@ -5,11 +5,11 @@
 /**
  * 站长的唯一收信地址。
  *
- * 只在这里写一次：以前提交表单写 soyoang@、赞助页写 soyouang@，
- * 少一个字母的那个地址是收不到信的（投稿会静默丢失），
- * 所以全部改成引用同一个常量，改地址只需要改这一行。
+ * 只在这里写一次：站内所有需要收信的入口（投稿、赞助、联系）都引用这个常量，
+ * 改地址只需要改这一行。地址写错会导致邮件静默退回、投稿等于丢失，
+ * 所以不要在任何组件里手写邮箱字符串。
  */
-export const ADMIN_EMAIL = "soyouang@outlook.com";
+export const ADMIN_EMAIL = "soyoang@outlook.com";
 
 export const siteConfig = {
   name: "SolHub",
