@@ -85,7 +85,7 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
         },
         {
           title: "Pick one and copy its link",
-          body: "Scroll down to the Skill index (or search pdf, ppt, frontend), then click “Copy link” on any card. That copies the direct link to its SKILL.md — the link itself is the whole installer. Click “View SKILL.md” first if you want to read it.",
+          body: "Pick a Skill from the curated list above and copy its install command (npx skills add …) for your AI assistant. For more, scroll to “Sources & verification” at the bottom of the page: it lists aggregators like skills.sh and FindSkills where you can search by keyword and copy the raw SKILL.md link — that link itself is the whole installer.",
           note: "The link looks like https://raw.githubusercontent.com/…/SKILL.md. Don't copy the page text: GitHub adds buttons and menu labels that break the file.",
           catalogLink: true,
         },
@@ -109,7 +109,7 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
         },
         {
           title: "挑一个，复制它的链接",
-          body: "往下滚到「全网 Skill 索引」，或用本页搜索框搜你要的功能（试试 pdf、ppt、前端）。在卡片上点「复制链接」——复制到的是它 SKILL.md 的直链，这条链接本身就是完整的「安装包」。想先看内容就点「查看 SKILL.md」。",
+          body: "在上面的精选区挑一个 Skill，点卡片上的「复制安装命令」（形如 npx skills add …）交给 AI 助手就行。想找更多，拉到页面底部的「数据来源与核验」：那里汇总了 skills.sh、FindSkills 等聚合站，按关键词搜到后复制 SKILL.md 的原始链接——这条链接本身就是完整的「安装包」。",
           note: "链接形如 https://raw.githubusercontent.com/…/SKILL.md。别去复制网页上的文字：GitHub 页面的按钮、菜单会被一起带进去，装的时候会报错。",
           catalogLink: true,
         },
@@ -196,9 +196,13 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
       </button>
 
       {open && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[60] animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="skill-guide-title">
+        /* 手机上原来 absolute top-0 + 88vh：弹窗贴着屏幕顶（刘海 / 状态栏会压住
+           标题和关闭按钮），iOS 地址栏展开时 100vh 又比可视区高，底部内容被切。
+           改成 flex 居中 + dialog-safe 的安全区 padding，弹窗用 max-h-full
+           自动等于「扣掉安全区」后的可用高度。 */
+        <div className="dialog-safe fixed inset-0 z-[60] flex animate-fade-in items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="skill-guide-title">
           <div className="absolute inset-0 glass-scrim" onClick={closeGuide} aria-hidden="true" />
-          <div className="animate-dialog-in glass-sheet absolute inset-x-0 top-0 mx-auto flex max-h-[88vh] w-[calc(100%-1.5rem)] max-w-2xl flex-col overflow-hidden rounded-[26px] sm:mt-[7vh]">
+          <div className="animate-dialog-in glass-sheet relative flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-[26px]">
             {/* 头部 */}
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
               <div className="min-w-0">
@@ -289,11 +293,14 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
                           type="button"
                           onClick={() => {
                             closeGuide();
-                            document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                            /* 先让弹窗卸载（body 的 overflow:hidden 会被 effect 清掉），再滚动 */
+                            window.setTimeout(() => {
+                              document.getElementById("sources")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                            }, 60);
                           }}
                           className="mt-2 inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/[0.08] px-3 py-1 text-[12px] font-medium text-accent transition-colors hover:bg-accent/15"
                         >
-                          {en ? "Browse the Skill index" : "去 Skill 索引挑一个"}
+                          {en ? "Browse sources & search sites" : "去看数据来源与入口"}
                           <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
                         </button>
                       )}
@@ -320,8 +327,8 @@ export default function SkillGuide({ locale = "zh" }: { locale?: Locale }) {
                       ? "1. “New custom connector” (server name, URL, headers) is for MCP connectors that link external data — not for installing a Skill."
                       : "1.「新建自定义连接器」要填服务器名称、URL、Headers，那是接外部数据的 MCP 连接器，不是装 Skill 的地方。"}</li>
                     <li>{en
-                      ? "2. Don't paste the whole web page or a repo ZIP — buttons and menu labels break the file, and a repo root has no SKILL.md. Use “Copy link”."
-                      : "2. 别整页复制网页文字，也别传仓库压缩包：前者会带进按钮和菜单，后者根目录没有 SKILL.md，都会装失败。用卡片上的「复制链接」。"}</li>
+                      ? "2. Don't paste the whole web page or a repo ZIP — buttons and menu labels break the file, and a repo root has no SKILL.md. Use the raw SKILL.md link."
+                      : "2. 别整页复制网页文字，也别传仓库压缩包：前者会带进按钮和菜单，后者根目录没有 SKILL.md，都会装失败。用 SKILL.md 的原始链接。"}</li>
                     <li>{en
                       ? "3. A new skill doesn't switch on by itself. Select it in the chat (or @ it) and start a new conversation."
                       : "3. 装好不会自动生效：用之前要在对话框里选中这个技能（或 @ 它），并且新开一个对话。"}</li>

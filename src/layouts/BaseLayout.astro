@@ -65,7 +65,7 @@ const orgJsonLd = {
 <html lang={htmlLang} class="theme-init" data-no-en={noEn ? "" : undefined}>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="generator" content={Astro.generator} />
     {/* 手机浏览器地址栏 / 状态栏配色：默认深色，随主题在下面的内联脚本里同步 */}
     <meta name="theme-color" content="#0a0908" />
@@ -197,7 +197,7 @@ const orgJsonLd = {
     </script>
     <script type="application/ld+json" set:html={JSON.stringify(orgJsonLd)} />
   </head>
-  <body class="min-h-screen">
+  <body class="min-h-dvh">
     {/* 桌面是「左侧栏 + 内容列」的并排结构，手机是单列（顶栏/底栏由 HeaderApp 渲染）。
         app-shell 必须在 lg 断点才变成 flex —— 手机上侧栏是 display:none，
         若整体一直是 flex，移动顶栏会成为第一个 flex item 而被挤成窄条。 */}

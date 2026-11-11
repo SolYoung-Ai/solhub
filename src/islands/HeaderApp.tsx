@@ -281,7 +281,7 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", no
           <span className="font-display text-[17px] font-bold tracking-tight text-foreground">SolHub</span>
         </a>
 
-        <div className="topbar-tools ml-auto flex items-center gap-1.5">
+        <div className="topbar-tools ml-auto flex items-center gap-1">
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
@@ -294,7 +294,10 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", no
           {/* 深浅主题 / 语言切换原先只放在桌面侧栏底部，手机端完全没有入口。
               这里与搜索按钮共用同一套 32px 描边方块，320px 窄屏也放得下。 */}
           <ThemeButton en={en} />
-          {/* 320px 实测：五个按钮共 198px，右侧仍留 6px，不会溢出 */}
+          {/* 320px 最窄：logo 到 101px、工具组从 109px 起，中间仅 8px。
+              工具组靠 ml-auto 右对齐（右边缘固定在内边距处），所以 gap 从 1.5
+              收到 1 是给按钮之间省空间，避免英文 "Log in" 把整组顶到 logo 上；
+              实测中英两版 320px 均无溢出。 */}
           <InstallApp locale={locale} />
           {!noEn && <LangButton locale={locale} currentRoute={currentRoute} />}
 
@@ -563,7 +566,7 @@ function SearchDialog({
               </button>
             )}
           </div>
-          <div className="max-h-[60vh] overflow-y-auto py-2">
+          <div className="max-h-[60dvh] overflow-y-auto py-2">
             {!hasQuery && (
               <div className="px-4 py-7 text-center">
                 <p className="text-sm text-muted-foreground">{translate(dict, "search.hint")}</p>
@@ -597,7 +600,8 @@ function SearchDialog({
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">{r.description}</span>
                 </span>
-                <span className="shrink-0 text-[11px] text-muted-foreground">{r.categoryName}</span>
+                {/* 320px 下分类名会把标题挤成「document-sk…」，竖屏先让位给名称 */}
+                <span className="hidden shrink-0 text-[11px] text-muted-foreground sm:inline">{r.categoryName}</span>
               </a>
             ))}
           </div>

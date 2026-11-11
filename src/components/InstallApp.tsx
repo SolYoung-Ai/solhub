@@ -187,14 +187,14 @@ export default function InstallApp({
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[70] flex animate-fade-in items-center justify-center p-3 sm:p-6"
+            className="dialog-safe fixed inset-0 z-[70] flex animate-fade-in items-center justify-center"
             role="dialog"
             aria-modal="true"
             aria-labelledby="install-title"
           >
             <div className="absolute inset-0 glass-scrim" onClick={close} aria-hidden="true" />
 
-            <div className="animate-dialog-in glass-sheet relative flex max-h-[88vh] w-full max-w-[440px] flex-col overflow-hidden rounded-[26px]">
+            <div className="animate-dialog-in glass-sheet relative flex max-h-full w-full max-w-[440px] flex-col overflow-hidden rounded-[26px]">
               {/* 头部 */}
               <div className="flex shrink-0 items-start justify-between gap-3 px-5 pt-5">
                 <div className="min-w-0">

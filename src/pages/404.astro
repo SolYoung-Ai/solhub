@@ -11,7 +11,7 @@ const en = pathname.includes("/en/") || pathname.endsWith("/en");
 <html lang={en ? "en" : "zh-CN"} class="theme-init">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex" />
     <meta name="solhub-base" content={base} />
     <title>{en ? "Page not found" : "页面不存在"} · SolHub</title>
@@ -70,7 +70,7 @@ const en = pathname.includes("/en/") || pathname.endsWith("/en");
       })();
     </script>
   </head>
-  <body class="min-h-screen">
+  <body class="min-h-dvh">
     <div class="container-page flex flex-col items-center py-28 text-center">
       <p class="font-display text-7xl font-extrabold tracking-tight text-accent" aria-hidden="true">404</p>
       <h1 class="font-display mt-4 text-2xl font-bold text-foreground">
