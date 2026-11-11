@@ -5,7 +5,6 @@ import { searchIndex, buildSearchIndex, type SearchIndexEntry } from "@/lib/sear
 import { p } from "@/lib/paths";
 import { products } from "@/data/products";
 import { skills } from "@/data/skills";
-import { useCatalogSearchEntries } from "@/lib/skills-catalog";
 
 /**
  * 首页 Hero 搜索条：直接输入出下拉结果。
@@ -28,11 +27,9 @@ export default function HeroSearch({ locale = "zh" }: { locale?: Locale }) {
   const [narrow, setNarrow] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  /* 与导航搜索共用索引：产品 + 精选 Skill，再异步追加 1000 条真实 SKILL.md */
+  /* 与导航搜索共用索引：产品 + 精选 Skill */
   const index = useMemo(() => buildSearchIndex(products, locale, skills), [locale]);
-  const catalogEntries = useCatalogSearchEntries(locale);
-  const fullIndex = useMemo(() => [...index, ...catalogEntries], [index, catalogEntries]);
-  const results = query.trim() ? searchIndex(query, fullIndex, locale).slice(0, 8) : [];
+  const results = query.trim() ? searchIndex(query, index, locale).slice(0, 8) : [];
   const skillHref = `${p("/skills/", locale)}?q=${encodeURIComponent(query.trim())}`;
 
   useEffect(() => {

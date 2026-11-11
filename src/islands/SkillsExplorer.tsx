@@ -238,6 +238,14 @@ export default function SkillsExplorer({
           <p className="text-[13px] text-muted-foreground">
             {en ? "Try another keyword or clear the filters." : "换个关键词，或清空筛选条件试试。"}
           </p>
+          {/* 精选只有几十条，没命中是常态：给一个去全量站的出口，别让人以为搜坏了 */}
+          <p className="mt-1 text-[12px] leading-5 text-muted-foreground">
+            {en ? "This list is curated and short. Search the full ecosystem on " : "这里是人工精选，条目不多。想搜全量可以用 "}
+            <a href="https://skills.sh/" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">skills.sh</a>
+            {en ? " or " : " 或 "}
+            <a href="https://findskills.org" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">FindSkills</a>
+            {en ? "." : "。"}
+          </p>
           <button
             type="button"
             onClick={() => {
