@@ -27,9 +27,22 @@ const TARGETS = [
   path.join(ROOT, "cloudbase", "functions", "solhub-cron", "core.cjs"),
 ];
 
+/**
+ * 除业务主文件外，还有几个纯函数模块也要同步过去（目前只有热点抓取引擎）。
+ * 这类文件用「末尾一句具名导出」的写法，转换规则与 export default 不同。
+ * 之所以放 worker/ 而不是直接写在云函数目录里：本地脚本、测试、云函数必须跑
+ * 同一份解析逻辑，分叉一次就会「线上标题是乱的、本地是好的」。
+ */
+const EXTRA = [
+  {
+    src: path.join(ROOT, "worker", "hot.js"),
+    dst: path.join(ROOT, "cloudbase", "functions", "solhub-hot", "hot.cjs"),
+  },
+];
+
 const BANNER = `/*
- * ⚠️ 本文件由 scripts/sync-cloudbase-fn.mjs 从 worker/index.js 自动生成，请勿直接编辑。
- * 改业务逻辑请改 worker/index.js，然后重新执行该脚本。
+ * ⚠️ 本文件由 scripts/sync-cloudbase-fn.mjs 从 worker/ 下的源文件自动生成，请勿直接编辑。
+ * 改业务逻辑请改 worker/ 里的源文件，然后重新执行该脚本。
  */
 `;
 
@@ -52,24 +65,41 @@ const cjsSource = source.replace(/^export default \{/m, "module.exports = {");
 const next = BANNER + cjsSource;
 
 let changed = 0;
-for (const dst of TARGETS) {
+
+/** 写一个目标文件；--check 时只记账不落盘 */
+function emit(dst, content, label) {
   const dir = path.dirname(dst);
   if (!fs.existsSync(dir)) {
     console.error(`[sync] 目标目录不存在，跳过：${path.relative(ROOT, dir)}`);
-    continue;
+    return;
   }
-  if (fs.existsSync(dst) && fs.readFileSync(dst, "utf8") === next) continue;
-  if (checkOnly) {
-    changed += 1;
-    continue;
-  }
-  fs.writeFileSync(dst, next);
+  if (fs.existsSync(dst) && fs.readFileSync(dst, "utf8") === content) return;
   changed += 1;
-  console.log(`[sync] 已生成 ${path.relative(ROOT, dst)}（${next.length} 字节）`);
+  if (checkOnly) return;
+  fs.writeFileSync(dst, content);
+  console.log(`[sync] 已生成 ${path.relative(ROOT, dst)}（${content.length} 字节）`);
+}
+
+for (const dst of TARGETS) emit(dst, next, "core.cjs");
+
+/* 纯函数模块：末尾一句 `export { A, B };` → `module.exports = { A, B };` */
+for (const { src, dst } of EXTRA) {
+  if (!fs.existsSync(src)) {
+    console.error(`[sync] 找不到源文件，跳过：${path.relative(ROOT, src)}`);
+    continue;
+  }
+  const body = fs.readFileSync(src, "utf8");
+  const named = /^export \{([\s\S]*?)\};?\s*$/m.exec(body);
+  if (!named) {
+    console.error(`[sync] ${path.relative(ROOT, src)} 里没找到末尾的 export { ... }，无法转换`);
+    process.exitCode = 1;
+    continue;
+  }
+  emit(dst, `${BANNER}${body.replace(/^export \{([\s\S]*?)\};?\s*$/m, "module.exports = {$1};")}`, "module");
 }
 
 if (checkOnly && changed > 0) {
-  console.error("[sync] core.cjs 与 worker/index.js 不一致，请执行 node scripts/sync-cloudbase-fn.mjs");
+  console.error("[sync] 生成文件与源文件不一致，请执行 node scripts/sync-cloudbase-fn.mjs");
   process.exit(1);
 }
-if (!changed) console.log("[sync] core.cjs 已是最新，无需改动");
+if (!changed) console.log("[sync] 生成文件已是最新，无需改动");

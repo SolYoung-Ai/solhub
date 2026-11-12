@@ -3,6 +3,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Compass,
+  Flame,
   Languages,
   LogOut,
   Megaphone,
@@ -78,8 +79,9 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", no
     { label: translate(dict, "nav.discover"), path: "/", icon: Compass, match: (r) => r === "/" },
     { label: translate(dict, "nav.launches"), path: "/launches/", icon: Package, match: (r) => r.startsWith("/launches/") },
     { label: translate(dict, "nav.skills"), path: "/skills/", icon: Sparkles, match: (r) => r.startsWith("/skills/") },
-    /* 赞助位是现金入口，紧跟 Skill：这里卖的是注意力，不是产品目录的第二份 */
-    { label: translate(dict, "nav.sponsors"), path: "/sponsors/", icon: Megaphone, match: (r) => r.startsWith("/sponsors/") },
+    /* 热点占的是原来的赞助位。赞助墙没删，只是从主导航退到页脚 —— 现金入口不该
+       挡在信息流前面，但也不能断掉，所以 /sponsors/ 与账号菜单里的「赞助合作」都留着。 */
+    { label: translate(dict, "nav.hot"), path: "/hot/", icon: Flame, match: (r) => r.startsWith("/hot/") },
     { label: translate(dict, "nav.world"), path: "/world/", icon: Users, match: (r) => r.startsWith("/world/") },
     { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, match: (r) => r.startsWith("/my-submissions/") },
   ];

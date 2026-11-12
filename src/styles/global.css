@@ -838,6 +838,21 @@ html.dark .bg-card:not(img) {
   );
 }
 
+/* 热点页「N 条新热点」提示条：手机端要贴在 52px 顶栏下方吸顶。
+   直接写 sticky top-2 会被顶栏（z-40）压住 —— 实测滚动后提示条 top=8px，
+   而顶栏底边在 52px，整条被盖掉。这里把顶栏高度 + 顶部安全区算进去。
+   桌面没有顶栏（侧栏固定），回到普通的 8px。 */
+.hot-new-banner {
+  position: sticky;
+  top: calc(52px + env(safe-area-inset-top, 0px) + 8px);
+  z-index: 20;
+}
+@media (min-width: 1024px) {
+  .hot-new-banner {
+    top: 8px;
+  }
+}
+
 /* 大面板 / 弹层：玻璃更厚，额外压顶缘内高光与外发丝线，撑出「一块玻璃」的厚度 */
 .glass-sheet {
   /* 不设 position：调用方常用 absolute / fixed 定位（弹窗、下拉），

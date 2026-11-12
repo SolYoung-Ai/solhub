@@ -24,6 +24,10 @@ worker/.wrangler/
 
 # CloudBase 云函数：由 scripts/sync-cloudbase-fn.mjs 从 worker/index.js 生成
 cloudbase/functions/*/core.cjs
+cloudbase/functions/*/hot.cjs
 
 # Skill 抓取脚本的 GitHub 仓库树缓存（7 天，可随时重跑生成）
 scripts/.cache/
+
+# 云函数部署配置（含 service_role 密钥，只留本机）
+cloudbase/functions/cloudbaserc.json

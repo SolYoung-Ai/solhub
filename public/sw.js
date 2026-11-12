@@ -19,6 +19,7 @@ const ASSETS = `solhub-assets-${VERSION}`;
    所以逐个 add 并各自吞掉异常 */
 const PRECACHE = [
   "/",
+  "/hot/",
   "/skills/",
   "/offline.html",
   "/manifest.webmanifest",
@@ -154,4 +155,44 @@ self.addEventListener("fetch", (event) => {
       })(),
     );
   }
+});
+
+/* ============================================================
+   通知点击
+   ------------------------------------------------------------
+   热点页用 registration.showNotification() 弹通知（桌面 / 已装到主屏的
+   iOS 都只认这条路径）。点通知时优先把已经开着的站内窗口切过去并导航到
+   对应页面，没有窗口才新开一个 —— 直接 openWindow 会让读者同时开两个站。 */
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const raw = (event.notification.data && event.notification.data.url) || "/hot/";
+  let target = "/hot/";
+  try {
+    target = new URL(raw, self.location.origin).href;
+  } catch (e) {
+    target = `${self.location.origin}/hot/`;
+  }
+
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of windows) {
+        let sameOrigin = false;
+        try {
+          sameOrigin = new URL(client.url).origin === self.location.origin;
+        } catch (e) {
+          sameOrigin = false;
+        }
+        if (!sameOrigin) continue;
+        try {
+          await client.navigate(target);
+        } catch (e) {
+          /* 部分浏览器不允许 SW 主动 navigate，退化为聚焦 */
+        }
+        return client.focus();
+      }
+      return self.clients.openWindow(target);
+    })(),
+  );
 });

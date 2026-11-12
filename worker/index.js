@@ -1731,6 +1731,37 @@ function dropCreatorsCache() {
   creatorsCache = null;
 }
 
+/* ---------------- 热点（实例内缓存） ----------------
+   写入侧是 solhub-hot 云函数（15 分钟一轮），读取侧是本进程。
+   缓存 60 秒意味着最坏情况下读者比抓取结果晚 1 分钟看到，这对「热点」完全够用，
+   而 KV 读次数从「每个访客每次轮询一次」降到「每个实例每分钟一次」。 */
+
+const HOT_KEY = "hot:v1";
+const HOT_TTL_MS = 60 * 1000;
+const EMPTY_HOT = { fetchedAt: null, items: [] };
+
+let hotCache = null; // { at: number, data: { fetchedAt, items } }
+
+async function readHotFeed(env) {
+  const now = Date.now();
+  if (hotCache && now - hotCache.at < HOT_TTL_MS) return hotCache.data;
+
+  let data = EMPTY_HOT;
+  const raw = await env.PROFILES.get(HOT_KEY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.items)) {
+        data = { fetchedAt: parsed.fetchedAt || null, items: parsed.items };
+      }
+    } catch {
+      /* 解析失败就按空处理：宁可不显示，也不要在页面上渲染半条坏数据 */
+    }
+  }
+  hotCache = { at: now, data };
+  return data;
+}
+
 /** 全量构建一次名录（含封禁过滤）。只在缓存过期时执行。 */
 async function buildCreatorsList(env, imgBase) {
   const [emailKeys, ghKeys, community, index] = await Promise.all([
@@ -3036,6 +3067,41 @@ export default {
       const inm = request.headers.get("If-None-Match") || "";
       if (inm && inm === headers.ETag) return new Response(null, { status: 304, headers });
       return new Response(bytes, { status: 200, headers });
+    }
+
+    /* ---------- 热点（/hot） ----------
+       数据由 solhub-hot 云函数每 15 分钟抓一轮、写进 kv:hot:v1，这里只读。
+       站内不做「请求时现抓」：一轮抓取要 5~20 秒，放请求链路上就是把读者挂在
+       白屏上，还等于把人家媒体站当自家缓存用。
+
+       60 秒实例缓存：抓取节奏是 15 分钟一次，读者看到 60 秒前的榜单毫无感知，
+       但能把这期间几十上百次请求压成一次 KV 读。分类过滤与分页都在缓存之上做。 */
+    if (url.pathname === "/hot" && request.method === "GET") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const cat = String(url.searchParams.get("cat") || "all");
+      const limit = Math.min(Math.max(1, Number(url.searchParams.get("limit") || 60) || 60), 200);
+      const since = String(url.searchParams.get("since") || "");
+
+      const feed = await readHotFeed(env);
+      const counts = { all: feed.items.length, ai: 0, product: 0, tech: 0, finance: 0 };
+      for (const it of feed.items) if (counts[it.category] !== undefined) counts[it.category] += 1;
+
+      let items = cat === "all" ? feed.items : feed.items.filter((it) => it.category === cat);
+      const total = items.length;
+      if (since) {
+        const t = Date.parse(since);
+        if (Number.isFinite(t)) items = items.filter((it) => Date.parse(it.publishedAt) > t);
+      }
+      const page = items.slice(0, limit);
+
+      return json(request, {
+        fetchedAt: feed.fetchedAt,
+        counts,
+        total,
+        /* hasMore 按「筛选后的总数」算，轮询只需要 newest 与客户端已有列表比对，不看它 */
+        hasMore: page.length < items.length,
+        items: page,
+      });
     }
 
     /* ---------- 创作者名录 ----------
