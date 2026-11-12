@@ -311,7 +311,7 @@ export default function HotFeed({ locale = "zh" }: { locale?: "zh" | "en" }) {
                 type="button"
                 onClick={() => setCat(t.id)}
                 aria-pressed={active}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                className={`shrink-0 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition sm:px-3 sm:text-xs ${
                   active
                     ? "border-transparent bg-accent text-white"
                     : "border-border bg-card text-muted-foreground hover:text-foreground"
