@@ -50,6 +50,10 @@
  *   DM_DRY_RUN=1      干跑模式：只走完全部校验但不真正发信（用于无密钥时联调）
  */
 
+/* 行情引擎。放在 worker/quotes.js 里而不是内联：它有独立的解析逻辑和测试，
+   而本文件已经太长；scripts/sync-cloudbase-fn.mjs 会把它一并带进云函数。 */
+import { QUOTES_KEY, QUOTES_TTL_MS, fetchQuotes } from "./quotes.js";
+
 const REPO = "SolYoung-Ai/solhub";
 const SITE_BASE = "https://solhub.solyoung.top";
 const OAUTH_URL = "https://github.com/login/oauth/authorize";
@@ -1768,6 +1772,61 @@ async function readHotFeed(env) {
   return data;
 }
 
+/* ---------- 行情快照 ----------
+   与热点的区别：热点由定时函数写、这里只读；行情由这里「按需回源」——
+   缓存过期后的第一个访客触发一次抓取，其余人读缓存。没有定时器，
+   没人看就不花钱，这是当初选这个方案的唯一理由。
+
+   quotesInflight 用来合并并发：首屏冷的时候几个请求同时进来，
+   不加这层会各抓一遍，白打三次外网。 */
+const EMPTY_QUOTES = { updatedAt: null, stale: false, items: [] };
+let quotesCache = null; // { at: number, data: { updatedAt, stale, items } }
+let quotesInflight = null;
+
+async function readQuotes(env) {
+  const now = Date.now();
+  if (quotesCache && now - quotesCache.at < QUOTES_TTL_MS) return quotesCache.data;
+  if (quotesInflight) return quotesInflight;
+
+  quotesInflight = (async () => {
+    /* 先把库里的旧快照当兜底：回源失败时宁可给读者一份延迟 3 分钟的行情，
+       也不要让整条栏突然消失又出现。 */
+    let stale = EMPTY_QUOTES;
+    try {
+      const raw = await env.PROFILES.get(QUOTES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.items) && parsed.items.length) {
+          stale = { updatedAt: parsed.updatedAt || null, stale: true, items: parsed.items };
+        }
+      }
+    } catch {
+      /* 坏数据当作没有 */
+    }
+
+    let data = stale;
+    try {
+      const fresh = await fetchQuotes(typeof fetch === "function" ? fetch : null);
+      if (fresh) {
+        data = { updatedAt: fresh.updatedAt, stale: false, items: fresh.items };
+        await env.PROFILES.put(QUOTES_KEY, JSON.stringify(fresh));
+      }
+    } catch {
+      /* 回源失败就用手里的旧快照；stale 已经在上面标好了 */
+    }
+
+    /* 失败也缓存 60 秒：源站挂了的时候不要被每个访客各打一次 */
+    quotesCache = { at: Date.now(), data };
+    return data;
+  })();
+
+  try {
+    return await quotesInflight;
+  } finally {
+    quotesInflight = null;
+  }
+}
+
 /** 全量构建一次名录（含封禁过滤）。只在缓存过期时执行。 */
 async function buildCreatorsList(env, imgBase) {
   const [emailKeys, ghKeys, community, index] = await Promise.all([
@@ -3108,6 +3167,15 @@ export default {
         hasMore: page.length < items.length,
         items: page,
       });
+    }
+
+    /* ---------- 行情快照 ----------
+       给 /hot/ 顶部的指数栏用。公开数据、无需鉴权，也不落任何访客信息。
+       取不到就返回空列表 —— 前端据此把整条栏隐藏，不显示错误。 */
+    if (url.pathname === "/quotes" && request.method === "GET") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const quotes = await readQuotes(env);
+      return json(request, quotes);
     }
 
     /* ---------- 创作者名录 ----------

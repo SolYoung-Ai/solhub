@@ -9,8 +9,9 @@
  *
  * worker/index.js 是 ES Module（末尾一句 export default { ... }），而云函数
  * （HTTP Function / Event Function）统一用 CommonJS。这里做的是一次性的
- * 语法转换：export default { → module.exports = {。
- * worker/index.js 里没有 import、也没有顶层 await，所以这个转换是安全的。
+ * 语法转换：export default { → module.exports = {，以及同目录的
+ * import { A } from "./x.js" → const { A } = require("./x.cjs")。
+ * worker/index.js 里没有顶层 await，所以这个转换是安全的。
  * 转换后的文件与源文件逐行可对照，出问题能一眼看出差异在哪。
  *
  * 用法：node scripts/sync-cloudbase-fn.mjs [--check]
@@ -46,6 +47,15 @@ const EXTRA = [
     src: path.join(ROOT, "worker", "t2s.js"),
     dst: path.join(ROOT, "cloudbase", "functions", "solhub-hot", "t2s.cjs"),
   },
+  {
+    /* 行情引擎。core.cjs 用 require 引入，所以凡是带 core.cjs 的函数目录都得有它
+       （solhub-cron 也 require core.cjs，少一份就整个函数起不来）。 */
+    src: path.join(ROOT, "worker", "quotes.js"),
+    dst: [
+      path.join(ROOT, "cloudbase", "functions", "solhub-auth", "quotes.cjs"),
+      path.join(ROOT, "cloudbase", "functions", "solhub-cron", "quotes.cjs"),
+    ],
+  },
 ];
 
 const BANNER = `/*
@@ -69,7 +79,13 @@ if (!exportMatch) {
   console.error("[sync] 没找到 export default，无法转换成 CommonJS");
   process.exit(1);
 }
-const cjsSource = source.replace(/^export default \{/m, "module.exports = {");
+const cjsSource = source
+  .replace(/^export default \{/m, "module.exports = {")
+  /* 同目录模块引用：云函数那边只有 .cjs，路径要一起换 */
+  .replace(
+    /^import\s+\{([\s\S]*?)\}\s+from\s+["']\.\/([\w.-]+)\.js["'];?$/gm,
+    (m, names, file) => `const {${names}} = require("./${file}.cjs");`,
+  );
 const next = BANNER + cjsSource;
 
 let changed = 0;
@@ -111,7 +127,7 @@ for (const { src, dst } of EXTRA) {
       (m, names, file) => `const {${names}} = require("./${file}.cjs");`,
     )
     .replace(/^export \{([\s\S]*?)\};?\s*$/m, "module.exports = {$1};");
-  emit(dst, `${BANNER}${asCjs}`, "module");
+  for (const one of [].concat(dst)) emit(one, `${BANNER}${asCjs}`, "module");
 }
 
 if (checkOnly && changed > 0) {
