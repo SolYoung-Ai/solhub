@@ -83,15 +83,28 @@ function clockOf(iso: string | null): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export default function HotFeed({ locale = "zh" }: { locale?: "zh" | "en" }) {
+export default function HotFeed({
+  locale = "zh",
+  limit,
+}: {
+  locale?: "zh" | "en";
+  /**
+   * 首屏只显示这么多条，且不出「加载更多」——首页把它当摘录用，更多内容回 /hot/。
+   * 不传就是完整的 40 条 + 分页。
+   */
+  limit?: number;
+}) {
   const en = locale === "en";
+  /* 摘录模式下条目标题降一级：页面上已经有 section 的 h2，条目再写 h2 会平级 */
+  const TitleTag = limit ? "h3" : "h2";
+  const initialShown = limit ?? PAGE;
 
   const [cat, setCat] = useState<Cat>("all");
   const [data, setData] = useState<HotResponse | null>(null);
   const [pending, setPending] = useState<HotItem[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [shown, setShown] = useState(PAGE);
+  const [shown, setShown] = useState(initialShown);
   const [reloadKey, setReloadKey] = useState(0);
   const [notifyOn, setNotifyOn] = useState(false);
   const [notifyHint, setNotifyHint] = useState("");
@@ -143,7 +156,7 @@ export default function HotFeed({ locale = "zh" }: { locale?: "zh" | "en" }) {
     setLoading(true);
     setError("");
     setPending([]);
-    setShown(PAGE);
+    setShown(initialShown);
     fetchFeed(cat)
       .then((json) => {
         if (!alive || !json) return;
@@ -427,9 +440,9 @@ export default function HotFeed({ locale = "zh" }: { locale?: "zh" | "en" }) {
                 <span aria-hidden="true">·</span>
                 <time dateTime={it.publishedAt}>{timeAgo(it.publishedAt, en)}</time>
               </div>
-              <h2 className="mt-1.5 break-words text-[14px] font-bold leading-6 text-foreground group-hover:text-accent sm:text-[15px]">
+              <TitleTag className="mt-1.5 break-words text-[14px] font-bold leading-6 text-foreground group-hover:text-accent sm:text-[15px]">
                 {it.title}
-              </h2>
+              </TitleTag>
               {it.summary ? (
                 <p className="mt-1 line-clamp-2 break-words text-[12px] leading-5 text-muted-foreground">
                   {it.summary}
@@ -440,7 +453,7 @@ export default function HotFeed({ locale = "zh" }: { locale?: "zh" | "en" }) {
         ))}
       </ul>
 
-      {shown < items.length ? (
+      {!limit && shown < items.length ? (
         <div className="mt-5 flex justify-center">
           <button type="button" onClick={() => setShown((n) => n + PAGE)} className="btn btn-outline !h-9 px-5 text-xs">
             {en ? `Load more (${items.length - shown} left)` : `加载更多（还有 ${items.length - shown} 条）`}
@@ -448,7 +461,7 @@ export default function HotFeed({ locale = "zh" }: { locale?: "zh" | "en" }) {
         </div>
       ) : null}
 
-      {items.length ? (
+      {items.length && !limit ? (
         <p className="mt-6 rounded-[16px] border border-border bg-secondary/30 p-4 text-[11px] leading-5 text-muted-foreground">
           {en
             ? "Headlines and links come from public RSS feeds of IT之家, 量子位, 极客公园, 爱范儿, 雷锋网, 钛媒体, 开源中国, Solidot, 少数派 and 华尔街见闻. Only titles, links and short excerpts are shown — every item opens the original article. SolHub doesn't host or republish their content."

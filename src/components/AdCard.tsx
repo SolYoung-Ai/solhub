@@ -10,7 +10,16 @@ import type { Locale } from "@/i18n";
  * - 「赞助商」+「广告」两个标识必须同时出现（《广告法》要求）
  * - 有 logo 时容器透明 + object-contain，圆形 SVG 也能正常显示
  */
-export default function AdCard({ ad, locale = "zh" }: { ad: Ad; locale?: Locale }) {
+export default function AdCard({
+  ad,
+  locale = "zh",
+  compact = false,
+}: {
+  ad: Ad;
+  locale?: Locale;
+  /** 首页摘录用：正文压到 3 行，免得两张卡在手机上占掉一整屏 */
+  compact?: boolean;
+}) {
   const en = locale === "en";
   const tagline = en ? ad.tagline.en : ad.tagline.zh;
   const body = en ? ad.body.en : ad.body.zh;
@@ -62,7 +71,9 @@ export default function AdCard({ ad, locale = "zh" }: { ad: Ad; locale?: Locale 
         </div>
       </div>
 
-      <p className="mt-3.5 max-w-3xl text-[13px] leading-7 text-muted-foreground">{body}</p>
+      <p className={`mt-3.5 max-w-3xl text-[13px] leading-7 text-muted-foreground ${compact ? "line-clamp-3" : ""}`}>
+        {body}
+      </p>
 
       <div className="mt-5 flex items-center justify-between gap-3">
         <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground/80">
