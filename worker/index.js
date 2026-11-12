@@ -1752,7 +1752,13 @@ async function readHotFeed(env) {
     try {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.items)) {
-        data = { fetchedAt: parsed.fetchedAt || null, items: parsed.items };
+        /* 库里可能躺着还没翻完的英文条目（云函数每轮限时限量翻译），
+           它们在页面上不该出现 —— 一个中文站的热点流里混英文标题很出戏。
+           旧数据没有 lang 字段，一律当中文。 */
+        data = {
+          fetchedAt: parsed.fetchedAt || null,
+          items: parsed.items.filter((it) => it && (!it.lang || it.lang === "zh")),
+        };
       }
     } catch {
       /* 解析失败就按空处理：宁可不显示，也不要在页面上渲染半条坏数据 */

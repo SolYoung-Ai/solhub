@@ -58,10 +58,12 @@ exports.main = async (event) => {
   }
 
   const okFeeds = result.feeds.filter((f) => f.ok);
+  /* 写库要存全量：items 是「可展示的中文条目」，allItems 还包含这一轮没翻完的
+     英文条目 —— 不写进去，下一轮就没原文可翻，那些内容会永远消失。 */
   const payload = {
     fetchedAt: result.fetchedAt,
     total: result.total,
-    items: result.items,
+    items: result.allItems || result.items,
   };
 
   if (dryRun) {
@@ -69,8 +71,11 @@ exports.main = async (event) => {
       ok: true,
       dryRun: true,
       total: result.total,
+      stored: result.stored,
+      pending: result.pending,
+      translation: result.translation,
       feeds: result.feeds,
-      sample: result.items.slice(0, 5).map((x) => `${x.sourceName}｜${x.title}`),
+      sample: result.items.slice(0, 8).map((x) => `${x.sourceName}｜${x.title}`),
       elapsed: Date.now() - startedAt,
     };
   }
@@ -89,13 +94,18 @@ exports.main = async (event) => {
   }
 
   console.log(
-    `[hot] 写入 ${result.total} 条（${okFeeds.length}/${result.feeds.length} 源成功），耗时 ${Date.now() - startedAt}ms`,
+    `[hot] 写入 ${result.stored} 条（可展示 ${result.total}，待翻 ${result.pending}），` +
+      `翻译 ${result.translation.done}/${result.translation.tried}，` +
+      `${okFeeds.length}/${result.feeds.length} 源成功，耗时 ${Date.now() - startedAt}ms`,
   );
 
   return {
     ok: true,
     total: result.total,
-    fresh: result.total - old.length,
+    stored: result.stored,
+    pending: result.pending,
+    translation: result.translation,
+    fresh: (result.allItems || []).length - old.length,
     feeds: result.feeds,
     elapsed: Date.now() - startedAt,
   };

@@ -38,6 +38,14 @@ const EXTRA = [
     src: path.join(ROOT, "worker", "hot.js"),
     dst: path.join(ROOT, "cloudbase", "functions", "solhub-hot", "hot.cjs"),
   },
+  {
+    src: path.join(ROOT, "worker", "translate.js"),
+    dst: path.join(ROOT, "cloudbase", "functions", "solhub-hot", "translate.cjs"),
+  },
+  {
+    src: path.join(ROOT, "worker", "t2s.js"),
+    dst: path.join(ROOT, "cloudbase", "functions", "solhub-hot", "t2s.cjs"),
+  },
 ];
 
 const BANNER = `/*
@@ -95,7 +103,15 @@ for (const { src, dst } of EXTRA) {
     process.exitCode = 1;
     continue;
   }
-  emit(dst, `${BANNER}${body.replace(/^export \{([\s\S]*?)\};?\s*$/m, "module.exports = {$1};")}`, "module");
+  /* 兄弟模块之间用 ESM import，转成 require 时路径要一起换成 .cjs，
+     否则云函数里 require("./translate.js") 会找不到文件（那边只有 .cjs）。 */
+  const asCjs = body
+    .replace(
+      /^import\s+\{([\s\S]*?)\}\s+from\s+["']\.\/([\w.-]+)\.js["'];?$/gm,
+      (m, names, file) => `const {${names}} = require("./${file}.cjs");`,
+    )
+    .replace(/^export \{([\s\S]*?)\};?\s*$/m, "module.exports = {$1};");
+  emit(dst, `${BANNER}${asCjs}`, "module");
 }
 
 if (checkOnly && changed > 0) {

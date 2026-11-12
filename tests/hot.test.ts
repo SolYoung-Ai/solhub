@@ -23,8 +23,10 @@ const RSS = `<?xml version="1.0" encoding="UTF-8"?>
   </item>
 </channel></rss>`;
 
-const AI_FEED = { id: "qbitai", name: "量子位", url: "https://example.com/feed", category: "ai" };
-const TECH_FEED = { id: "ithome", name: "IT之家", url: "https://example.com/feed", category: "tech" };
+const AI_FEED = { id: "qbitai", name: "量子位", url: "https://example.com/feed", category: "ai", lang: "zh" };
+const TECH_FEED = { id: "ithome", name: "IT之家", url: "https://example.com/feed", category: "tech", lang: "zh" };
+const EN_FEED = { id: "the-verge", name: "The Verge", url: "https://example.com/feed", category: "tech", lang: "en" };
+const TW_FEED = { id: "ithome-tw", name: "iThome 台湾", url: "https://example.com/feed", category: "tech", lang: "zh" };
 
 describe("cleanText", () => {
   it("拆 CDATA 并剥掉标签", () => {
@@ -92,6 +94,16 @@ describe("classify", () => {
   it("没有关键词就落回源默认分类，不会出现「未分类」", () => {
     expect(classify("一条普通的消息", AI_FEED)).toBe("ai");
   });
+
+  it("「正式上市」是卖产品，不是 IPO", () => {
+    expect(classify("比亚迪腾势 N8 正式上市：售 26.99 万元起", TECH_FEED)).toBe("product");
+  });
+
+  it("英文标题在翻译前也能分类（否则首轮全挤进源默认分类）", () => {
+    expect(classify("OpenAI launches a new reasoning model", EN_FEED)).toBe("ai");
+    expect(classify("Nvidia earnings beat expectations as revenue jumps", EN_FEED)).toBe("finance");
+    expect(classify("Apple unveils the new MacBook Pro", EN_FEED)).toBe("product");
+  });
 });
 
 describe("parseFeed", () => {
@@ -120,6 +132,107 @@ describe("parseFeed", () => {
   it("空 feed 返回空数组而不是抛错", () => {
     expect(parseFeed("<rss><channel></channel></rss>", AI_FEED, now)).toEqual([]);
   });
+
+  it("英文源：留原文到 titleRaw，标成未翻译", () => {
+    const xml = `<rss><channel><item>
+      <title>Apple unveils new AI chips for data centers</title>
+      <link>https://example.com/en1</link>
+      <description>The chips are built for inference workloads.</description>
+      <pubDate>Thu, 12 Nov 2026 10:00:00 +0800</pubDate>
+    </item></channel></rss>`;
+    const [item] = parseFeed(xml, EN_FEED, now);
+    expect(item.lang).toBe("en");
+    expect(item.translated).toBe(false);
+    expect(item.titleRaw).toBe("Apple unveils new AI chips for data centers");
+    expect(item.summaryRaw).toContain("inference");
+  });
+
+  it("繁体源入库前转简（否则简繁混排像两个站拼的）", () => {
+    const xml = `<rss><channel><item>
+      <title>臺灣電動車產業開發新電池</title>
+      <link>https://example.com/tw1</link>
+      <pubDate>Thu, 12 Nov 2026 10:00:00 +0800</pubDate>
+    </item></channel></rss>`;
+    const [item] = parseFeed(xml, TW_FEED, now);
+    expect(item.title).toBe("台湾电动车产业开发新电池");
+    expect(item.lang).toBe("zh");
+    expect(item.translated).toBe(true);
+  });
+
+  it("英文促销帖也过滤掉（best deals / promo code）", () => {
+    const xml = `<rss><channel><item>
+      <title>Best deals on laptops this week</title>
+      <link>https://example.com/en2</link>
+      <pubDate>Thu, 12 Nov 2026 10:00:00 +0800</pubDate>
+    </item></channel></rss>`;
+    expect(parseFeed(xml, EN_FEED, now)).toHaveLength(0);
+  });
+
+  it("综合站的时政/社会/娱乐新闻挡在外面", () => {
+    const xml = `<rss><channel>
+      <item><title>黎晓华任广东阳江市副市长、代理市长</title><link>https://example.com/o1</link>
+        <pubDate>Thu, 12 Nov 2026 10:00:00 +0800</pubDate></item>
+      <item><title>台风"海葵"今夜登陆，多地发布暴雨预警</title><link>https://example.com/o2</link>
+        <pubDate>Thu, 12 Nov 2026 10:00:00 +0800</pubDate></item>
+      <item><title>某电视剧收视破纪录</title><link>https://example.com/o3</link>
+        <pubDate>Thu, 12 Nov 2026 10:00:00 +0800</pubDate></item>
+      <item><title>某公司发布新一代 AI 芯片</title><link>https://example.com/o4</link>
+        <pubDate>Thu, 12 Nov 2026 10:00:00 +0800</pubDate></item>
+    </channel></rss>`;
+    const items = parseFeed(xml, TECH_FEED, now);
+    expect(items).toHaveLength(1);
+    expect(items[0].title).toContain("AI 芯片");
+  });
+
+  it("「来问我」型帖子挡在外面，中英文都要拦", () => {
+    const xml = `<rss><channel>
+      <item><title>I tried Apple's HomeView — ask me anything</title>
+        <link>https://example.com/ama1</link>
+        <pubDate>Thu, 12 Nov 2026 10:00:00 +0800</pubDate></item>
+      <item><title>我们拆了新款 MacBook，欢迎提问</title>
+        <link>https://example.com/ama2</link>
+        <pubDate>Thu, 12 Nov 2026 09:00:00 +0800</pubDate></item>
+      <item><title>Apple HomeView 评测：Siri 响应偏慢</title>
+        <link>https://example.com/ama3</link>
+        <pubDate>Thu, 12 Nov 2026 08:00:00 +0800</pubDate></item>
+    </channel></rss>`;
+    const items = parseFeed(xml, EN_FEED, now);
+    /* 只留正经评测；AMA 的英文原标题不含 "AMA" 三个字母，靠 ask me anything 拦 */
+    expect(items).toHaveLength(1);
+    expect(items[0].title).toContain("HomeView");
+  });
+
+  it("中文源夹带的英文稿按英文处理，不能直接放行", () => {
+    const xml = `<rss><channel>
+      <item><title>Chinese Workers Are Paying Their Own AI Bills to Stay Productive</title>
+        <link>https://example.com/mix1</link>
+        <description>Employees are buying AI tools themselves.</description>
+        <pubDate>Thu, 12 Nov 2026 10:00:00 +0800</pubDate></item>
+      <item><title>Google 发布 Gemini 3，推理速度翻倍</title>
+        <link>https://example.com/mix2</link>
+        <pubDate>Thu, 12 Nov 2026 09:00:00 +0800</pubDate></item>
+    </channel></rss>`;
+    const items = parseFeed(xml, TECH_FEED, now);
+    expect(items).toHaveLength(2);
+    /* 第一条源标的是中文，标题却是英文 —— 必须去翻译，否则中文列表里冒英文行 */
+    expect(items[0].lang).toBe("en");
+    expect(items[0].translated).toBe(false);
+    expect(items[0].titleRaw).toContain("AI Bills");
+    /* 第二条夹着英文单词但有汉字，仍算中文 */
+    expect(items[1].lang).toBe("zh");
+    expect(items[1].translated).toBe(true);
+  });
+
+  it("每源按 cap 截断，不让单一大源刷屏", () => {
+    const items = Array.from({ length: 20 })
+      .map(
+        (_, i) => `<item><title>标题编号 ${i} 足够长</title><link>https://example.com/c${i}</link>
+        <pubDate>Thu, 12 Nov 2026 10:00:00 +0800</pubDate></item>`,
+      )
+      .join("");
+    const out = parseFeed(`<rss><channel>${items}</channel></rss>`, { ...TECH_FEED, cap: 5 }, now);
+    expect(out).toHaveLength(5);
+  });
 });
 
 describe("mergeItems", () => {
@@ -146,14 +259,92 @@ describe("mergeItems", () => {
     expect(out[0].title).toBe("改过的标题");
   });
 
-  it("超过 72 小时的条目被清掉", () => {
+  it("超过 48 小时的条目被清掉", () => {
     const out = mergeItems([], [mk("old", "很久以前", 100)], now);
     expect(out).toHaveLength(0);
+  });
+
+  it("已翻好的条目不会被同一链接的新抓取覆盖回英文", () => {
+    const translated = {
+      ...mk("1", "苹果发布新芯片", 2, "techcrunch"),
+      lang: "zh",
+      translated: true,
+      titleRaw: undefined,
+    };
+    const refetched = {
+      ...mk("1", "Apple unveils new chip", 2, "techcrunch"),
+      lang: "en",
+      translated: false,
+      titleRaw: "Apple unveils new chip",
+    };
+    const out = mergeItems([refetched], [translated], now);
+    expect(out).toHaveLength(1);
+    expect(out[0].title).toBe("苹果发布新芯片");
+    expect(out[0].lang).toBe("zh");
   });
 
   it("跨源同标题只留一条", () => {
     const out = mergeItems([mk("a1", "同一个新闻标题", 1, "a"), mk("b1", "同一个新闻标题", 2, "b")], [], now);
     expect(out).toHaveLength(1);
+  });
+
+  it("库里遗留的「中文源 + 英文标题」旧条目会被降级去翻译", () => {
+    const stale = {
+      ...mk("1", "Chinese Workers Are Paying Their Own AI Bills", 2, "tmtpost"),
+      lang: "zh",
+      translated: true,
+    };
+    const out = mergeItems([], [stale], now);
+    expect(out).toHaveLength(1);
+    expect(out[0].lang).toBe("en");
+    expect(out[0].translated).toBe(false);
+    expect(out[0].titleRaw).toContain("AI Bills");
+  });
+
+  it("单一来源最多留 26 条（否则 IT之家 会把外媒全挤到第二页）", () => {
+    const many = Array.from({ length: 40 }).map((_, i) => mk(`x${i}`, `标题 ${i}`, i + 1, "ithome"));
+    const out = mergeItems(many, [], now);
+    expect(out.filter((x) => x.source === "ithome")).toHaveLength(26);
+  });
+
+  it("同一件事被多家改写标题时只留一条", () => {
+    const list = [
+      mk("a", "黄仁勋辞去 Nvidia CEO 职务", 1, "wired"),
+      mk("b", "Nvidia CEO 黄仁勋辞职", 2, "the-verge"),
+      mk("c", "英伟达的黄仁勋辞职，任命首席财务官为临时首席执行官", 3, "techcrunch"),
+      mk("d", "苹果发布新一代 MacBook Pro", 4, "ars"),
+    ];
+    const out = mergeItems(list, [], now);
+    /* 前两条措辞接近，合成一条；第三条是更长、带了细节的报道，
+       2-gram 被稀释到 0.1 左右，会被当成不同条目留下 —— 这是想要的：
+       同一条新闻里信息更完整的版本应该保留。 */
+    expect(out).toHaveLength(3);
+    expect(out.some((x) => x.id === "b")).toBe(false);
+    expect(out.some((x) => x.title.includes("MacBook"))).toBe(true);
+  });
+
+  it("数字不同的相似标题不算重复（召回 12000 辆 vs 1200 辆）", () => {
+    const list = [
+      mk("a", "特斯拉召回 12000 辆 Cybertruck", 1, "wired"),
+      mk("b", "特斯拉召回 1200 辆 Cybertruck", 2, "ars"),
+    ];
+    expect(mergeItems(list, [], now)).toHaveLength(2);
+  });
+
+  it("单个话题最多占 6 条正常位置，超出的移到尾部（不删除）", () => {
+    const nv = Array.from({ length: 12 }).map((_, i) =>
+      mk(`nv${i}`, `英伟达第 ${i} 条消息，董事会讨论接班安排`, i + 1, `s${i}`),
+    );
+    const other = Array.from({ length: 4 }).map((_, i) =>
+      mk(`ot${i}`, `某创业公司获得融资，用于拓展海外市场 ${i}`, i + 10, `t${i}`),
+    );
+    const out = mergeItems([...nv, ...other], [], now);
+    /* 一条都没丢 */
+    expect(out).toHaveLength(16);
+    /* 前 8 条里英伟达最多 8 条，其余被推到尾部 */
+    const head = out.slice(0, 6).filter((x) => x.title.includes("英伟达")).length;
+    expect(head).toBeLessThanOrEqual(6);
+    expect(out.filter((x) => x.title.includes("英伟达")).length).toBe(12);
   });
 
   it("抓取全失败（fresh 为空）时不会把旧数据清掉", () => {

@@ -464,8 +464,8 @@ export default function HotFeed({
       {items.length && !limit ? (
         <p className="mt-6 rounded-[16px] border border-border bg-secondary/30 p-4 text-[11px] leading-5 text-muted-foreground">
           {en
-            ? "Headlines and links come from public RSS feeds of IT之家, 量子位, 极客公园, 爱范儿, 雷锋网, 钛媒体, 开源中国, Solidot, 少数派 and 华尔街见闻. Only titles, links and short excerpts are shown — every item opens the original article. SolHub doesn't host or republish their content."
-            : "标题与链接来自 IT之家、量子位、极客公园、爱范儿、雷锋网、钛媒体、开源中国、Solidot、少数派、华尔街见闻的公开 RSS。这里只展示标题、链接与一小段导语，每条都跳回原文；SolHub 不转载、不镜像这些媒体的正文。"}
+            ? "Headlines and links come from the public RSS feeds of 34 outlets — 15 Chinese and 19 global (TechCrunch, The Verge, Ars Technica, WIRED, MIT Technology Review, WSJ, CNBC, Nature and more). Non-Chinese headlines are machine-translated into Chinese, so details may be imprecise — always check the original. SolHub hosts and republishes none of it."
+            : "标题与链接来自 34 家媒体的公开 RSS —— 中文 15 家，全球 19 家（TechCrunch、The Verge、Ars Technica、WIRED、MIT Technology Review、WSJ、CNBC、Nature 等）。外媒的标题与导语由机器翻译成中文，细节可能不够准确，请以原文为准。每条都跳回原站，SolHub 不转载、不镜像正文。"}
         </p>
       ) : null}
     </div>
