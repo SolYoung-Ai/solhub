@@ -322,61 +322,65 @@ export default function Creators({
 
   /* ==================== 个人主页 ==================== */
   if (viewUser) {
+    /* 桌面两栏：左边身份（窄，滚动时钉住），右边作品（宽，铺成两列）。
+       原来是 max-w-2xl 的单栏卡片，宽屏右边空出一大片，作品又挤在一行行的短句里 ——
+       空间没吃上，信息也没铺开。 */
     return (
-      <div className="mx-auto w-full max-w-2xl pb-10">
-        <div className="overflow-hidden rounded-[18px] border border-border bg-card">
-          <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
-            {standalone ? (
-              <a
-                href={p("/", locale)}
-                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-foreground transition-colors hover:text-accent"
-              >
-                <img src={p("/solhub-mark.png")} alt="" width={16} height={16} className="shrink-0" />
-                SolHub
+      <div className="mx-auto w-full max-w-[1180px] pb-10">
+        <div className="mb-3 flex items-center gap-3">
+          {standalone ? (
+            <a
+              href={p("/", locale)}
+              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-foreground transition-colors hover:text-accent"
+            >
+              <img src={p("/solhub-mark.png")} alt="" width={16} height={16} className="shrink-0" />
+              SolHub
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={closeUser}
+              className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" /> {en ? "Back" : "返回"}
+            </button>
+          )}
+          <span className="truncate text-[13px] font-semibold text-foreground">
+            {profile?.user.name || viewUser}
+          </span>
+          <div className="ml-auto flex items-center gap-3">
+            {profile?.isSelf && (
+              <a href={p("/my-submissions/", locale)} className="text-[12px] text-accent hover:underline">
+                {en ? "Manage" : "管理资料"}
               </a>
-            ) : (
-              <button
-                type="button"
-                onClick={closeUser}
-                className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <ArrowLeft className="h-4 w-4" /> {en ? "Back" : "返回"}
-              </button>
             )}
-            <span className="truncate text-[13px] font-semibold text-foreground">
-              {profile?.user.name || viewUser}
-            </span>
-            <div className="ml-auto flex items-center gap-3">
-              {profile?.isSelf && (
-                <a href={p("/my-submissions/", locale)} className="text-[12px] text-accent hover:underline">
-                  {en ? "Manage" : "管理资料"}
-                </a>
-              )}
-              <button
-                type="button"
-                onClick={() => void shareProfile(cleanHandle(viewUser))}
-                className="inline-flex items-center gap-1.5 text-[12px] text-accent hover:underline"
-              >
-                <Share className="h-3.5 w-3.5" /> {en ? "Share" : "分享"}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => void shareProfile(cleanHandle(viewUser))}
+              className="inline-flex items-center gap-1.5 text-[12px] text-accent hover:underline"
+            >
+              <Share className="h-3.5 w-3.5" /> {en ? "Share" : "分享"}
+            </button>
           </div>
+        </div>
 
-          {profile ? (
-            <>
-              <div className="h-24 w-full bg-gradient-to-r from-accent/25 via-accent/10 to-secondary sm:h-32" />
-              <div className="px-4 pb-4">
-                <div className="-mt-10 flex items-end justify-between gap-3 sm:-mt-12">
+        {profile ? (
+          <div className="grid items-start gap-4 lg:grid-cols-[336px_minmax(0,1fr)] lg:gap-5">
+            {/* ---------- 左：身份 ---------- */}
+            <aside className="overflow-hidden rounded-[18px] border border-border bg-card lg:sticky lg:top-5">
+              <div className="h-20 w-full bg-gradient-to-r from-accent/25 via-accent/10 to-secondary" />
+              <div className="px-5 pb-5">
+                <div className="-mt-9 flex items-end justify-between gap-3">
                   <Avatar
                     name={profile.user.name || profile.user.login}
                     src={profile.user.avatar}
-                    className="h-20 w-20 border-4 text-2xl sm:h-24 sm:w-24"
+                    className="h-[76px] w-[76px] border-4 text-2xl"
                   />
                   {!profile.isSelf && (
                     <button
                       type="button"
                       onClick={() => void follow(viewUser)}
-                      className={`btn !h-9 gap-1.5 rounded-full px-5 text-[13px] ${
+                      className={`btn !h-8 gap-1.5 rounded-full px-3.5 text-[12px] ${
                         profile.isFollowing ? "btn-outline" : "btn-accent"
                       }`}
                     >
@@ -386,169 +390,180 @@ export default function Creators({
                   )}
                 </div>
 
-                <div className="mt-3">
-                  <h1 className="flex items-center gap-1.5 font-display text-lg font-bold text-foreground">
-                    {profile.user.name}
-                    {profile.user.verified && <GoldBadge className="h-[17px] w-[17px]" />}
-                    {isOfficial(profile.user.login) && (
-                      <span className="inline-flex items-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-accent-foreground">
-                        {en ? "Official" : "官方"}
-                      </span>
-                    )}
-                  </h1>
-                  <p className="text-[13px] text-muted-foreground">@{cleanHandle(profile.user.login)}</p>
-                  {profile.user.banned && (
-                    <span className="mt-1 inline-flex w-fit items-center rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold leading-none text-destructive">
-                      {en ? "Banned" : "该账号已被封禁"}
+                <h1 className="mt-3 flex flex-wrap items-center gap-1.5 font-display text-xl font-extrabold tracking-tight text-foreground">
+                  {profile.user.name}
+                  {profile.user.verified && <GoldBadge className="h-[17px] w-[17px]" />}
+                  {isOfficial(profile.user.login) && (
+                    <span className="inline-flex items-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-accent-foreground">
+                      {en ? "Official" : "官方"}
                     </span>
                   )}
-                  {profile.user.bio && (
-                    <p className="mt-2 whitespace-pre-wrap text-[14px] leading-6 text-foreground/85">{profile.user.bio}</p>
-                  )}
-                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
-                    {profile.user.location && (
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin className="h-3.5 w-3.5" />
-                        {profile.user.location}
-                      </span>
-                    )}
-                    {profile.user.website && (
-                      <a
-                        href={ensureHttps(profile.user.website)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-accent hover:underline"
-                      >
-                        <Link2 className="h-3.5 w-3.5" />
-                        {hostOf(profile.user.website)}
-                      </a>
-                    )}
-                    {profile.user.contact && (
-                      <span className="inline-flex items-center gap-1">
-                        <Globe2 className="h-3.5 w-3.5" />
-                        {profile.user.contact}
-                      </span>
-                    )}
-                    {profile.user.email && (
-                      <span className="inline-flex items-center gap-1">
-                        <Mail className="h-3.5 w-3.5" />
-                        {profile.user.email}
-                        {profile.user.emailVerified && (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-accent">
-                            <ShieldCheck className="h-2.5 w-2.5" aria-hidden="true" />
-                            {en ? "Verified" : "已验证"}
-                          </span>
-                        )}
-                      </span>
-                    )}
-                    {profile.user.joinedAt && (
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarDays className="h-3.5 w-3.5" />
-                        {en ? "Joined " : "加入于 "}
-                        {profile.user.joinedAt.slice(0, 10)}
-                      </span>
-                    )}
-                  </div>
+                </h1>
+                <p className="text-[13px] text-muted-foreground">@{cleanHandle(profile.user.login)}</p>
+                {profile.user.banned && (
+                  <span className="mt-1 inline-flex w-fit items-center rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold leading-none text-destructive">
+                    {en ? "Banned" : "该账号已被封禁"}
+                  </span>
+                )}
+                {profile.user.bio && (
+                  <p className="mt-2.5 whitespace-pre-wrap text-[13.5px] leading-6 text-foreground/85">{profile.user.bio}</p>
+                )}
 
-                  <div className="mt-2.5 flex items-center gap-5 text-[13px] text-muted-foreground">
-                    <span>
-                      <b className="text-foreground">{profile.followingCount}</b> {en ? "Following" : "关注"}
+                {/* 资料竖排：336px 宽的栏里横排会折成一串参差的短行 */}
+                <div className="mt-3 space-y-1.5 text-[12px] text-muted-foreground">
+                  {profile.user.location && (
+                    <span className="flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      {profile.user.location}
                     </span>
-                    <span>
-                      <b className="text-foreground">{profile.followerCount}</b> {en ? "Followers" : "粉丝"}
+                  )}
+                  {profile.user.website && (
+                    <a
+                      href={ensureHttps(profile.user.website)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-accent hover:underline"
+                    >
+                      <Link2 className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{hostOf(profile.user.website)}</span>
+                    </a>
+                  )}
+                  {profile.user.contact && (
+                    <span className="flex items-center gap-1.5">
+                      <Globe2 className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{profile.user.contact}</span>
                     </span>
-                    <span>
-                      <b className="text-foreground">{profile.productCount}</b> {en ? "Products" : "作品"}
+                  )}
+                  {profile.user.email && (
+                    <span className="flex items-center gap-1.5">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{profile.user.email}</span>
+                      {profile.user.emailVerified && (
+                        <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-accent">
+                          <ShieldCheck className="h-2.5 w-2.5" aria-hidden="true" />
+                          {en ? "Verified" : "已验证"}
+                        </span>
+                      )}
                     </span>
+                  )}
+                  {profile.user.joinedAt && (
+                    <span className="flex items-center gap-1.5">
+                      <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                      {en ? "Joined " : "加入于 "}
+                      {profile.user.joinedAt.slice(0, 10)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-1 border-t border-border pt-3.5 text-center">
+                  <div>
+                    <b className="block text-[15px] font-bold tabular-nums text-foreground">{profile.followingCount}</b>
+                    <span className="text-[11.5px] text-muted-foreground">{en ? "Following" : "关注"}</span>
+                  </div>
+                  <div>
+                    <b className="block text-[15px] font-bold tabular-nums text-foreground">{profile.followerCount}</b>
+                    <span className="text-[11.5px] text-muted-foreground">{en ? "Followers" : "粉丝"}</span>
+                  </div>
+                  <div>
+                    <b className="block text-[15px] font-bold tabular-nums text-foreground">{profile.productCount}</b>
+                    <span className="text-[11.5px] text-muted-foreground">{en ? "Products" : "作品"}</span>
                   </div>
                 </div>
               </div>
+            </aside>
 
-              {/* 作品：个人主页只展示作品，不再有帖子 */}
-              <div className="border-t border-border px-4 py-3">
-                <h2 className="mb-1 flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
-                  <Package className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-                  {en ? "Products" : "作品"}
-                  <span className="font-normal text-muted-foreground">{profile.products.length}</span>
-                </h2>
-                {profile.products.length === 0 ? (
-                  <div className="rounded-[8px] border border-dashed border-border py-10 text-center">
-                    <Package className="mx-auto h-7 w-7 text-muted-foreground/60" aria-hidden="true" />
-                    <p className="mt-2 text-[13px] text-muted-foreground">
-                      {en ? "No products submitted yet." : "还没有提交过作品。"}
-                    </p>
-                  </div>
-                ) : (
-                  <ul className="divide-y divide-border">
-                    {profile.products.map((prod) => (
-                      <li key={prod.slug}>
-                        <a
-                          href={ensureHttps(prod.websiteUrl)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-start gap-3 py-3 transition-colors hover:bg-secondary/30"
-                        >
-                          <ProductIcon name={prod.name} src={prod.icon} />
-                          <div className="min-w-0 flex-1">
-                            <p className="flex items-center gap-1.5 truncate text-[14px] font-bold text-foreground">
-                              {prod.name}
-                              {prod.verificationStatus === "verified" && (
-                                <VerifiedBadge label={en ? "Verified" : "已核验"} className="mt-0.5" />
-                              )}
-                            </p>
-                            <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-muted-foreground">
-                              {prod.shortDescription}
-                            </p>
-                            {prod.tags.length > 0 && (
-                              <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                                {prod.tags.map((t) => `#${t}`).join(" ")}
-                              </p>
-                            )}
-                          </div>
-                          <ExternalLink className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+            {/* ---------- 右：作品（个人主页只展示作品，不再有帖子） ---------- */}
+            <section className="@container overflow-hidden rounded-[18px] border border-border bg-card">
+              <div className="flex items-center gap-2 border-b border-border px-4 py-3.5 sm:px-5">
+                <Package className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                <h2 className="text-[13.5px] font-semibold text-foreground">{en ? "Products" : "作品"}</h2>
+                <span className="text-[12px] text-muted-foreground">{profile.products.length}</span>
               </div>
-            </>
-          ) : profileError ? (
-            <div className="px-6 py-14 text-center">
-              <WifiOff className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-foreground/70">
-                {en ? "Couldn't load this profile" : "主页没能加载出来"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {en ? "The network looks unstable. Your link is fine — try again." : "网络不太稳定，链接本身没问题，可以重试一次。"}
-              </p>
-              <button
-                type="button"
-                onClick={() => setProfileReload((n) => n + 1)}
-                className="btn btn-accent mt-4 !h-8 px-4 text-xs"
-              >
-                {en ? "Retry" : "重试"}
-              </button>
-            </div>
-          ) : profileMissing ? (
-            <div className="px-6 py-14 text-center">
-              <UserRound className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-foreground/70">
-                {en ? "This profile doesn't exist" : "这个用户不存在"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {en ? "The account may have been deleted or the link is wrong." : "账号可能已注销，或者链接里的用户名不对。"}
-              </p>
-              <button type="button" onClick={closeUser} className="btn btn-outline mt-4 !h-8 px-4 text-xs">
-                {en ? "Back to creators" : "返回创作者"}
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center gap-2 py-12 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {en ? "Loading…" : "加载中…"}
-            </div>
-          )}
-        </div>
+              {profile.products.length === 0 ? (
+                <div className="px-5 py-14 text-center">
+                  <Package className="mx-auto h-7 w-7 text-muted-foreground/60" aria-hidden="true" />
+                  <p className="mt-2 text-[13px] text-muted-foreground">
+                    {en ? "No products submitted yet." : "还没有提交过作品。"}
+                  </p>
+                </div>
+              ) : (
+                /* 三件以上才分两列，且跟着「右栏自己的宽度」走：1280 屏里右栏可能只有
+                   570px，硬分两列会把产品名截成「SolYoung S…」。因此用容器查询而非视口断点。 */
+                <ul
+                  className={`p-4 ${profile.products.length >= 3 ? "grid gap-3 @min-[600px]:grid-cols-2" : "space-y-3"}`}
+                >
+                  {profile.products.map((prod) => (
+                    <li key={prod.slug} className="min-w-0">
+                      <a
+                        href={ensureHttps(prod.websiteUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex h-full min-w-0 items-start gap-3 rounded-[14px] border border-border bg-secondary/20 p-3.5 transition-colors hover:border-accent/40 hover:bg-secondary/35"
+                      >
+                        <ProductIcon name={prod.name} src={prod.icon} />
+                        <div className="min-w-0 flex-1">
+                          <p className="flex items-center gap-1.5 text-[14px] font-bold text-foreground">
+                            <span className="truncate">{prod.name}</span>
+                            {prod.verificationStatus === "verified" && (
+                              <VerifiedBadge label={en ? "Verified" : "已核验"} className="mt-0.5 shrink-0" />
+                            )}
+                          </p>
+                          <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-5 text-muted-foreground">
+                            {prod.shortDescription}
+                          </p>
+                          {prod.tags.length > 0 && (
+                            <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                              {prod.tags.map((t) => `#${t}`).join(" ")}
+                            </p>
+                          )}
+                        </div>
+                        <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-hidden="true" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-[18px] border border-border bg-card">
+            {profileError ? (
+              <div className="px-6 py-14 text-center">
+                <WifiOff className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
+                <p className="mt-3 text-sm font-medium text-foreground/70">
+                  {en ? "Couldn't load this profile" : "主页没能加载出来"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {en ? "The network looks unstable. Your link is fine — try again." : "网络不太稳定，链接本身没问题，可以重试一次。"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setProfileReload((n) => n + 1)}
+                  className="btn btn-accent mt-4 !h-8 px-4 text-xs"
+                >
+                  {en ? "Retry" : "重试"}
+                </button>
+              </div>
+            ) : profileMissing ? (
+              <div className="px-6 py-14 text-center">
+                <UserRound className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
+                <p className="mt-3 text-sm font-medium text-foreground/70">
+                  {en ? "This profile doesn't exist" : "这个用户不存在"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {en ? "The account may have been deleted or the link is wrong." : "账号可能已注销，或者链接里的用户名不对。"}
+                </p>
+                <button type="button" onClick={closeUser} className="btn btn-outline mt-4 !h-8 px-4 text-xs">
+                  {en ? "Back to creators" : "返回创作者"}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 py-12 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> {en ? "Loading…" : "加载中…"}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
