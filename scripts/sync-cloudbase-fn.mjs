@@ -56,6 +56,14 @@ const EXTRA = [
       path.join(ROOT, "cloudbase", "functions", "solhub-cron", "quotes.cjs"),
     ],
   },
+  {
+    /* 热点搜索匹配（同样被 core.cjs 引入，两个目录都要有） */
+    src: path.join(ROOT, "worker", "hot-search.js"),
+    dst: [
+      path.join(ROOT, "cloudbase", "functions", "solhub-auth", "hot-search.cjs"),
+      path.join(ROOT, "cloudbase", "functions", "solhub-cron", "hot-search.cjs"),
+    ],
+  },
 ];
 
 const BANNER = `/*

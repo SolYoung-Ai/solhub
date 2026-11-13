@@ -56,6 +56,36 @@ const POLL_MS = 60 * 1000;
 const PAGE = 40;
 const STORE_CAT = "solhub:hot:cat";
 const STORE_NOTIFY = "solhub:hot:notify";
+/** 输入后等这么久再打接口：中文一个字一个字敲，每个字都发请求既慢又费额度 */
+const SEARCH_DEBOUNCE_MS = 250;
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * 把命中的关键词套一层 <mark>。
+ * 能不能搜到由后端判定（worker/hot-search.js），这里只负责看得见 ——
+ * 所以高亮规则允许比后端宽松，最多多染几个字，不会出现「有结果但一个字都没标」。
+ */
+function Highlight({ text, words }: { text: string; words: string[] }) {
+  if (!words.length) return <>{text}</>;
+  const re = new RegExp(`(${words.map(escapeRe).join("|")})`, "gi");
+  const hits = new Set(words.map((w) => w.toLowerCase()));
+  return (
+    <>
+      {text.split(re).map((part, i) =>
+        hits.has(part.toLowerCase()) ? (
+          <mark key={i} className="rounded-[3px] bg-accent/20 px-0.5 text-inherit">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
 
 function timeAgo(iso: string, en: boolean): string {
   const t = Date.parse(iso);
@@ -108,17 +138,22 @@ export default function HotFeed({
   const [reloadKey, setReloadKey] = useState(0);
   const [notifyOn, setNotifyOn] = useState(false);
   const [notifyHint, setNotifyHint] = useState("");
+  /* query 是输入框里的字，appliedQuery 是真正发出去的那个（防抖后） */
+  const [query, setQuery] = useState("");
+  const [appliedQuery, setAppliedQuery] = useState("");
 
   /* 轮询回调里要用到最新值，但又不想把它们塞进依赖触发重建 —— 用 ref 兜住 */
   const catRef = useRef<Cat>("all");
   const headRef = useRef("");
   const notifyRef = useRef(false);
+  const queryRef = useRef("");
   const mounted = useRef(true);
 
   useEffect(() => {
     catRef.current = cat;
+    queryRef.current = appliedQuery;
     headRef.current = data && data.items[0] ? data.items[0].publishedAt : "";
-  }, [cat, data]);
+  }, [cat, appliedQuery, data]);
 
   useEffect(() => {
     notifyRef.current = notifyOn;
@@ -142,22 +177,32 @@ export default function HotFeed({
     };
   }, []);
 
-  const fetchFeed = useCallback(async (targetCat: Cat): Promise<HotResponse | null> => {
-    const res = await fetch(`${base()}/hot?cat=${targetCat}&limit=200`, {
+  const fetchFeed = useCallback(async (targetCat: Cat, targetQuery: string): Promise<HotResponse | null> => {
+    /* 搜索时先跨全部分类找，再在结果里看 —— 读者搜「英伟达」不关心自己停在哪个
+       分类标签上。分类过滤留在后端，前端不做第二套规则。 */
+    const params = new URLSearchParams({ cat: targetQuery ? "all" : targetCat, limit: "200" });
+    if (targetQuery) params.set("q", targetQuery);
+    const res = await fetch(`${base()}/hot?${params.toString()}`, {
       headers: { accept: "application/json" },
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as HotResponse;
   }, []);
 
-  /* 首次加载 + 切分类 */
+  /* 打字不立刻打接口：停在 250ms 才算一个完整的词 */
+  useEffect(() => {
+    const t = window.setTimeout(() => setAppliedQuery(query.trim()), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [query]);
+
+  /* 首次加载 + 切分类 + 改搜索词 */
   useEffect(() => {
     let alive = true;
     setLoading(true);
     setError("");
     setPending([]);
     setShown(initialShown);
-    fetchFeed(cat)
+    fetchFeed(cat, appliedQuery)
       .then((json) => {
         if (!alive || !json) return;
         setData(json);
@@ -177,7 +222,7 @@ export default function HotFeed({
     return () => {
       alive = false;
     };
-  }, [cat, reloadKey, fetchFeed]);
+  }, [cat, appliedQuery, reloadKey, fetchFeed, initialShown]);
 
   /** 弹系统通知。优先走 Service Worker（iOS 装到桌面后只认这条路），退化为普通 Notification。 */
   const notify = useCallback(
@@ -210,8 +255,11 @@ export default function HotFeed({
 
     const tick = async () => {
       if (document.visibilityState !== "visible") return;
+      /* 搜索中不轮询：此时列表代表「匹配这个词的结果」，把新条目塞进来会污染结果集，
+         读者看到的就是搜索框里写着「英伟达」、列表里冒出别的东西 */
+      if (queryRef.current) return;
       try {
-        const json = await fetchFeed(catRef.current);
+        const json = await fetchFeed(catRef.current, "");
         if (!json || !mounted.current) return;
         const head = headRef.current;
         const fresh = head
@@ -310,19 +358,94 @@ export default function HotFeed({
   const visible = items.slice(0, shown);
   const counts = data?.counts ?? { all: 0, ai: 0, product: 0, tech: 0, finance: 0 };
 
+  /* 高亮关键词跟着「已发出的搜索词」走，不跟输入框走：否则每敲一个字都在重染色 */
+  const words = appliedQuery ? appliedQuery.split(/\s+/).filter(Boolean) : [];
+
+  /* 点分类等于「我要逛，不搜了」，两件事一起收掉，不留半截搜索状态 */
+  const clearSearch = useCallback(() => {
+    setQuery("");
+    setAppliedQuery("");
+  }, []);
+
   return (
     <div className="min-w-0">
+      {/* 搜索框：只在完整页出现，首页那份是摘录，没有搜索的必要 */}
+      {!limit ? (
+        <div className="mb-3">
+          {/* 宽度约束在外层：清空按钮是 absolute，挂在 input 上的 max-w 管不住它 */}
+          <div className="relative w-full sm:max-w-[360px]">
+            <svg
+              viewBox="0 0 24 24"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.6-3.6" />
+            </svg>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  clearSearch();
+                  e.currentTarget.blur();
+                }
+              }}
+              enterKeyHint="search"
+              aria-label={en ? "Search hot stories" : "搜索热点"}
+              placeholder={en ? "Search headlines, sources…" : "搜索标题、来源，用空格分隔多个词"}
+              className="h-10 w-full rounded-full border border-border bg-card pl-9 pr-9 text-[13px] text-foreground outline-none transition placeholder:text-[12px] placeholder:text-muted-foreground focus:border-accent/50 focus:ring-2 focus:ring-accent/15"
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={clearSearch}
+                aria-label={en ? "Clear search" : "清空搜索"}
+                className="absolute right-2.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6 6 18" />
+                </svg>
+              </button>
+            ) : null}
+          </div>
+          {/* 0 条时下面有空态卡片兜着，这里再写一遍「找到 0 条」是重复 */}
+          {appliedQuery && (loading || items.length > 0) ? (
+            <p className="mt-2 px-1 text-[11px] text-muted-foreground">
+              {loading
+                ? en
+                  ? "Searching…"
+                  : "搜索中…"
+                : en
+                  ? `${items.length} ${items.length === 1 ? "result" : "results"} for “${appliedQuery}” · across all categories`
+                  : `找到 ${items.length} 条「${appliedQuery}」 · 跨全部分类`}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* 分类 + 通知开关。手机上横向滚动，不换行不挤压 */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((t) => {
-            const active = cat === t.id;
+            /* 搜索时不高亮任何分类：结果是跨分类搜出来的，标一个「全部」会让人以为
+               只搜了「全部」这一栏 */
+            const active = cat === t.id && !appliedQuery;
             const n = counts[t.id] ?? 0;
             return (
               <button
                 key={t.id}
                 type="button"
-                onClick={() => setCat(t.id)}
+                onClick={() => {
+                  if (query || appliedQuery) clearSearch();
+                  setCat(t.id);
+                }}
                 aria-pressed={active}
                 className={`shrink-0 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition sm:px-3 sm:text-xs ${
                   active
@@ -418,10 +541,28 @@ export default function HotFeed({
 
       {!loading && !error && !items.length ? (
         <div className="card mt-4 p-8 text-center">
-          <p className="text-sm font-semibold text-foreground">{en ? "Nothing here yet" : "这个分类还没有内容"}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {en ? "First batch is being fetched. Check back in a few minutes." : "第一批还在路上，过几分钟再来看看。"}
-          </p>
+          {appliedQuery ? (
+            <>
+              <p className="text-sm font-semibold text-foreground">
+                {en ? `No matches for “${appliedQuery}”` : `没有和「${appliedQuery}」相关的内容`}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {en
+                  ? "Try a shorter keyword, or a company / product name."
+                  : "换个短一点的词试试，比如公司名、产品名。"}
+              </p>
+              <button type="button" onClick={clearSearch} className="btn btn-outline mt-4 !h-9 px-4 text-xs">
+                {en ? "Clear search" : "清空搜索"}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-foreground">{en ? "Nothing here yet" : "这个分类还没有内容"}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {en ? "First batch is being fetched. Check back in a few minutes." : "第一批还在路上，过几分钟再来看看。"}
+              </p>
+            </>
+          )}
         </div>
       ) : null}
 
@@ -441,11 +582,11 @@ export default function HotFeed({
                 <time dateTime={it.publishedAt}>{timeAgo(it.publishedAt, en)}</time>
               </div>
               <TitleTag className="mt-1.5 break-words text-[14px] font-bold leading-6 text-foreground group-hover:text-accent sm:text-[15px]">
-                {it.title}
+                <Highlight text={it.title} words={words} />
               </TitleTag>
               {it.summary ? (
                 <p className="mt-1 line-clamp-2 break-words text-[12px] leading-5 text-muted-foreground">
-                  {it.summary}
+                  <Highlight text={it.summary} words={words} />
                 </p>
               ) : null}
             </a>
@@ -453,6 +594,8 @@ export default function HotFeed({
         ))}
       </ul>
 
+      {/* 搜索结果一次就返回了全部命中（后端已过滤再分页），「加载更多」是纯前端切片，
+          所以搜索时也保留：83 条命中只露 40 条而不给翻页，才是真的断头路 */}
       {!limit && shown < items.length ? (
         <div className="mt-5 flex justify-center">
           <button type="button" onClick={() => setShown((n) => n + PAGE)} className="btn btn-outline !h-9 px-5 text-xs">

@@ -53,6 +53,7 @@
 /* 行情引擎。放在 worker/quotes.js 里而不是内联：它有独立的解析逻辑和测试，
    而本文件已经太长；scripts/sync-cloudbase-fn.mjs 会把它一并带进云函数。 */
 import { QUOTES_KEY, QUOTES_TTL_MS, fetchQuotes } from "./quotes.js";
+import { searchHotItems } from "./hot-search.js";
 
 const REPO = "SolYoung-Ai/solhub";
 const SITE_BASE = "https://solhub.solyoung.top";
@@ -3146,17 +3147,22 @@ export default {
       const cat = String(url.searchParams.get("cat") || "all");
       const limit = Math.min(Math.max(1, Number(url.searchParams.get("limit") || 60) || 60), 200);
       const since = String(url.searchParams.get("since") || "");
+      const q = String(url.searchParams.get("q") || "").trim();
 
       const feed = await readHotFeed(env);
       const counts = { all: feed.items.length, ai: 0, product: 0, tech: 0, finance: 0 };
       for (const it of feed.items) if (counts[it.category] !== undefined) counts[it.category] += 1;
 
       let items = cat === "all" ? feed.items : feed.items.filter((it) => it.category === cat);
-      const total = items.length;
       if (since) {
         const t = Date.parse(since);
         if (Number.isFinite(t)) items = items.filter((it) => Date.parse(it.publishedAt) > t);
       }
+      /* 搜索放在 since 之后、切片之前：先过滤再分页，否则 372 条里只有最新的
+         200 条能被搜到，读者搜一条上周的标题会得到「没有结果」。
+         按关键词匹配的规则在 worker/hot-search.js，前后端只有这一份。 */
+      if (q) items = searchHotItems(items, q);
+      const total = items.length;
       const page = items.slice(0, limit);
 
       return json(request, {

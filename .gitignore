@@ -28,6 +28,7 @@ cloudbase/functions/*/hot.cjs
 cloudbase/functions/*/translate.cjs
 cloudbase/functions/*/t2s.cjs
 cloudbase/functions/*/quotes.cjs
+cloudbase/functions/*/hot-search.cjs
 
 # Skill 抓取脚本的 GitHub 仓库树缓存（7 天，可随时重跑生成）
 scripts/.cache/
