@@ -6,7 +6,6 @@ import {
   Flame,
   Languages,
   LogOut,
-  Megaphone,
   Moon,
   Package,
   Plus,
@@ -79,8 +78,8 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", no
     { label: translate(dict, "nav.discover"), path: "/", icon: Compass, match: (r) => r === "/" },
     { label: translate(dict, "nav.launches"), path: "/launches/", icon: Package, match: (r) => r.startsWith("/launches/") },
     { label: translate(dict, "nav.skills"), path: "/skills/", icon: Sparkles, match: (r) => r.startsWith("/skills/") },
-    /* 热点占的是原来的赞助位。赞助墙没删，只是从主导航退到页脚 —— 现金入口不该
-       挡在信息流前面，但也不能断掉，所以 /sponsors/ 与账号菜单里的「赞助合作」都留着。 */
+    /* 热点占的是原来的赞助位。赞助墙 2026-11 已整体下线（页面、首页板块、
+       页脚与账号菜单入口一并移除），恢复时把 src/pages/sponsors/ 一起还原。 */
     { label: translate(dict, "nav.hot"), path: "/hot/", icon: Flame, match: (r) => r.startsWith("/hot/") },
     { label: translate(dict, "nav.world"), path: "/world/", icon: Users, match: (r) => r.startsWith("/world/") },
     { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, match: (r) => r.startsWith("/my-submissions/") },
@@ -409,14 +408,6 @@ function UserMenuItems({
         className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
       >
         <UserCog className="h-3.5 w-3.5" /> {translate(getDict(locale), "nav.account")}
-      </a>
-      {/* 招商页不是访客功能，放在账号菜单里：站长偶尔用，不占访客导航 */}
-      <a
-        href={p("/sponsors/join/", locale)}
-        onClick={onNavigate}
-        className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
-      >
-        <Megaphone className="h-3.5 w-3.5" /> {en ? "Sponsorship" : "赞助合作"}
       </a>
       {user.isAdmin && (
         <a

@@ -6,11 +6,9 @@ import { rankProducts } from "@/lib/ranking";
 import { p } from "@/lib/paths";
 import ProductCard from "@/components/ProductCard.astro";
 import SectionHeading from "@/components/SectionHeading.astro";
-import AdCard from "@/components/AdCard";
 import HeroSearch from "@/islands/HeroSearch.tsx";
 import Typewriter from "@/islands/Typewriter.tsx";
 import HotFeed from "@/islands/HotFeed.tsx";
-import { ADS, rankAds } from "@/data/ads";
 import type { Locale } from "@/i18n";
 
 interface Props {
@@ -21,8 +19,6 @@ const locale = Astro.props.locale ?? "zh";
 const en = locale === "en";
 
 const featured = rankProducts(products).slice(0, 3);
-/* 首页只放当期有效的赞助位；排序交给 rankAds（出价高的在前），与 /sponsors/ 一致 */
-const sponsors = rankAds(ADS);
 /* 首页的热点只做摘录：8 条，更多回 /hot/ */
 const HOT_PREVIEW = 8;
 
@@ -112,52 +108,6 @@ const metaDesc = en
           ))
         }
       </div>
-    </div>
-  </section>
-
-  <!-- ===== 赞助商 =====
-       原来的「全部产品」位置换成赞助墙：产品目录由 /launches/ 与左侧导航承担，
-       首页这一屏留给「别人花钱买来的注意力」和「今天发生了什么」。 -->
-  <section class="border-t border-border py-10 sm:py-16">
-    <div class="container-page">
-      <SectionHeading
-        eyebrow={en ? "Advertising" : "广告"}
-        title={en ? "Sponsors" : "赞助商"}
-        description={en
-          ? "Paid placements, ordered by the amount sponsored and always labelled as ads. Ranking rules for products and Skills are unchanged."
-          : "按赞助金额排序的赞助内容，全部标注为广告；产品与 Skill 的排序规则不变。"}
-        actionHref={p("/sponsors/", locale)}
-        actionLabel={en ? "About sponsorship" : "关于赞助"}
-      />
-      {
-        sponsors.length ? (
-          <div class="grid items-start gap-4 sm:grid-cols-2">
-            {sponsors.map((ad) => (
-              <AdCard ad={ad} locale={locale} compact={true} />
-            ))}
-          </div>
-        ) : (
-          <div class="card flex flex-col items-center gap-3 p-10 text-center">
-            <p class="text-sm font-semibold text-foreground">
-              {en ? "This spot is open" : "这个位置还空着"}
-            </p>
-            <p class="max-w-md text-[13px] leading-6 text-muted-foreground">
-              {en
-                ? "Promote a product, service, event or open-source project here. You set the bid; the highest bid sits first."
-                : "可以推广产品、服务、活动或开源项目。出价由你定，价高者排前面。"}
-            </p>
-            <a href={p("/sponsors/join/", locale)} class="btn btn-accent mt-1 !h-9 px-4 text-xs">
-              {en ? "See how it works" : "看看怎么投"}
-            </a>
-          </div>
-        )
-      }
-      <p class="mt-4 text-[11px] text-muted-foreground/80">
-        {en ? "Want your product here? " : "想让自己的产品出现在这里？"}
-        <a href={p("/sponsors/join/", locale)} class="font-semibold text-accent hover:underline">
-          {en ? "Sponsorship rules and pricing →" : "赞助规则与价格 →"}
-        </a>
-      </p>
     </div>
   </section>
 
