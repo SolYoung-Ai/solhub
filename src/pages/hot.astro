@@ -2,7 +2,7 @@
 /**
  * 热点（/hot/）—— AI、产品、科技、金融的全网最新动态
  *
- * 内容不是站内生产的，是聚合 34 家媒体（中文 15 + 全球 19）的公开 RSS：
+ * 内容不是站内生产的，是聚合 39 家媒体（中文 15 + 全球 24）的公开 RSS：
  * 只取标题 + 链接 + 一句导语，每条都跳回原站。这是「导流式聚合」，不是转载 ——
  * 页面上不出现任何正文段落，也没有镜像图。
  *
@@ -24,8 +24,8 @@ const locale = Astro.props.locale ?? "zh";
 const en = locale === "en";
 
 const metaDesc = en
-  ? "A running feed of what's happening in AI, products, tech and finance — aggregated from 34 media outlets worldwide, refreshed every 15 minutes, every headline in Chinese and linked to the original."
-  : "AI、产品、科技、金融的最新动态：聚合 34 家媒体（中文 15 家 + 全球 19 家）的公开 RSS，每 15 分钟更新一次，标题统一中文，每条都跳回原文。";
+  ? "A running feed of what's happening in AI, products, tech, finance and freebies — aggregated from 39 media outlets worldwide, refreshed every 15 minutes, every headline in Chinese and linked to the original."
+  : "AI、产品、科技、金融和羊毛（免费额度、开源替代、免费服务器）的最新动态：聚合 39 家媒体（中文 15 家 + 全球 24 家）的公开 RSS，每 15 分钟更新一次，标题统一中文，每条都跳回原文。";
 ---
 
 <BaseLayout title={en ? "Hot" : "热点"} description={metaDesc} route="/hot/" locale={locale}>
@@ -42,7 +42,7 @@ const metaDesc = en
           {en ? "Links to originals" : "跳转原文"}
         </span>
         <span class="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] text-muted-foreground">
-          {en ? "34 outlets" : "34 家媒体"}
+          {en ? "39 outlets" : "39 家媒体"}
         </span>
       </div>
       <div class="mt-4 flex flex-wrap items-center gap-2">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classify, cleanText, hashId, mergeItems, normalizeUrl, parseFeed, spread } from "../worker/hot.js";
+import { classify, cleanText, hashId, mergeItems, normalizeUrl, parseFeed, parseHnAlgolia, spread } from "../worker/hot.js";
 
 /** 一个最小可用的 RSS 片段，用来验证解析与清洗 */
 const RSS = `<?xml version="1.0" encoding="UTF-8"?>
@@ -376,5 +376,125 @@ describe("spread", () => {
   it("只有单一来源时原样返回，不会死循环", () => {
     const list = Array.from({ length: 5 }).map((_, i) => ({ id: String(i), source: "a" }));
     expect(spread(list, 2)).toHaveLength(5);
+  });
+});
+
+describe("羊毛分类", () => {
+  const TECH = { category: "tech", lang: "zh" };
+  const FREE_FEED = { category: "free", lang: "en" };
+
+  it("中文标题里的免费 / 开源信号进羊毛", () => {
+    expect(classify("阿里云免费开放 100 万 token 额度", TECH)).toBe("free");
+    expect(classify("某团队开源了一个本地推理框架", TECH)).toBe("free");
+    expect(classify("白嫖 30 天：这家云厂商的学生包又回来了", TECH)).toBe("free");
+  });
+
+  it("英文的 free tier / open-source alternative 也进羊毛", () => {
+    expect(classify("Cloudflare adds a free tier for GPU inference", TECH)).toBe("free");
+    expect(classify("Show HN: An open-source alternative to Notion", TECH)).toBe("free");
+  });
+
+  it("羊毛源整源锁分类，不会被 AI 关键词抢走", () => {
+    expect(classify("Show HN: An AI agent that runs on Cloudflare", FREE_FEED)).toBe("free");
+  });
+
+  it("强金融信号仍然优先于羊毛", () => {
+    expect(classify("英伟达股价大涨，免费送显卡", TECH)).toBe("finance");
+  });
+
+  it("普通产品新闻不会被误判成羊毛", () => {
+    expect(classify("小米发布新手机", TECH)).toBe("product");
+    expect(classify("Nothing 发布新款耳机", TECH)).toBe("product");
+  });
+});
+
+describe("羊毛源（HN Algolia）", () => {
+  const FEED = {
+    id: "hn-free-api",
+    name: "Hacker News",
+    category: "free",
+    lang: "en",
+    cap: 8,
+    type: "json",
+    require: /\bfree\b/i,
+  };
+  const now = Date.parse("2026-11-14T08:00:00Z");
+  const hit = (o: Record<string, unknown>) => ({
+    objectID: "1",
+    title: "Show HN: A free API for weather",
+    url: "https://example.com/a",
+    created_at: "2026-11-13T10:00:00Z",
+    points: 30,
+    ...o,
+  });
+
+  it("解析 JSON 命中并归到羊毛", () => {
+    const items = parseHnAlgolia({ hits: [hit({})] }, FEED, now);
+    expect(items).toHaveLength(1);
+    expect(items[0].category).toBe("free");
+    expect(items[0].lang).toBe("en");
+    expect(items[0].titleRaw).toContain("free API");
+  });
+
+  it("没有外链时退回 HN 讨论页，不留空链接", () => {
+    const items = parseHnAlgolia({ hits: [hit({ url: null, objectID: "42" })] }, FEED, now);
+    expect(items[0].url).toBe("https://news.ycombinator.com/item?id=42");
+  });
+
+  it("Algolia 的模糊匹配结果被 require 挡掉", () => {
+    const noise = hit({ objectID: "2", title: "FIRE says US to end efforts to curb App", url: "https://example.com/b" });
+    expect(parseHnAlgolia({ hits: [noise] }, FEED, now)).toHaveLength(0);
+  });
+
+  it("坏 JSON / 空 hits 不抛错", () => {
+    expect(parseHnAlgolia({}, FEED, now)).toHaveLength(0);
+    expect(parseHnAlgolia({ hits: null }, FEED, now)).toHaveLength(0);
+  });
+});
+
+describe("羊毛条目的保留期", () => {
+  const now = Date.parse("2026-11-14T08:00:00Z");
+  const mk = (id: string, daysAgo: number, category: string) => ({
+    id,
+    title: `标题 ${id}`,
+    url: `https://example.com/${id}`,
+    source: "hn-oss-alt",
+    sourceName: "Hacker News",
+    category,
+    publishedAt: new Date(now - daysAgo * 86400000).toISOString(),
+    summary: "",
+    lang: "zh",
+    translated: true,
+  });
+
+  it("新闻超过 48 小时清掉，羊毛留到 14 天", () => {
+    const out = mergeItems([], [mk("a", 3, "tech"), mk("b", 3, "free"), mk("c", 20, "free")], now);
+    const ids = out.map((x: { id: string }) => x.id);
+    expect(ids).toContain("b");
+    expect(ids).not.toContain("a");
+    expect(ids).not.toContain("c");
+  });
+});
+
+describe("羊毛源的噪音否决", () => {
+  it("free speech / tax-free 这类字面带 free 的新闻不进羊毛", () => {
+    const DENY = /\b(free speech|tax[- ]free|duty[- ]free|ai[- ]free|free press|free trade|free market|free world|smoke[- ]free|sugar[- ]free|free will|free fall|free agent|free agency|risk[- ]free|hands[- ]free|free lunch|free food)\b/i;
+    expect(DENY.test("Why Google is cutting off Search from AI-free schools")).toBe(true);
+    expect(DENY.test("Free speech group sues the government")).toBe(true);
+    expect(DENY.test("Show HN: A free API for weather")).toBe(false);
+    expect(DENY.test("Cloudflare adds a free tier for GPU inference")).toBe(false);
+  });
+});
+
+describe("HN 摘要清洗", () => {
+  it("摘掉 Article URL / Comments URL / Points 这类元数据，保留真正的摘要", () => {
+    const xml = `<rss><channel>
+      <item><title>Show HN: A free pixel map</title><link>https://example.com/p</link>
+        <description>&lt;p&gt;Article URL: https://example.com/p&lt;/p&gt;&lt;p&gt;Comments URL: https://news.ycombinator.com/item?id=1&lt;/p&gt;&lt;p&gt;Points: 113 # Comments: 13&lt;/p&gt;</description>
+        <pubDate>Fri, 13 Nov 2026 10:00:00 +0000</pubDate></item>
+    </channel></rss>`;
+    const items = parseFeed(xml, { id: "hn-show", name: "Show HN", category: "free", lang: "en", cap: 6, hn: true }, Date.parse("2026-11-14T00:00:00Z"));
+    expect(items).toHaveLength(1);
+    expect(items[0].summary || "").not.toMatch(/Article URL|Comments URL|Points:/);
   });
 });

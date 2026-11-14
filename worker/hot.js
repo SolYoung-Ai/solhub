@@ -38,6 +38,10 @@ import { translateBatch, normalizeZh, needsT2S, toSimplified } from "./translate
  *   cap    单轮最多取几条 —— 防单个大源把榜单冲垮（WIRED 一轮 50 条、
  *          Nature 一轮 75 条，不截断的话首页会变成它俩的镜像站）
  */
+/* 「free」在英文里一半不是羊毛：free speech / tax-free / AI-free 全带这个词。
+   羊毛源用 require 放行后，还要靠这张否决表把这类新闻挡掉。 */
+const FREE_DENY = /\b(free speech|tax[- ]free|duty[- ]free|ai[- ]free|free press|free trade|free market|free world|smoke[- ]free|sugar[- ]free|free will|free fall|free agent|free agency|risk[- ]free|hands[- ]free|free lunch|free food)\b/i;
+
 const FEEDS = [
   /* ---------------- 中文：大陆 ---------------- */
   { id: "ithome", name: "IT之家", url: "https://www.ithome.com/rss/", category: "tech", weight: 10, lang: "zh", region: "cn", cap: 14 },
@@ -84,6 +88,38 @@ const FEEDS = [
   /* ---------------- 全球：科学 ---------------- */
   { id: "nature", name: "Nature", url: "https://www.nature.com/nature.rss", category: "tech", weight: 7, lang: "en", region: "uk", cap: 6 },
   { id: "science-daily", name: "ScienceDaily", url: "https://www.sciencedaily.com/rss/top/science.xml", category: "tech", weight: 5, lang: "en", region: "us", cap: 6 },
+
+  /* ---------------- 全球：羊毛（免费额度 / 开源替代 / 自托管） ----------------
+     这四个查询走 HN 的 Algolia 搜索接口（type: "json"），不是 RSS。
+     为什么不用 hnrss 的 newest?q=：它按相关度排，返回的是几个月前的帖子
+     （实测「free api」回来的是 7 月、10 月的条目），进库就被 48 小时规则清空。
+     Algolia 的 search_by_date 才是按时间倒序，加 points 门槛和属性裁剪后
+     一个查询整页 4KB，五个查询一轮 20KB。
+
+     require 是必需的：Algolia 有 typo 模糊匹配，搜 free api 会返回
+     「FIRE says US to end…」这种只是字面相近的新闻，必须在源头再筛一遍。 */
+  {
+    id: "hn-free-api", name: "Hacker News", category: "free", weight: 7, lang: "en", region: "us", cap: 8, type: "json", qfree: true,
+    url: "https://hn.algolia.com/api/v1/search_by_date?query=free%20api&tags=story&numericFilters=points%3E10&hitsPerPage=20&attributesToHighlight=objectID&attributesToRetrieve=title,url,created_at,objectID,points",
+    require: /\bfree\b/i, deny: FREE_DENY,
+  },
+  {
+    id: "hn-free-tier", name: "Hacker News", category: "free", weight: 7, lang: "en", region: "us", cap: 8, type: "json", qfree: true,
+    url: "https://hn.algolia.com/api/v1/search_by_date?query=free%20tier&tags=story&numericFilters=points%3E10&hitsPerPage=20&attributesToHighlight=objectID&attributesToRetrieve=title,url,created_at,objectID,points",
+    require: /\bfree\b/i, deny: FREE_DENY,
+  },
+  {
+    id: "hn-oss-alt", name: "Hacker News", category: "free", weight: 7, lang: "en", region: "us", cap: 8, type: "json",
+    url: "https://hn.algolia.com/api/v1/search_by_date?query=open%20source%20alternative&tags=story&numericFilters=points%3E10&hitsPerPage=20&attributesToHighlight=objectID&attributesToRetrieve=title,url,created_at,objectID,points",
+    require: /open[- ]?source|self[- ]?host/i, deny: FREE_DENY,
+  },
+  {
+    id: "hn-selfhosted", name: "Hacker News", category: "free", weight: 6, lang: "en", region: "us", cap: 6, type: "json",
+    url: "https://hn.algolia.com/api/v1/search_by_date?query=self-hosted&tags=story&numericFilters=points%3E20&hitsPerPage=20&attributesToHighlight=objectID&attributesToRetrieve=title,url,created_at,objectID,points",
+    require: /self[- ]?host|open[- ]?source|\bfree\b/i, deny: FREE_DENY,
+  },
+  /* Show HN 走 RSS：这批本来就是「我做了个东西」，天然是免费可用的，而且够新鲜 */
+  { id: "hn-show", name: "Show HN", url: "https://hnrss.org/show?points=20", category: "free", weight: 6, lang: "en", region: "us", cap: 6, hn: true },
 ];
 
 /*
@@ -103,6 +139,7 @@ const CATEGORIES = [
   { id: "product", label: "产品" },
   { id: "tech", label: "科技" },
   { id: "finance", label: "金融" },
+  { id: "free", label: "羊毛" },
 ];
 
 /** 单次抓取超时。雷锋网单个请求要 4~16 秒且波动大，给足 20 秒；整轮并发，
@@ -112,6 +149,9 @@ const FEED_TIMEOUT = 20000;
 const MAX_ITEMS = 600;
 /** 超过这个时长的条目不再保留（源多之后 48 小时已经够 400+ 条） */
 const MAX_AGE_MS = 48 * 3600 * 1000;
+/** 羊毛条目的保留期。免费 API、开源替代这类是「资源」不是新闻 ——
+    两周前那条清单今天照样能用，按 48 小时清掉会让这一栏长期只有两三条。 */
+const FREE_MAX_AGE_MS = 14 * 24 * 3600 * 1000;
 /** 单一来源最多保留多少条 */
 const MAX_PER_SOURCE = 26;
 /** 未翻译的英文条目最多留多少条，防止翻译服务挂掉时把库塞满 */
@@ -218,9 +258,29 @@ function normalizeUrl(raw, base) {
   return u.toString();
 }
 
-/** 摘要：描述字段去掉标签后截断，只做一句话导语 */
-function makeSummary(raw, title) {
+/**
+ * HN 的 RSS 把元数据塞进 description：
+ * 「Article URL: … Comments URL: … Points: 113 # Comments: 13」。
+ * 原样渲染出来就是一堆英文链接，先摘掉。
+ */
+function stripHnMeta(text) {
+  const out = String(text || "")
+    .replace(/Article URL:\s*\S+/gi, " ")
+    .replace(/Comments URL:\s*\S+/gi, " ")
+    .replace(/Points:\s*\d+/gi, " ")
+    .replace(/#\s*Comments:\s*/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  /* 剥完只剩几个数字的（「Points: 113 # Comments: 13」翻成中文后就剩「13」），
+     留着比空着更糟：读者看到一条只有「13」的导语，不知道那是什么。 */
+  return /^[\s\d#·:：,.\-]*$/.test(out) ? "" : out;
+}
+
+/** 摘要：描述字段去掉标签后截断，只做一句话导语。transform 在截断之前跑，
+    否则 160 字先被英文链接占满，摘完只剩半截 URL。 */
+function makeSummary(raw, title, transform) {
   let text = cleanText(raw);
+  if (transform) text = transform(text);
   if (!text) return "";
   /* 很多源的 description 就是「标题 + 正文」，摘要把标题再念一遍很难看 */
   const head = String(title || "").replace(/\s+/g, "");
@@ -249,20 +309,34 @@ const AI_RE_EN = /\b(ai|a\.i\.|artificial intelligence|machine learning|deep lea
 const FIN_RE_EN = /\b(stock|stocks|shares|earnings|revenue|profit|net loss|market cap|ipo|valuation|funding|fundraise|series [a-e]|invest|investors?|fed|federal reserve|rate cut|rate hike|inflation|tariff|tariffs|nasdaq|dow|s&p|bitcoin|crypto|bond|yields?|merger|acquisition|acquire|billion|quarter|q[1-4])\b/i;
 const PRODUCT_RE_EN = /\b(launch|launches|unveil|unveils|release|releases|announce|announces|update|upgrade|preorder|beta|rollout|debut|introduc\w*|now available)\b/i;
 
+/* 「羊毛」：能直接拿走的东西 —— 免费额度、免费模型、开源替代、免费服务器。
+   和电商促销不是一回事：红包优惠券在 NOISE_RE 里已经被拦掉，这里搜的是
+   「读者能白嫖的资源」，所以「免费」两个字本身就该算信号。 */
+const FREE_RE = /(免费|白嫖|薅羊毛|开源|学生包|限时免费|永久免费|免费额度)/;
+const FREE_RE_EN = /\b(free (?:tier|plan|api|apis|credits?|forever|hosting|server|servers|compute|gpu|inference|models?|tools?)|free[- ]of[- ]charge|for free|no cost|open[- ]source (?:alternative|project|model|tool|llm)|open[- ]sourced|self[- ]hosted|giveaway)\b/i;
+
+
 /**
- * 分类优先级：AI 关键词 > 金融关键词 > 产品关键词 > 源默认分类。
- * 源默认兜底，所以哪怕标题看不懂，也不会掉到「未分类」。
+ * 分类优先级：强金融 > 羊毛源（锁死分类）> 免费信号 > AI > 金融 > 产品 > 源默认。
+ *
+ * 羊毛源（Hacker News 的 free api / open source alternative / Show HN 查询）整源
+ * 锁在 free：这些源本来就是为这一栏挑的，再让 AI 关键词把人抢走，这一栏就空了。
+ * 强金融仍然优先 —— 「某公司融资」出现在免费工具贴里也不该算羊毛。
  */
 function classify(title, feed) {
   const text = String(title || "");
   const zh = /[\u4e00-\u9fff]/.test(text);
   if (zh) {
     if (FIN_STRONG.test(text)) return "finance";
+    if (feed.category === "free") return "free";
+    if (FREE_RE.test(text)) return "free";
     if (AI_RE.test(text)) return "ai";
     if (FIN_RE.test(text)) return "finance";
     if (feed.category !== "finance" && PRODUCT_RE.test(text)) return "product";
   } else {
     if (FIN_STRONG_EN.test(text)) return "finance";
+    if (feed.category === "free") return "free";
+    if (FREE_RE_EN.test(text)) return "free";
     if (AI_RE_EN.test(text)) return "ai";
     if (FIN_RE_EN.test(text)) return "finance";
     if (feed.category !== "finance" && PRODUCT_RE_EN.test(text)) return "product";
@@ -328,23 +402,58 @@ function looksEnglish(text) {
   return /[A-Za-z]{4,}/.test(t);
 }
 
+/**
+ * 把一条原始记录整理成入库条目：判语言、繁转简、留原文备翻。
+ * RSS 与 HN Algolia 两条路都走这里，否则「英文条目要留 titleRaw」这类规则
+ * 会在两处各写一遍，早晚不一致。
+ */
+function makeItem(feed, title, url, summary, ts, now) {
+  const lang = feed.lang === "en" || looksEnglish(title) ? "en" : "zh";
+  /* 港台源是繁体。入库前转简，否则同一张列表里简繁混排，看着像两个站拼的。
+     转换放在这里而不是翻译阶段：中文条目根本不该进翻译队列。 */
+  if (lang === "zh" && needsT2S(title)) title = toSimplified(title);
+  if (lang === "zh" && summary && needsT2S(summary)) summary = toSimplified(summary);
+
+  /* titleRaw / summaryRaw 只有英文条目才有，用 JSDoc 放宽类型，
+     否则 tsc 会认为它们不存在（测试里要断言这两个字段）。 */
+  /** @type {any} */
+  const item = {
+    id: hashId(url),
+    title: title.slice(0, 140),
+    url,
+    source: feed.id,
+    sourceName: feed.name,
+    category: classify(title, feed),
+    publishedAt: ts ? new Date(ts).toISOString() : new Date(now).toISOString(),
+    summary: summary && summary !== title ? summary : "",
+    lang,
+    /* 中文源抓到即成品；英文源要等翻译，先标未翻译 */
+    translated: lang !== "en",
+  };
+
+  /* 英文条目：把原文留在 titleRaw / summaryRaw 上。
+     翻译成功后才删，失败则下一轮拿着原文重试 —— 不用再抓一遍源。 */
+  if (lang === "en") {
+    item.titleRaw = title.slice(0, 200);
+    if (summary) item.summaryRaw = summary.slice(0, 400);
+  }
+  return item;
+}
+
 /** 解析一个源的 XML → 条目数组 */
 function parseFeed(xml, feed, now) {
   const out = [];
   const seenTitle = new Set();
   for (const block of splitEntries(xml)) {
     if (out.length >= (feed.cap || 12)) break;
-    let title = cleanText(pickTag(block, ["title"]));
+    const title = cleanText(pickTag(block, ["title"]));
     if (!title || title.length < 4) continue;
     if (NOISE_RE.test(title) || NOISE_RE_EN.test(title) || NOISE_RE_QUOTE.test(title)) continue;
     if (AMA_RE.test(title)) continue;
     if (OFFTOPIC_RE.test(title) || OFFTOPIC_RE_EN.test(title)) continue;
+    if (feed.require && !feed.require.test(title)) continue;
+    if (feed.deny && feed.deny.test(title)) continue;
     if (feed.strict && !isOnTopic(title)) continue;
-
-    /* 港台源是繁体。入库前转简，否则同一张列表里简繁混排，看着像两个站拼的。
-       转换放在这里而不是翻译阶段：中文条目根本不该进翻译队列。 */
-    const lang = feed.lang === "en" || looksEnglish(title) ? "en" : "zh";
-    if (lang === "zh" && needsT2S(title)) title = toSimplified(title);
 
     /* 同一源内标题完全重复（多见于分页/置顶重推）只留第一条 */
     const titleKey = title.replace(/[\s\p{P}]/gu, "").slice(0, 40);
@@ -354,36 +463,66 @@ function parseFeed(xml, feed, now) {
     const url = pickLink(block, feed.url);
     if (!url) continue;
     const ts = parseDate(pickTag(block, ["pubDate", "published", "updated", "dc:date"]));
-    let summary = makeSummary(pickTag(block, ["description", "summary", "content:encoded"]), title);
-    if (lang === "zh" && summary && needsT2S(summary)) summary = toSimplified(summary);
+    const summary = makeSummary(
+      pickTag(block, ["description", "summary", "content:encoded"]),
+      title,
+      feed.hn ? stripHnMeta : undefined,
+    );
 
-    /* titleRaw / summaryRaw 只有英文条目才有，用 JSDoc 放宽类型，
-       否则 tsc 会认为它们不存在（测试里要断言这两个字段）。 */
-    /** @type {any} */
-    const item = {
-      id: hashId(url),
-      title: title.slice(0, 140),
-      url,
-      source: feed.id,
-      sourceName: feed.name,
-      category: classify(title, feed),
-      publishedAt: ts ? new Date(ts).toISOString() : new Date(now).toISOString(),
-      summary: summary && summary !== title ? summary : "",
-      lang,
-      /* 中文源抓到即成品；英文源要等翻译，先标未翻译 */
-      translated: lang !== "en",
-    };
-
-    /* 英文条目：把原文留在 titleRaw / summaryRaw 上。
-       翻译成功后才删，失败则下一轮拿着原文重试 —— 不用再抓一遍源。 */
-    if (lang === "en") {
-      item.titleRaw = title.slice(0, 200);
-      if (summary) item.summaryRaw = summary.slice(0, 400);
-    }
-
-    out.push(item);
+    out.push(makeItem(feed, title, url, summary, ts, now));
   }
   return out;
+}
+
+/**
+ * Hacker News 的 Algolia 搜索接口（JSON）。
+ *
+ * 为什么不用 hnrss 的 `newest?q=`：它对查询词按相关度排，返回的是几年前的帖子
+ * （实测「free api」回来的是 7 月、10 月的条目），进库就被 48 小时规则全清掉，
+ * 羊毛栏永远空的。`search_by_date` 才是按时间倒序。
+ *
+ * 体积：默认响应带 _highlightResult 和正文，一条 5KB；加了
+ * attributesToHighlight=objectID + attributesToRetrieve 之后整页 4KB。
+ * 5 个查询一轮 20KB，可以忽略。
+ */
+function parseHnAlgolia(data, feed, now) {
+  const hits = data && Array.isArray(data.hits) ? data.hits : [];
+  const out = [];
+  const seenTitle = new Set();
+  for (const h of hits) {
+    if (out.length >= (feed.cap || 12)) break;
+    const title = cleanText(h.title || "");
+    if (!title || title.length < 4) continue;
+    if (NOISE_RE.test(title) || NOISE_RE_EN.test(title) || NOISE_RE_QUOTE.test(title)) continue;
+    if (AMA_RE.test(title) || OFFTOPIC_RE.test(title) || OFFTOPIC_RE_EN.test(title)) continue;
+    /* Algolia 有模糊/typo 匹配：搜 free api 会返回「FIRE says US to end…」这种
+       只是字面相近的新闻。源头必须自己再筛一遍，不然羊毛栏会变成杂讯栏。 */
+    if (feed.require && !feed.require.test(title)) continue;
+    if (feed.deny && feed.deny.test(title)) continue;
+
+    const titleKey = title.replace(/[\s\p{P}]/gu, "").slice(0, 40);
+    if (seenTitle.has(titleKey)) continue;
+    seenTitle.add(titleKey);
+
+    const url = normalizeUrl(h.url || `https://news.ycombinator.com/item?id=${h.objectID}`, "https://news.ycombinator.com/");
+    if (!url) continue;
+    const ts = parseDate(h.created_at || "");
+
+    out.push(makeItem(feed, title, url, "", ts, now));
+  }
+  return out;
+}
+
+/** 按源的 type 选解析器：默认 RSS/Atom 的 XML */
+function parseBody(feed, text, now) {
+  if (feed.type === "json") {
+    try {
+      return parseHnAlgolia(JSON.parse(text), feed, now);
+    } catch {
+      return [];
+    }
+  }
+  return parseFeed(text, feed, now);
 }
 
 /* ---------------------------------------------------------------- 抓取 */
@@ -419,12 +558,12 @@ async function fetchFeed(feed, now) {
       headers: {
         /* 不带 UA 会被部分站点直接 403；带自己的标识方便对方统计来源 */
         "user-agent": "Mozilla/5.0 (compatible; SolHubHot/1.0; +https://solhub.solyoung.top/hot/)",
-        accept: "application/rss+xml, application/xml, text/xml, */*",
+        accept: feed.type === "json" ? "application/json" : "application/rss+xml, application/xml, text/xml, */*",
       },
     });
     if (!res.ok) return { feed: feed.id, ok: false, error: `HTTP ${res.status}`, items: [] };
-    const xml = await res.text();
-    const items = parseFeed(xml, feed, now);
+    const body = await res.text();
+    const items = parseBody(feed, body, now);
     return { feed: feed.id, ok: true, items, empty: !items.length };
   } catch (err) {
     const error = err && err.name === "AbortError" ? "timeout" : String((err && err.message) || err);
@@ -449,12 +588,12 @@ async function fetchFeedOnce(feed, now, isRetry) {
       redirect: "follow",
       headers: {
         "user-agent": "Mozilla/5.0 (compatible; SolHubHot/1.0; +https://solhub.solyoung.top/hot/)",
-        accept: "application/rss+xml, application/xml, text/xml, */*",
+        accept: feed.type === "json" ? "application/json" : "application/rss+xml, application/xml, text/xml, */*",
       },
     });
     if (!res.ok) return { feed: feed.id, ok: false, error: `HTTP ${res.status}`, items: [] };
-    const xml = await res.text();
-    return { feed: feed.id, ok: true, items: parseFeed(xml, feed, now) };
+    const body = await res.text();
+    return { feed: feed.id, ok: true, items: parseBody(feed, body, now) };
   } catch (err) {
     const error = err && err.name === "AbortError" ? "timeout" : String((err && err.message) || err);
     return { feed: feed.id, ok: false, error: isRetry ? `${error} (retried)` : error, items: [] };
@@ -488,10 +627,13 @@ function mergeItems(fresh, old, now) {
     map.set(item.id, item);
   }
   const floor = now - MAX_AGE_MS;
+  const freeFloor = now - FREE_MAX_AGE_MS;
   const sorted = [...map.values()]
     .filter((x) => {
       const t = Date.parse(x.publishedAt);
-      return Number.isFinite(t) && t >= floor;
+      if (!Number.isFinite(t)) return false;
+      if (t >= floor) return true;
+      return x.category === "free" && t >= freeFloor;
     })
     .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 
@@ -540,6 +682,20 @@ function mergeItems(fresh, old, now) {
     if (OFFTOPIC_RE.test(t) || OFFTOPIC_RE_EN.test(t) || AMA_RE.test(t)) return false;
     const feed = FEED_BY_ID.get(item.source);
     if (feed && feed.strict && !isOnTopic(t)) return false;
+    /* 查询型羊毛源（free api / free tier）是靠英文关键词放行的，
+       翻成中文之后就没法再验证它是不是真羊毛了。这里用中文信号复查一遍：
+       「AI-free schools」这种原文只是字面带 free 的新闻，译完没有任何
+       免费 / 开源 / 自托管的痕迹，正好在这里清掉。 */
+    if (feed && feed.qfree && !/(免费|开源|自托管|自建)/.test(t)) return false;
+    /* hnrss 的元数据也会留在历史摘要里：同一链接再来一轮时，mergeItems 优先
+       保留旧译文（含旧摘要），不在这里洗就永远洗不掉。 */
+    if (feed && feed.hn && item.summary && /(Article URL:|Comments URL:|Points:)/.test(item.summary)) {
+      item.summary = stripHnMeta(item.summary).slice(0, 160);
+    }
+    /* 上一轮已经剥过一次、只剩数字的残留，顺手清空 */
+    if (feed && feed.hn && item.summary && item.summary.length < 12 && /^[\s\d#·:：,.\-]*$/.test(item.summary)) {
+      item.summary = "";
+    }
     return true;
   });
 
@@ -824,6 +980,7 @@ export {
   collectHot,
   mergeItems,
   parseFeed,
+  parseHnAlgolia,
   classify,
   normalizeUrl,
   hashId,

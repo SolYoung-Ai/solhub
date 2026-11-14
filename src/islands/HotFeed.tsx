@@ -34,7 +34,7 @@ interface HotResponse {
   items: HotItem[];
 }
 
-type Cat = "all" | "ai" | "product" | "tech" | "finance";
+type Cat = "all" | "ai" | "product" | "tech" | "finance" | "free";
 
 const TABS: { id: Cat; zh: string; en: string }[] = [
   { id: "all", zh: "全部", en: "All" },
@@ -42,6 +42,7 @@ const TABS: { id: Cat; zh: string; en: string }[] = [
   { id: "product", zh: "产品", en: "Product" },
   { id: "tech", zh: "科技", en: "Tech" },
   { id: "finance", zh: "金融", en: "Finance" },
+  { id: "free", zh: "羊毛", en: "Freebies" },
 ];
 
 /** 分类色：只做一个小圆点，不搞成彩色标签墙 */
@@ -50,6 +51,8 @@ const CAT_DOT: Record<string, string> = {
   product: "bg-[#5b8def]",
   tech: "bg-[#8a8f98]",
   finance: "bg-[#3f9e6a]",
+  /* 羊毛用金色：不是「一类新闻」，是「一类能拿走的东西」 */
+  free: "bg-[#c08a2e]",
 };
 
 const POLL_MS = 60 * 1000;
@@ -144,6 +147,7 @@ export default function HotFeed({
 
   /* 轮询回调里要用到最新值，但又不想把它们塞进依赖触发重建 —— 用 ref 兜住 */
   const catRef = useRef<Cat>("all");
+  const tabsRef = useRef<HTMLDivElement | null>(null);
   const headRef = useRef("");
   const notifyRef = useRef(false);
   const queryRef = useRef("");
@@ -356,10 +360,25 @@ export default function HotFeed({
 
   const items = data?.items ?? [];
   const visible = items.slice(0, shown);
-  const counts = data?.counts ?? { all: 0, ai: 0, product: 0, tech: 0, finance: 0 };
+  const counts = data?.counts ?? { all: 0, ai: 0, product: 0, tech: 0, finance: 0, free: 0 };
 
   /* 高亮关键词跟着「已发出的搜索词」走，不跟输入框走：否则每敲一个字都在重染色 */
   const words = appliedQuery ? appliedQuery.split(/\s+/).filter(Boolean) : [];
+
+  /* 六个标签在手机上放不下，选中的那个可能是半截露在右边缘 —— 选中后把它滚进来。
+     桌面端整行都放得下，scrollIntoView 相当于不动。 */
+  useEffect(() => {
+    const box = tabsRef.current;
+    const el = box?.querySelector('[aria-pressed="true"]') as HTMLElement | null;
+    if (!box || !el) return;
+    /* 自己算滚动量而不是 scrollIntoView：后者会连带滚动整页，而且在这条
+       overflow-x 容器里按「nearest」并不总是生效 */
+    const b = box.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    if (r.right <= b.right && r.left >= b.left) return;
+    const left = box.scrollLeft + (r.left - b.left) - (b.width - r.width) / 2;
+    box.scrollTo({ left, behavior: "smooth" });
+  }, [cat, appliedQuery]);
 
   /* 点分类等于「我要逛，不搜了」，两件事一起收掉，不留半截搜索状态 */
   const clearSearch = useCallback(() => {
@@ -432,7 +451,12 @@ export default function HotFeed({
 
       {/* 分类 + 通知开关。手机上横向滚动，不换行不挤压 */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          ref={tabsRef}
+          /* min-w-0 是关键：flex 子项的 min-width 默认是内容宽度，六个标签
+             会把容器顶到 445px、整行溢出页面，overflow-x 反而永远没有可滚的距离 */
+          className="-mx-1 flex w-full min-w-0 items-center gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:w-auto sm:flex-1"
+        >
           {TABS.map((t) => {
             /* 搜索时不高亮任何分类：结果是跨分类搜出来的，标一个「全部」会让人以为
                只搜了「全部」这一栏 */
@@ -607,8 +631,8 @@ export default function HotFeed({
       {items.length && !limit ? (
         <p className="mt-6 rounded-[16px] border border-border bg-secondary/30 p-4 text-[11px] leading-5 text-muted-foreground">
           {en
-            ? "Headlines and links come from the public RSS feeds of 34 outlets — 15 Chinese and 19 global (TechCrunch, The Verge, Ars Technica, WIRED, MIT Technology Review, WSJ, CNBC, Nature and more). Non-Chinese headlines are machine-translated into Chinese, so details may be imprecise — always check the original. SolHub hosts and republishes none of it."
-            : "标题与链接来自 34 家媒体的公开 RSS —— 中文 15 家，全球 19 家（TechCrunch、The Verge、Ars Technica、WIRED、MIT Technology Review、WSJ、CNBC、Nature 等）。外媒的标题与导语由机器翻译成中文，细节可能不够准确，请以原文为准。每条都跳回原站，SolHub 不转载、不镜像正文。"}
+            ? "Headlines and links come from the public RSS feeds of 39 outlets — 15 Chinese and 24 global (TechCrunch, The Verge, Ars Technica, WIRED, MIT Technology Review, WSJ, CNBC, Nature, plus Hacker News queries for free APIs, open-source alternatives and Show HN). Non-Chinese headlines are machine-translated into Chinese, so details may be imprecise — always check the original. SolHub hosts and republishes none of it."
+            : "标题与链接来自 39 家媒体的公开 RSS —— 中文 15 家，全球 24 家（TechCrunch、The Verge、Ars Technica、WIRED、MIT Technology Review、WSJ、CNBC、Nature，以及 Hacker News 的免费 API / 开源替代 / 自托管 / Show HN 查询）。外媒的标题与导语由机器翻译成中文，细节可能不够准确，请以原文为准。每条都跳回原站，SolHub 不转载、不镜像正文。"}
         </p>
       ) : null}
     </div>

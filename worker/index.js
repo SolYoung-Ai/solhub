@@ -3150,7 +3150,7 @@ export default {
       const q = String(url.searchParams.get("q") || "").trim();
 
       const feed = await readHotFeed(env);
-      const counts = { all: feed.items.length, ai: 0, product: 0, tech: 0, finance: 0 };
+      const counts = { all: feed.items.length, ai: 0, product: 0, tech: 0, finance: 0, free: 0 };
       for (const it of feed.items) if (counts[it.category] !== undefined) counts[it.category] += 1;
 
       let items = cat === "all" ? feed.items : feed.items.filter((it) => it.category === cat);
