@@ -631,8 +631,8 @@ export default function HotFeed({
       {items.length && !limit ? (
         <p className="mt-6 rounded-[16px] border border-border bg-secondary/30 p-4 text-[11px] leading-5 text-muted-foreground">
           {en
-            ? "Headlines and links come from the public RSS feeds of 39 outlets — 15 Chinese and 24 global (TechCrunch, The Verge, Ars Technica, WIRED, MIT Technology Review, WSJ, CNBC, Nature, plus Hacker News queries for free APIs, open-source alternatives and Show HN). Non-Chinese headlines are machine-translated into Chinese, so details may be imprecise — always check the original. SolHub hosts and republishes none of it."
-            : "标题与链接来自 39 家媒体的公开 RSS —— 中文 15 家，全球 24 家（TechCrunch、The Verge、Ars Technica、WIRED、MIT Technology Review、WSJ、CNBC、Nature，以及 Hacker News 的免费 API / 开源替代 / 自托管 / Show HN 查询）。外媒的标题与导语由机器翻译成中文，细节可能不够准确，请以原文为准。每条都跳回原站，SolHub 不转载、不镜像正文。"}
+            ? "Headlines and links come from the public RSS feeds of 41 outlets — 15 Chinese and 26 global (TechCrunch, The Verge, Ars Technica, WIRED, MIT Technology Review, WSJ, CNBC, Nature, France 24 and Sky News for world affairs, plus Hacker News queries for free APIs, open-source alternatives and Show HN). Non-Chinese headlines are machine-translated into Chinese, so details may be imprecise — always check the original. SolHub hosts and republishes none of it."
+            : "标题与链接来自 41 家媒体的公开 RSS —— 中文 15 家，全球 26 家（TechCrunch、The Verge、Ars Technica、WIRED、MIT Technology Review、WSJ、CNBC、Nature，时政来自 France 24 与 Sky News，以及 Hacker News 的免费 API / 开源替代 / 自托管 / Show HN 查询）。外媒的标题与导语由机器翻译成中文，细节可能不够准确，请以原文为准。每条都跳回原站，SolHub 不转载、不镜像正文。"}
         </p>
       ) : null}
     </div>
