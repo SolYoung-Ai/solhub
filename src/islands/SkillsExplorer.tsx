@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   Check,
   Copy,
+  Flame,
   GitBranch,
   Layers3,
   Package,
@@ -20,11 +21,25 @@ import {
   type SkillKind,
 } from "@/data/skills";
 import { p } from "@/lib/paths";
+import { base } from "@/lib/api-base";
 import { fuzzyMatch } from "@/lib/search";
 import type { Locale } from "@/i18n";
 
 type KindFilter = "all" | SkillKind;
 type SortKey = "heat" | "name" | "category";
+
+/** 「今日热门」栏的一条：由 solhub-cron 每天从 GitHub 抓取，/skills-hot 只读 */
+interface HotSkill {
+  repo: string;
+  name: string;
+  desc: string;
+  descEn: string;
+  stars: number;
+  pushedAt: string;
+  official: boolean;
+  url: string;
+  rawUrl: string;
+}
 
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
@@ -46,6 +61,21 @@ export default function SkillsExplorer({
   const [sort, setSort] = useState<SortKey>("heat");
   const [copied, setCopied] = useState<string | null>(null);
   const urlSynced = useRef(false);
+  /* 今日热门：后端取不到 / 接口挂了就整栏隐藏，页面不显示错误 */
+  const [hot, setHot] = useState<{ date: string | null; items: HotSkill[] } | null>(null);
+
+  useEffect(() => {
+    fetch(`${base()}/skills-hot`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.items) && data.items.length) {
+          setHot({ date: data.date || null, items: data.items.slice(0, 12) });
+        }
+      })
+      .catch(() => {
+        /* 静默失败：精选区是页面主体，热门栏缺席不影响使用 */
+      });
+  }, []);
 
   /* 支持 /skills/?q=<name>：全局搜索与 Skill 卡片「在库中查看」都靠这个参数定位条目 */
   useEffect(() => {
@@ -142,8 +172,64 @@ export default function SkillsExplorer({
     { key: "collection", zh: "合集 / 框架", en: "Collections" },
   ];
 
+  /** 热门栏复制：按教程那句「帮我安装这个技能：<链接>」，粘进对话框就装 */
+  const copyHot = async (item: HotSkill) => {
+    const text = `${en ? "Install this skill for me: " : "帮我安装这个技能："}${item.rawUrl || item.url}`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+      } catch {
+        /* ignore */
+      }
+      document.body.removeChild(ta);
+    }
+    setCopied(item.repo);
+    window.setTimeout(() => setCopied((c) => (c === item.repo ? null : c)), 1600);
+  };
+
   return (
     <div className="min-w-0">
+      {/* 今日热门：每天自动从 GitHub 抓的全网热门 Skill，取不到就整栏不渲染 */}
+      {hot && hot.items.length > 0 && (
+        <section className="mb-7">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="flex items-center gap-1.5 font-display text-[15px] font-extrabold tracking-tight text-foreground">
+              <Flame className="h-4 w-4 text-accent" aria-hidden="true" />
+              {en ? "Trending today" : "今日热门"}
+            </h2>
+            <span className="text-[11px] text-muted-foreground">
+              {hot.date
+                ? en
+                  ? `Updated ${hot.date} · auto-collected daily from GitHub, unverified — check the source before installing`
+                  : `${hot.date} 自动抓取 · 每天更新一次，未经人工核验，安装前建议看一眼源文件`
+                : en
+                  ? "Auto-collected daily from GitHub"
+                  : "每天自动更新一次"}
+            </span>
+          </div>
+          <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+            {hot.items.map((item, i) => (
+              <HotCard
+                key={item.repo}
+                item={item}
+                rank={i + 1}
+                en={en}
+                copied={copied === item.repo}
+                onCopy={() => void copyHot(item)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* 筛选工具条 */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -290,6 +376,83 @@ export default function SkillsExplorer({
         </a>
       </div>
     </div>
+  );
+}
+
+/** 今日热门卡片：比精选卡更紧凑，复制按钮给的是「帮我安装这个技能：<链接>」整句 */
+function HotCard({
+  item,
+  rank,
+  en,
+  copied,
+  onCopy,
+}: {
+  item: HotSkill;
+  rank: number;
+  en: boolean;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <article className="card flex min-w-0 flex-col p-4">
+      <div className="flex min-w-0 items-start gap-3">
+        <span
+          className={`mt-0.5 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] font-mono text-[12px] font-bold ${
+            rank <= 3 ? "bg-accent/12 text-accent" : "bg-secondary text-muted-foreground"
+          }`}
+          aria-hidden="true"
+        >
+          {rank < 10 ? `0${rank}` : rank}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <h3 className="min-w-0 break-all font-mono text-[14px] font-bold leading-5 text-foreground">{item.name}</h3>
+            {item.official && (
+              <span className="shrink-0 rounded-full border border-success/30 bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold text-success">
+                {en ? "Official" : "官方"}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">{item.repo}</p>
+        </div>
+        {item.stars > 0 && (
+          <span className="flex shrink-0 items-center gap-1 rounded-full border border-accent/25 bg-accent/5 px-2 py-0.5 text-[11px] font-semibold text-accent">
+            <Star className="h-3 w-3" aria-hidden="true" />
+            {formatCount(item.stars)}
+          </span>
+        )}
+      </div>
+
+      <p className="mt-3 line-clamp-2 min-w-0 text-[13px] leading-6 text-foreground/80">
+        {(en ? item.descEn : item.desc || item.descEn) || ""}
+      </p>
+
+      <div className="mt-auto flex flex-wrap items-center gap-3 pt-3">
+        <button
+          type="button"
+          onClick={onCopy}
+          className="inline-flex items-center gap-1 text-[12px] font-medium text-accent hover:underline"
+        >
+          {copied ? <Check className="h-3 w-3 text-success" aria-hidden="true" /> : <Copy className="h-3 w-3" aria-hidden="true" />}
+          {copied ? (en ? "Copied" : "已复制") : en ? "Copy install message" : "复制安装话术"}
+        </button>
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
+        >
+          <GitBranch className="h-3 w-3" aria-hidden="true" />
+          GitHub
+        </a>
+        {item.pushedAt && (
+          <span className="ml-auto text-[11px] text-muted-foreground">
+            {en ? "pushed " : "更新于 "}
+            {item.pushedAt.slice(0, 10)}
+          </span>
+        )}
+      </div>
+    </article>
   );
 }
 

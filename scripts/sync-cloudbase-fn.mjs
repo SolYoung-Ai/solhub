@@ -41,11 +41,30 @@ const EXTRA = [
   },
   {
     src: path.join(ROOT, "worker", "translate.js"),
-    dst: path.join(ROOT, "cloudbase", "functions", "solhub-hot", "translate.cjs"),
+    /* core.cjs（auth + cron 都有）require skills-hot，skills-hot 又 require
+       translate——auth / cron / hot 三个目录都得有，缺一份函数起不来。 */
+    dst: [
+      path.join(ROOT, "cloudbase", "functions", "solhub-hot", "translate.cjs"),
+      path.join(ROOT, "cloudbase", "functions", "solhub-auth", "translate.cjs"),
+      path.join(ROOT, "cloudbase", "functions", "solhub-cron", "translate.cjs"),
+    ],
   },
   {
     src: path.join(ROOT, "worker", "t2s.js"),
-    dst: path.join(ROOT, "cloudbase", "functions", "solhub-hot", "t2s.cjs"),
+    dst: [
+      path.join(ROOT, "cloudbase", "functions", "solhub-hot", "t2s.cjs"),
+      path.join(ROOT, "cloudbase", "functions", "solhub-auth", "t2s.cjs"),
+      path.join(ROOT, "cloudbase", "functions", "solhub-cron", "t2s.cjs"),
+    ],
+  },
+  {
+    /* Skill 今日热门抓取引擎。core.cjs 用 require 引入（/skills-hot 只读 KV，
+       抓取动作在 cron 的 index.js 里调），所以 auth 和 cron 两个目录都得有。 */
+    src: path.join(ROOT, "worker", "skills-hot.js"),
+    dst: [
+      path.join(ROOT, "cloudbase", "functions", "solhub-auth", "skills-hot.cjs"),
+      path.join(ROOT, "cloudbase", "functions", "solhub-cron", "skills-hot.cjs"),
+    ],
   },
   {
     /* 行情引擎。core.cjs 用 require 引入，所以凡是带 core.cjs 的函数目录都得有它
