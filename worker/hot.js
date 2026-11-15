@@ -92,14 +92,15 @@ const FEEDS = [
   /* ---------------- 全球：时政 ----------------
      上海函数环境实测（2026-11-15 dryRun 探测）：BBC / Guardian / Al Jazeera /
      NYT / DW / CNN / CNA / CBC / Euronews / NHK / Times of India / Asia Times /
-     联合早报（anyfeeder / rsshub 镜像）全部 fetch failed —— 被墙或不可达，
-     别再试了。全球主流新闻站里只有 France 24 和 Sky News 的 RSS 可达，
-     这两家就是「时政」栏的源。
+     rsshub.app 全部 fetch failed —— 被墙或不可达，别再试了。
+     可达的时政源只有四家：France 24、Sky News，以及联合早报
+     （官方 RSS 已下线，plink.anyfeeder.com 镜像实测可达，rsshub.app 不行）。
 
      源 category 设为 "world" 作兜底：没命中 AI / 金融 / 产品的纯新闻
      自然落进时政，命中金融 / AI 信号的仍按信号走。 */
   { id: "france24", name: "France 24", url: "https://www.france24.com/en/rss", category: "world", weight: 7, lang: "en", region: "fr", cap: 8 },
   { id: "sky-world", name: "Sky News", url: "https://feeds.skynews.com/feeds/rss/world.xml", category: "world", weight: 7, lang: "en", region: "uk", cap: 8 },
+  { id: "zaobao-world", name: "联合早报", url: "https://plink.anyfeeder.com/zaobao/realtime/world", category: "world", weight: 7, lang: "zh", region: "sg", cap: 8 },
 
   /* ---------------- 全球：羊毛查询（免费额度 / 开源替代 / 自托管） ----------------
      这四个查询走 HN 的 Algolia 搜索接口（type: "json"），不是 RSS。
