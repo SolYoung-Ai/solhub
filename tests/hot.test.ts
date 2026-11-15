@@ -379,32 +379,38 @@ describe("spread", () => {
   });
 });
 
-describe("羊毛分类", () => {
+describe("时政分类（羊毛分类已解散）", () => {
   const TECH = { category: "tech", lang: "zh" };
-  const FREE_FEED = { category: "free", lang: "en" };
+  const TECH_EN = { category: "tech", lang: "en" };
 
-  it("中文标题里的免费 / 开源信号进羊毛", () => {
-    expect(classify("阿里云免费开放 100 万 token 额度", TECH)).toBe("free");
-    expect(classify("某团队开源了一个本地推理框架", TECH)).toBe("free");
-    expect(classify("白嫖 30 天：这家云厂商的学生包又回来了", TECH)).toBe("free");
+  it("中文的国际时政信号进时政", () => {
+    expect(classify("美俄总统将在阿联酋会晤，讨论停火方案", TECH)).toBe("world");
+    expect(classify("北约宣布在东欧举行大规模军事演习", TECH)).toBe("world");
+    expect(classify("联合国安理会就加沙停火决议进行表决", TECH)).toBe("world");
   });
 
-  it("英文的 free tier / open-source alternative 也进羊毛", () => {
-    expect(classify("Cloudflare adds a free tier for GPU inference", TECH)).toBe("free");
-    expect(classify("Show HN: An open-source alternative to Notion", TECH)).toBe("free");
+  it("英文的时政信号进时政", () => {
+    expect(classify("US and EU reach a new sanctions deal", TECH_EN)).toBe("world");
+    expect(classify("Ceasefire talks resume as troops pull back", TECH_EN)).toBe("world");
   });
 
-  it("羊毛源整源锁分类，不会被 AI 关键词抢走", () => {
-    expect(classify("Show HN: An AI agent that runs on Cloudflare", FREE_FEED)).toBe("free");
+  it("强金融信号仍然优先于时政", () => {
+    expect(classify("央行宣布加息应对通胀，全球市场震荡", TECH)).toBe("finance");
   });
 
-  it("强金融信号仍然优先于羊毛", () => {
-    expect(classify("英伟达股价大涨，免费送显卡", TECH)).toBe("finance");
+  it("AI 信号优先于时政（OpenAI 与政府合作仍归 AI）", () => {
+    expect(classify("OpenAI 与美国政府达成新合作", TECH)).toBe("ai");
   });
 
-  it("普通产品新闻不会被误判成羊毛", () => {
+  it("普通产品新闻不受影响", () => {
     expect(classify("小米发布新手机", TECH)).toBe("product");
     expect(classify("Nothing 发布新款耳机", TECH)).toBe("product");
+  });
+
+  it("免费 / 开源内容不再单列：开源类归产品，其余按源默认兜底", () => {
+    expect(classify("某团队开源了一个本地推理框架", TECH)).toBe("product");
+    expect(classify("Show HN: An open-source alternative to Notion", TECH_EN)).toBe("product");
+    expect(classify("Cloudflare adds a free tier for GPU inference", TECH_EN)).toBe("ai");
   });
 });
 
@@ -412,7 +418,7 @@ describe("羊毛源（HN Algolia）", () => {
   const FEED = {
     id: "hn-free-api",
     name: "Hacker News",
-    category: "free",
+    category: "product",
     lang: "en",
     cap: 8,
     type: "json",
@@ -428,10 +434,10 @@ describe("羊毛源（HN Algolia）", () => {
     ...o,
   });
 
-  it("解析 JSON 命中并归到羊毛", () => {
+  it("解析 JSON 命中并按源默认分类", () => {
     const items = parseHnAlgolia({ hits: [hit({})] }, FEED, now);
     expect(items).toHaveLength(1);
-    expect(items[0].category).toBe("free");
+    expect(items[0].category).toBe("product");
     expect(items[0].lang).toBe("en");
     expect(items[0].titleRaw).toContain("free API");
   });
@@ -452,7 +458,7 @@ describe("羊毛源（HN Algolia）", () => {
   });
 });
 
-describe("羊毛条目的保留期", () => {
+describe("历史条目的保留与重分类", () => {
   const now = Date.parse("2026-11-14T08:00:00Z");
   const mk = (id: string, daysAgo: number, category: string) => ({
     id,
@@ -467,12 +473,17 @@ describe("羊毛条目的保留期", () => {
     translated: true,
   });
 
-  it("新闻超过 48 小时清掉，羊毛留到 14 天", () => {
-    const out = mergeItems([], [mk("a", 3, "tech"), mk("b", 3, "free"), mk("c", 20, "free")], now);
+  it("超过 48 小时的条目一律清掉（羊毛 14 天保留已随分类解散取消）", () => {
+    const out = mergeItems([], [mk("a", 3, "tech"), mk("b", 3, "free"), mk("c", 0.5, "tech")], now);
     const ids = out.map((x: { id: string }) => x.id);
-    expect(ids).toContain("b");
     expect(ids).not.toContain("a");
-    expect(ids).not.toContain("c");
+    expect(ids).not.toContain("b");
+    expect(ids).toContain("c");
+  });
+
+  it("库里的旧羊毛条目被重分类，不再留在 free", () => {
+    const out = mergeItems([], [mk("a", 0.5, "free"), mk("b", 0.5, "free")], now);
+    for (const item of out) expect(item.category).not.toBe("free");
   });
 });
 
@@ -493,7 +504,7 @@ describe("HN 摘要清洗", () => {
         <description>&lt;p&gt;Article URL: https://example.com/p&lt;/p&gt;&lt;p&gt;Comments URL: https://news.ycombinator.com/item?id=1&lt;/p&gt;&lt;p&gt;Points: 113 # Comments: 13&lt;/p&gt;</description>
         <pubDate>Fri, 13 Nov 2026 10:00:00 +0000</pubDate></item>
     </channel></rss>`;
-    const items = parseFeed(xml, { id: "hn-show", name: "Show HN", category: "free", lang: "en", cap: 6, hn: true }, Date.parse("2026-11-14T00:00:00Z"));
+    const items = parseFeed(xml, { id: "hn-show", name: "Show HN", category: "product", lang: "en", cap: 6, hn: true }, Date.parse("2026-11-14T00:00:00Z"));
     expect(items).toHaveLength(1);
     expect(items[0].summary || "").not.toMatch(/Article URL|Comments URL|Points:/);
   });

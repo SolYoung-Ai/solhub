@@ -89,7 +89,7 @@ const FEEDS = [
   { id: "nature", name: "Nature", url: "https://www.nature.com/nature.rss", category: "tech", weight: 7, lang: "en", region: "uk", cap: 6 },
   { id: "science-daily", name: "ScienceDaily", url: "https://www.sciencedaily.com/rss/top/science.xml", category: "tech", weight: 5, lang: "en", region: "us", cap: 6 },
 
-  /* ---------------- 全球：羊毛（免费额度 / 开源替代 / 自托管） ----------------
+  /* ---------------- 全球：羊毛查询（免费额度 / 开源替代 / 自托管） ----------------
      这四个查询走 HN 的 Algolia 搜索接口（type: "json"），不是 RSS。
      为什么不用 hnrss 的 newest?q=：它按相关度排，返回的是几个月前的帖子
      （实测「free api」回来的是 7 月、10 月的条目），进库就被 48 小时规则清空。
@@ -97,29 +97,33 @@ const FEEDS = [
      一个查询整页 4KB，五个查询一轮 20KB。
 
      require 是必需的：Algolia 有 typo 模糊匹配，搜 free api 会返回
-     「FIRE says US to end…」这种只是字面相近的新闻，必须在源头再筛一遍。 */
+     「FIRE says US to end…」这种只是字面相近的新闻，必须在源头再筛一遍。
+
+     2026-11-15：「羊毛」独立分类已解散，这批条目按标题内容走 classify
+     归进产品 / 科技（classify 里按 feed.category 兜底），源本身保留 ——
+     它们仍是免费资源与开源项目的主要来源。 */
   {
-    id: "hn-free-api", name: "Hacker News", category: "free", weight: 7, lang: "en", region: "us", cap: 8, type: "json", qfree: true,
+    id: "hn-free-api", name: "Hacker News", category: "product", weight: 7, lang: "en", region: "us", cap: 8, type: "json", qfree: true,
     url: "https://hn.algolia.com/api/v1/search_by_date?query=free%20api&tags=story&numericFilters=points%3E10&hitsPerPage=20&attributesToHighlight=objectID&attributesToRetrieve=title,url,created_at,objectID,points",
     require: /\bfree\b/i, deny: FREE_DENY,
   },
   {
-    id: "hn-free-tier", name: "Hacker News", category: "free", weight: 7, lang: "en", region: "us", cap: 8, type: "json", qfree: true,
+    id: "hn-free-tier", name: "Hacker News", category: "product", weight: 7, lang: "en", region: "us", cap: 8, type: "json", qfree: true,
     url: "https://hn.algolia.com/api/v1/search_by_date?query=free%20tier&tags=story&numericFilters=points%3E10&hitsPerPage=20&attributesToHighlight=objectID&attributesToRetrieve=title,url,created_at,objectID,points",
     require: /\bfree\b/i, deny: FREE_DENY,
   },
   {
-    id: "hn-oss-alt", name: "Hacker News", category: "free", weight: 7, lang: "en", region: "us", cap: 8, type: "json",
+    id: "hn-oss-alt", name: "Hacker News", category: "tech", weight: 7, lang: "en", region: "us", cap: 8, type: "json",
     url: "https://hn.algolia.com/api/v1/search_by_date?query=open%20source%20alternative&tags=story&numericFilters=points%3E10&hitsPerPage=20&attributesToHighlight=objectID&attributesToRetrieve=title,url,created_at,objectID,points",
     require: /open[- ]?source|self[- ]?host/i, deny: FREE_DENY,
   },
   {
-    id: "hn-selfhosted", name: "Hacker News", category: "free", weight: 6, lang: "en", region: "us", cap: 6, type: "json",
+    id: "hn-selfhosted", name: "Hacker News", category: "tech", weight: 6, lang: "en", region: "us", cap: 6, type: "json",
     url: "https://hn.algolia.com/api/v1/search_by_date?query=self-hosted&tags=story&numericFilters=points%3E20&hitsPerPage=20&attributesToHighlight=objectID&attributesToRetrieve=title,url,created_at,objectID,points",
     require: /self[- ]?host|open[- ]?source|\bfree\b/i, deny: FREE_DENY,
   },
   /* Show HN 走 RSS：这批本来就是「我做了个东西」，天然是免费可用的，而且够新鲜 */
-  { id: "hn-show", name: "Show HN", url: "https://hnrss.org/show?points=20", category: "free", weight: 6, lang: "en", region: "us", cap: 6, hn: true },
+  { id: "hn-show", name: "Show HN", url: "https://hnrss.org/show?points=20", category: "product", weight: 6, lang: "en", region: "us", cap: 6, hn: true },
 ];
 
 /*
@@ -139,7 +143,7 @@ const CATEGORIES = [
   { id: "product", label: "产品" },
   { id: "tech", label: "科技" },
   { id: "finance", label: "金融" },
-  { id: "free", label: "羊毛" },
+  { id: "world", label: "时政" },
 ];
 
 /** 单次抓取超时。雷锋网单个请求要 4~16 秒且波动大，给足 20 秒；整轮并发，
@@ -149,9 +153,6 @@ const FEED_TIMEOUT = 20000;
 const MAX_ITEMS = 600;
 /** 超过这个时长的条目不再保留（源多之后 48 小时已经够 400+ 条） */
 const MAX_AGE_MS = 48 * 3600 * 1000;
-/** 羊毛条目的保留期。免费 API、开源替代这类是「资源」不是新闻 ——
-    两周前那条清单今天照样能用，按 48 小时清掉会让这一栏长期只有两三条。 */
-const FREE_MAX_AGE_MS = 14 * 24 * 3600 * 1000;
 /** 单一来源最多保留多少条 */
 const MAX_PER_SOURCE = 26;
 /** 未翻译的英文条目最多留多少条，防止翻译服务挂掉时把库塞满 */
@@ -307,38 +308,42 @@ const FIN_STRONG_EN = /\b(stock|stocks|shares|earnings|revenue|net loss|profit|m
 /* 英文标题在翻译前也要能分类，否则首轮全挤进源默认分类 */
 const AI_RE_EN = /\b(ai|a\.i\.|artificial intelligence|machine learning|deep learning|llm|llms|gpt|chatgpt|openai|anthropic|claude|gemini|deepseek|neural|robot|robots|agent|agents|agentic|nvidia|hugging ?face|transformer|inference|training|model|models|genai|copilot|multimodal)\b/i;
 const FIN_RE_EN = /\b(stock|stocks|shares|earnings|revenue|profit|net loss|market cap|ipo|valuation|funding|fundraise|series [a-e]|invest|investors?|fed|federal reserve|rate cut|rate hike|inflation|tariff|tariffs|nasdaq|dow|s&p|bitcoin|crypto|bond|yields?|merger|acquisition|acquire|billion|quarter|q[1-4])\b/i;
-const PRODUCT_RE_EN = /\b(launch|launches|unveil|unveils|release|releases|announce|announces|update|upgrade|preorder|beta|rollout|debut|introduc\w*|now available)\b/i;
+const PRODUCT_RE_EN = /\b(launch|launches|unveil|unveils|release|releases|announce|announces|update|upgrade|preorder|beta|rollout|debut|introduc\w*|now available|open[- ]?sourc\w*)\b/i;
 
-/* 「羊毛」：能直接拿走的东西 —— 免费额度、免费模型、开源替代、免费服务器。
-   和电商促销不是一回事：红包优惠券在 NOISE_RE 里已经被拦掉，这里搜的是
-   「读者能白嫖的资源」，所以「免费」两个字本身就该算信号。 */
-const FREE_RE = /(免费|白嫖|薅羊毛|开源|学生包|限时免费|永久免费|免费额度)/;
-const FREE_RE_EN = /\b(free (?:tier|plan|api|apis|credits?|forever|hosting|server|servers|compute|gpu|inference|models?|tools?)|free[- ]of[- ]charge|for free|no cost|open[- ]source (?:alternative|project|model|tool|llm)|open[- ]sourced|self[- ]hosted|giveaway)\b/i;
+/* 「时政」：全球政治新闻 —— 选举、外交、冲突、制裁、国际组织。
+   只收录国际时政；国内地方政治与社会新闻仍在 OFFTOPIC_RE 里拦掉，
+   不因为开了这一栏就放进来。
+
+   2026-11-15：「羊毛」独立分类解散。免费资源、开源替代这类条目
+   不再单列 —— 「免费」「开源」本身就是内容信号，会自然归进产品 / 科技
+   （羊毛源抓来的条目按 feed.category 兜底，不会丢）。 */
+
+const WORLD_RE = /(选举|国会|参议院|众议院|总统|首相|总理|外交|峰会|制裁|停火|停战|军事|军队|俄乌|乌克兰|俄罗斯|加沙|以色列|巴勒斯坦|北约|联合国|安理会|欧盟|白宫|克里姆林宫|地缘政治|政变|政局|抗议|示威|难民|导弹|核武器|核谈判|条约|大使馆|撤侨|武装冲突|双边关系|国际关系|金砖|会晤)/;
+const WORLD_RE_EN = /\b(elections?|parliament|senate|congress(?:ional)?|president(?:ial)?|prime minister|chancellor|diplomats?|diplomatic|summit|sanctions?|ceasefire|\bwar\b|military|troops|ukraine|russia|gaza|israel|palestine|nato|united nations|\bUN\b|\bEU\b|g7|g20|brics|white house|kremlin|geopolitic\w*|coup|protests?|government|ministers?|embassy|refugees?|immigration|asylum|missiles?|nuclear|treaty|airstrikes?|hostages?)\b/i;
 
 
 /**
- * 分类优先级：强金融 > 羊毛源（锁死分类）> 免费信号 > AI > 金融 > 产品 > 源默认。
+ * 分类优先级：强金融 > AI > 金融 > 时政 > 产品 > 源默认。
  *
- * 羊毛源（Hacker News 的 free api / open source alternative / Show HN 查询）整源
- * 锁在 free：这些源本来就是为这一栏挑的，再让 AI 关键词把人抢走，这一栏就空了。
- * 强金融仍然优先 —— 「某公司融资」出现在免费工具贴里也不该算羊毛。
+ * 时政放在产品之前：PRODUCT_RE 的「发布 / 上线」和 PRODUCT_RE_EN 的
+ * announce / launch 太泛，「特朗普宣布新制裁」「政府发布新规」会被
+ * 抢进产品栏 —— 时政信号必须先判。
+ * 强金融仍然最优先 —— 「某国制裁导致油价大涨」归财经更合适。
  */
 function classify(title, feed) {
   const text = String(title || "");
   const zh = /[\u4e00-\u9fff]/.test(text);
   if (zh) {
     if (FIN_STRONG.test(text)) return "finance";
-    if (feed.category === "free") return "free";
-    if (FREE_RE.test(text)) return "free";
     if (AI_RE.test(text)) return "ai";
     if (FIN_RE.test(text)) return "finance";
+    if (WORLD_RE.test(text)) return "world";
     if (feed.category !== "finance" && PRODUCT_RE.test(text)) return "product";
   } else {
     if (FIN_STRONG_EN.test(text)) return "finance";
-    if (feed.category === "free") return "free";
-    if (FREE_RE_EN.test(text)) return "free";
     if (AI_RE_EN.test(text)) return "ai";
     if (FIN_RE_EN.test(text)) return "finance";
+    if (WORLD_RE_EN.test(text)) return "world";
     if (feed.category !== "finance" && PRODUCT_RE_EN.test(text)) return "product";
   }
   return feed.category;
@@ -627,13 +632,11 @@ function mergeItems(fresh, old, now) {
     map.set(item.id, item);
   }
   const floor = now - MAX_AGE_MS;
-  const freeFloor = now - FREE_MAX_AGE_MS;
   const sorted = [...map.values()]
     .filter((x) => {
       const t = Date.parse(x.publishedAt);
       if (!Number.isFinite(t)) return false;
-      if (t >= floor) return true;
-      return x.category === "free" && t >= freeFloor;
+      return t >= floor;
     })
     .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 
@@ -698,6 +701,15 @@ function mergeItems(fresh, old, now) {
     }
     return true;
   });
+
+  /* 历史条目按当前规则重新分类：分类规则改过（2026-11-15 解散「羊毛」、
+     新增「时政」），库里还躺着 category:"free" 的旧条目 —— 前端已经没有
+     这个标签，不重分类它们就永远看不到了。 */
+  for (const item of cleaned) {
+    const feed = FEED_BY_ID.get(item.source);
+    if (feed) item.category = classify(item.title, feed);
+    else if (item.category === "free") item.category = "product";
+  }
 
   /* 每源最多留 MAX_PER_SOURCE 条。IT之家一轮 14 条 × 48 小时能堆到 70+，
      把外媒全挤到第二页去 —— 读者要的是「全球媒体」，不是一个镜像站。 */

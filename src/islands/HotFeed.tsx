@@ -34,7 +34,7 @@ interface HotResponse {
   items: HotItem[];
 }
 
-type Cat = "all" | "ai" | "product" | "tech" | "finance" | "free";
+type Cat = "all" | "ai" | "product" | "tech" | "finance" | "world";
 
 const TABS: { id: Cat; zh: string; en: string }[] = [
   { id: "all", zh: "全部", en: "All" },
@@ -42,7 +42,7 @@ const TABS: { id: Cat; zh: string; en: string }[] = [
   { id: "product", zh: "产品", en: "Product" },
   { id: "tech", zh: "科技", en: "Tech" },
   { id: "finance", zh: "金融", en: "Finance" },
-  { id: "free", zh: "羊毛", en: "Freebies" },
+  { id: "world", zh: "时政", en: "World" },
 ];
 
 /** 分类色：只做一个小圆点，不搞成彩色标签墙 */
@@ -51,8 +51,8 @@ const CAT_DOT: Record<string, string> = {
   product: "bg-[#5b8def]",
   tech: "bg-[#8a8f98]",
   finance: "bg-[#3f9e6a]",
-  /* 羊毛用金色：不是「一类新闻」，是「一类能拿走的东西」 */
-  free: "bg-[#c08a2e]",
+  /* 时政用紫：和 AI 的橙、产品的蓝、金融的绿拉开距离 */
+  world: "bg-[#7d6cc9]",
 };
 
 const POLL_MS = 60 * 1000;
@@ -355,12 +355,12 @@ export default function HotFeed({
       /* ignore */
     }
     setNotifyHint(en ? "On — you'll be pinged when new stories land" : "已开启 —— 有新热点会弹通知");
-    void notify(en ? "Notifications on" : "通知已开启", en ? "New stories will appear here." : "有新的 AI / 产品 / 科技 / 金融热点时会提醒你。");
+    void notify(en ? "Notifications on" : "通知已开启", en ? "New stories will appear here." : "有新的 AI / 产品 / 科技 / 金融 / 时政热点时会提醒你。");
   }, [notifyOn, notify, en]);
 
   const items = data?.items ?? [];
   const visible = items.slice(0, shown);
-  const counts = data?.counts ?? { all: 0, ai: 0, product: 0, tech: 0, finance: 0, free: 0 };
+  const counts = data?.counts ?? { all: 0, ai: 0, product: 0, tech: 0, finance: 0, world: 0 };
 
   /* 高亮关键词跟着「已发出的搜索词」走，不跟输入框走：否则每敲一个字都在重染色 */
   const words = appliedQuery ? appliedQuery.split(/\s+/).filter(Boolean) : [];
