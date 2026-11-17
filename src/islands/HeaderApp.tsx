@@ -476,7 +476,7 @@ function ThemeButton({ en = false }: { en?: boolean }) {
     try { localStorage.setItem("solhub:theme", next ? "dark" : "light"); } catch {}
     /* 手机地址栏/状态栏跟着切，否则深色页面顶上会挂一条白条 */
     const tc = document.querySelector('meta[name="theme-color"]');
-    if (tc) tc.setAttribute("content", next ? "#0a0908" : "#fbfaf9");
+    if (tc) tc.setAttribute("content", next ? "#0a0908" : "#ffffff");
     window.setTimeout(() => root.classList.remove("theme-transition"), 350);
   };
   /* 两个图标同时渲染，由 html.dark 的 CSS 决定显隐：
