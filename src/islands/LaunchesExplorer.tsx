@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from "react";
-import { AppWindow, ArrowRight, Filter, Globe, Search, ShieldCheck } from "lucide-react";
+import { AppWindow, ArrowRight, Filter, Search, ShieldCheck } from "lucide-react";
 import type { Product } from "@/data/types";
 import { productKind } from "@/data/products";
 import { rankProducts } from "@/lib/ranking";
@@ -19,9 +19,6 @@ interface Props {
 }
 
 const PAGE_SIZE = 8;
-
-/** 一级筛选：形态维度，与下面的「分类」筛选正交 */
-type KindFilter = "all" | "site" | "tool";
 
 interface CommunityItem {
   id: number;
@@ -79,7 +76,6 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     };
   }, []);
 
-  const [kind, setKind] = useState<KindFilter>("all");
   const [category, setCategory] = useState<string>("all");
   const [sort, setSort] = useState<"ranked" | "newest">("ranked");
   const [query, setQuery] = useState("");
@@ -87,8 +83,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
   const urlSynced = useRef(false);
 
   /* 首页搜索条提交后带 ?q= 跳到这里：挂载后读一次，命中就把关键词填进搜索框。
-     用 effect 而不是 useState 初始值 —— SSR 阶段没有 location，写成初始值会导致水合不一致。
-     ?kind=site|tool 支持从别处深链到对应形态。 */
+     用 effect 而不是 useState 初始值 —— SSR 阶段没有 location，写成初始值会导致水合不一致。 */
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const q = params.get("q");
@@ -96,11 +91,9 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
       setQuery(q);
       setVisible(PAGE_SIZE);
     }
-    const k = params.get("kind");
-    if (k === "site" || k === "tool") setKind(k);
   }, []);
 
-  /* 关键词 / 形态变化时写回地址栏，方便分享。首次渲染跳过，避免地址栏闪动。 */
+  /* 关键词变化时写回地址栏，方便分享。首次渲染跳过，避免地址栏闪动。 */
   useEffect(() => {
     if (!urlSynced.current) {
       urlSynced.current = true;
@@ -110,10 +103,10 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     const q = query.trim();
     if (q) url.searchParams.set("q", q);
     else url.searchParams.delete("q");
-    if (kind === "all") url.searchParams.delete("kind");
-    else url.searchParams.set("kind", kind);
+    /* 旧的 ?kind=site|tool 深链已废弃，顺手清掉 */
+    url.searchParams.delete("kind");
     window.history.replaceState(null, "", url.toString());
-  }, [query, kind]);
+  }, [query]);
 
   /* 分类 chips：产品分类 + 托管工具实际用到的分类，按 productCategories 顺序排 */
   const categoryChips = useMemo(() => {
@@ -124,14 +117,10 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     return [...ordered, ...extra];
   }, [categories, hosted]);
 
-  const kindCounts = useMemo(() => {
-    const site = ranked.filter((p) => productKind(p) === "site").length;
-    const tool = ranked.filter((p) => productKind(p) === "tool").length + hosted.length;
-    return { site, tool, all: site + tool };
-  }, [ranked, hosted]);
+  const hostedCount = hosted.length;
 
   const filteredProducts = useMemo(() => {
-    let list = ranked.filter((p) => kind === "all" || productKind(p) === kind);
+    let list = ranked;
     if (category !== "all") {
       list = list.filter((p) => p.category === category);
     }
@@ -143,10 +132,9 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
       list = list.filter((p) => matched.has(p.slug));
     }
     return list;
-  }, [ranked, kind, category, query, locale, products]);
+  }, [ranked, category, query, locale, products]);
 
   const filteredHosted = useMemo(() => {
-    if (kind === "site") return [];
     const q = query.trim().toLowerCase();
     return hosted
       .filter((t) => (category === "all" ? true : t.category === category))
@@ -155,12 +143,17 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
       )
       .slice()
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  }, [hosted, kind, category, query]);
+  }, [hosted, category, query]);
 
   /* 列表行：产品 + 托管工具合并，按排序规则排列 */
   const rows = useMemo(() => {
-    const prodRows = filteredProducts.map((p) => ({ type: "product" as const, p }));
-    const hostedRows = filteredHosted.map((t) => ({ type: "hosted" as const, t }));
+    const prodRows = filteredProducts.map((p) => ({ type: "product" as const, p, order: null as number | null }));
+    /* 托管工具没有目录排名，序号接在目录产品之后，保证列表编号连续好看 */
+    const hostedRows = filteredHosted.map((t, i) => ({
+      type: "hosted" as const,
+      t,
+      order: (ranked.length + i + 1) as number | null,
+    }));
     if (sort === "newest") {
       return [...prodRows, ...hostedRows].sort((a, b) => {
         const da = a.type === "product" ? a.p.publishedAt : a.t.createdAt;
@@ -169,17 +162,11 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
       });
     }
     return [...prodRows, ...hostedRows];
-  }, [filteredProducts, filteredHosted, sort]);
+  }, [filteredProducts, filteredHosted, sort, ranked]);
 
   const shown = rows.slice(0, visible);
   const total = rows.length;
   const rankOf = (p: Product) => ranked.findIndex((r) => r.id === p.id) + 1;
-
-  const kindTabs: { key: KindFilter; label: string; count: number; icon: typeof Globe }[] = [
-    { key: "all", label: locale === "en" ? "All" : "全部", count: kindCounts.all, icon: Filter },
-    { key: "site", label: locale === "en" ? "Websites" : "网站", count: kindCounts.site, icon: Globe },
-    { key: "tool", label: locale === "en" ? "Online tools" : "在线工具", count: kindCounts.tool, icon: AppWindow },
-  ];
 
   return (
     <div>
@@ -203,40 +190,6 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
           </button>
         </div>
       )}
-
-      {/* 一级筛选：形态（网站 / 在线工具），与下面的分类是两个维度 */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {kindTabs.map(({ key, label, count, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => {
-              setKind(key);
-              setVisible(PAGE_SIZE);
-            }}
-            aria-pressed={kind === key}
-            className={cx(
-              "inline-flex items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-[13px] font-medium transition-colors",
-              kind === key
-                ? "border-foreground bg-foreground text-background"
-                : "border-border bg-card text-foreground/70 hover:border-foreground/40",
-            )}
-          >
-            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-            {label}
-            <span className={cx("text-[11px]", kind === key ? "text-background/70" : "text-muted-foreground")}>{count}</span>
-          </button>
-        ))}
-        {kind === "tool" && (
-          <a
-            href={p("/submit/?type=hosted", locale)}
-            className="ml-auto inline-flex items-center gap-1 text-[12px] text-muted-foreground underline-offset-2 hover:text-accent hover:underline"
-          >
-            {locale === "en" ? "Upload your own HTML tool" : "上传自己的 HTML 工具"}
-            <ArrowRight className="h-3 w-3" aria-hidden="true" />
-          </a>
-        )}
-      </div>
 
       {/* 筛选与排序工具条 */}
       <div className="flex flex-col gap-3">
@@ -272,6 +225,16 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
               {productCategoryNameLocalized(c, productCategoryName(c), locale)}
             </button>
           ))}
+        </div>
+        {/* 上传入口单独一行：和分类 chips 同一行在窄屏会被撑出横向滚动 */}
+        <div className="flex justify-end">
+          <a
+            href={p("/submit/?type=hosted", locale)}
+            className="inline-flex items-center gap-1 text-[12px] text-muted-foreground underline-offset-2 hover:text-accent hover:underline"
+          >
+            {locale === "en" ? "Upload your own HTML tool" : "上传自己的 HTML 工具"}
+            <ArrowRight className="h-3 w-3" aria-hidden="true" />
+          </a>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -321,7 +284,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
         {shown.length === 0 && (
           <div className="card p-10 text-center">
             <p className="text-sm text-foreground/70">{locale === "en" ? "Nothing matches your criteria." : "没有符合条件的内容。"}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{locale === "en" ? "Try adjusting the type, category, keywords or sort order." : "试试调整形态、分类、关键词或排序方式。"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{locale === "en" ? "Try adjusting the category, keywords or sort order." : "试试调整分类、关键词或排序方式。"}</p>
           </div>
         )}
 
@@ -338,7 +301,16 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                     rel="noopener noreferrer"
                     className="group flex items-center gap-4 px-4 py-4 transition-colors hover:bg-secondary/40 sm:px-5"
                   >
-                    <span className="w-7 shrink-0" aria-hidden="true" />
+                    {sort === "ranked" && row.order !== null ? (
+                      <span
+                        className="font-display w-7 shrink-0 text-center text-base font-bold text-muted-foreground/50"
+                        aria-label={`${locale === "en" ? "Rank" : "第"} ${row.order} ${locale === "en" ? "" : "名"}`}
+                      >
+                        #{row.order}
+                      </span>
+                    ) : (
+                      <span className="w-7 shrink-0" aria-hidden="true" />
+                    )}
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-border bg-secondary text-foreground/60" aria-hidden="true">
                       <AppWindow className="h-4 w-4" />
                     </span>
@@ -488,8 +460,8 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
 
       <p className="mt-4 text-center text-xs text-muted-foreground">
         {locale === "en"
-          ? `${total} listed · ${kindCounts.site} websites · ${kindCounts.tool} online tools · verification reflects actual SolHub checks`
-          : `共 ${total} 个 · ${kindCounts.site} 个网站 · ${kindCounts.tool} 个在线工具 · 核验状态以 SolHub 实际核验为准`}
+          ? `${total} listed${hostedCount ? ` · ${hostedCount} run on SolHub` : ""} · verification reflects actual SolHub checks`
+          : `共 ${total} 个${hostedCount ? ` · 其中 ${hostedCount} 个站内直接运行` : ""} · 核验状态以 SolHub 实际核验为准`}
       </p>
     </div>
   );

@@ -24,7 +24,7 @@ import type { Locale } from "@/i18n";
  *   product  —— 网站 / SaaS / 在线工具（外链），登录后走 /publish 自动收录到产品目录
  *   hosted   —— 自包含 HTML 工具，登录后页面上传 HTML，存后端并立即生成托管链接
  *
- * 两者都会出现在「产品」页，用一级筛选区分「网站」与「在线工具」。
+ * 两者都会自动出现在「产品」页的同一个列表里（不再分网站 / 在线工具）。
  */
 type SubmitKind = "product" | "hosted";
 
@@ -301,7 +301,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           path: data.path || `/tools/?id=${data.id}`,
           message: en
             ? "Hosted! Your tool is live and now listed under Products → Online tools. The sandboxed link works immediately and can be shared anywhere."
-            : "托管成功！工具已立即上线，并出现在「产品 → 在线工具」列表里；沙箱链接可以随时打开和分享。",
+            : "托管成功！工具已立即上线，并出现在「产品」列表里；沙箱链接可以随时打开和分享。",
         });
         return;
       } catch {
@@ -326,7 +326,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
   const modeNote = isHosted
     ? en
       ? "Log in, pick your .html file and submit — the tool goes live immediately and is listed under Products → Online tools. It runs in an isolated iframe that cannot access SolHub cookies or your account data. You can delete it anytime from My Account."
-      : "登录后选择 .html 文件提交，工具会立即上线，并出现在「产品 → 在线工具」列表里。它在隔离沙箱 iframe 中运行，无法访问 SolHub 的 Cookie 与你的账号数据；随时可在「我」页面删除。"
+      : "登录后选择 .html 文件提交，工具会立即上线，并出现在「产品」列表里。它在隔离沙箱 iframe 中运行，无法访问 SolHub 的 Cookie 与你的账号数据；随时可在「我」页面删除。"
     : form.kind === "product" && me
       ? en
         ? "Logged-in product submissions are checked automatically (the link must open) and go live immediately. Verify your email and your badge lights up automatically."
@@ -662,8 +662,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
                 <a href={p(result.path, locale)} className="btn btn-accent !h-8 px-3 text-xs">
                   {en ? "Open your hosted tool" : "打开托管页"} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                 </a>
-                <a href={p("/launches/?kind=tool", locale)} className="btn btn-outline !h-8 px-3 text-xs">
-                  {en ? "See it under Online tools" : "在产品页看在线工具"}
+                <a href={p("/launches/", locale)} className="btn btn-outline !h-8 px-3 text-xs">
+                  {en ? "See it in the product list" : "在产品页查看"}
                 </a>
               </>
             ) : (
