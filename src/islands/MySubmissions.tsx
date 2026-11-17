@@ -1,5 +1,6 @@
 import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
 import {
+  AppWindow,
   Camera,
   Check,
   ExternalLink,
@@ -76,6 +77,14 @@ interface CommunityProduct {
   publishedAt?: string;
   /** true = 来自官方产品目录的认领项（不可在站内改/删） */
   claimed?: boolean;
+}
+
+/** 我上传的托管 HTML 工具（/hosted/mine 返回的元信息，不含 html 本体） */
+interface HostedTool {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt?: string;
 }
 
 /* ---------- 错误兜底：任何渲染异常都显示可恢复的提示，而不是空白 ---------- */
@@ -177,11 +186,29 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   const [skillForm, setSkillForm] = useState<MySkillInput>(emptySkillForm);
   const [skillError, setSkillError] = useState<string | null>(null);
 
-  /* 创作者：我的产品 / 我的 Skill / 关注 / 粉丝 */
-  const [tab, setTab] = useState<"products" | "skills" | "following" | "followers">("products");
+  /* 创作者：我的产品 / 我的 Skill / 我的托管工具 / 关注 / 粉丝 */
+  const [tab, setTab] = useState<"products" | "skills" | "hosted" | "following" | "followers">("products");
   const [world, setWorld] = useState<PublicProfile | null>(null);
   const [followList, setFollowList] = useState<FollowUser[]>([]);
   const [followLoading, setFollowLoading] = useState(false);
+
+  /* 托管 HTML 工具 */
+  const [hostedTools, setHostedTools] = useState<HostedTool[]>([]);
+  const [hostedLoading, setHostedLoading] = useState(false);
+  const [hostedBusy, setHostedBusy] = useState<string | null>(null);
+
+  const loadHosted = useCallback(async () => {
+    setHostedLoading(true);
+    try {
+      const res = await request(`${base()}/hosted/mine`, { cache: "no-store" }, { retries: 1 });
+      if (res.ok) {
+        const data = await res.json();
+        setHostedTools(Array.isArray(data?.tools) ? data.tools : []);
+      }
+    } catch { /* 忽略，托管区显示空态 */ } finally {
+      setHostedLoading(false);
+    }
+  }, []);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -224,6 +251,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
       });
       await Promise.all([
         loadProducts(),
+        loadHosted(),
         fetchProfile(me.login)
           .then((prof) => { if (prof) setWorld(prof); })
           .catch(() => { /* 忽略，关注 / 粉丝区显示空态 */ }),
@@ -239,16 +267,17 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     } finally {
       setLoading(false);
     }
-  }, [loadProducts]);
+  }, [loadProducts, loadHosted]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  /* 支持 /my-submissions/?tab=skills 直达 Skill 标签 */
+  /* 支持 /my-submissions/?tab=skills|hosted 直达对应标签 */
   useEffect(() => {
     try {
-      if (new URLSearchParams(window.location.search).get("tab") === "skills") setTab("skills");
+      const t = new URLSearchParams(window.location.search).get("tab");
+      if (t === "skills" || t === "hosted") setTab(t);
     } catch {
       /* 地址栏解析失败时保持默认标签 */
     }
@@ -410,6 +439,27 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
       setActionError(en ? "Network error. Please retry." : "网络错误，请稍后重试。");
     } finally {
       setSavingSlug(null);
+    }
+  };
+
+  const deleteHosted = async (tool: HostedTool) => {
+    if (!confirm(en ? `Delete “${tool.name}”? Its hosted link will stop working. This cannot be undone.` : `确定删除「${tool.name}」？托管链接会立即失效，删除后不可恢复。`)) return;
+    setHostedBusy(tool.id);
+    setActionError(null);
+    try {
+      const res = await request(`${base()}/hosted/${encodeURIComponent(tool.id)}`, {
+        method: "DELETE",
+      }, { retries: 0 });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setActionError(data.error || `删除失败（${res.status}）`);
+        return;
+      }
+      setHostedTools((prev) => prev.filter((x) => x.id !== tool.id));
+    } catch {
+      setActionError(en ? "Network error. Please retry." : "网络错误，请稍后重试。");
+    } finally {
+      setHostedBusy(null);
     }
   };
 
@@ -672,6 +722,10 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                   <Sparkles className="h-3 w-3" />
                   {en ? `${mySkills.length} Skill${mySkills.length === 1 ? "" : "s"}` : `${mySkills.length} 个 Skill`}
                 </span>
+                <span className="inline-flex items-center gap-1">
+                  <AppWindow className="h-3 w-3" />
+                  {en ? `${hostedTools.length} tool${hostedTools.length === 1 ? "" : "s"}` : `${hostedTools.length} 个托管工具`}
+                </span>
               </div>
             </div>
           </div>
@@ -798,6 +852,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         {([
           { key: "products", label: en ? "Products" : "产品", count: products.length },
           { key: "skills", label: en ? "Skills" : "Skill", count: mySkills.length },
+          { key: "hosted", label: en ? "Hosted tools" : "托管工具", count: hostedTools.length },
           { key: "following", label: en ? "Following" : "关注", count: world?.followingCount ?? 0 },
           { key: "followers", label: en ? "Followers" : "粉丝", count: world?.followerCount ?? 0 },
         ] as const).map((t) => (
@@ -1076,6 +1131,107 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                 })}
               </ul>
             )
+          )}
+        </>
+      )}
+
+      {/* 我的托管工具：云端记录，含托管链接与删除 */}
+      {tab === "hosted" && (
+        <>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-display text-base font-bold text-foreground">
+              {en ? "My hosted tools" : "我的托管工具"}
+            </h2>
+            <a href={p("/submit/?type=hosted", locale)} className="btn btn-accent !h-8 gap-1.5 px-3 text-xs">
+              <AppWindow className="h-3 w-3" /> {en ? "Upload a tool" : "上传新工具"}
+            </a>
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+            {en
+              ? "Self-contained HTML tools you uploaded. Each gets a sandboxed hosted link on solhub.solyoung.top/tools/?id=… that you can share anywhere."
+              : "你上传的自包含 HTML 工具。每个工具都有独立的沙箱托管链接（solhub.solyoung.top/tools/?id=…），可以分享到任何地方。"}
+          </p>
+          {hostedLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {en ? "Loading…" : "加载中…"}
+            </div>
+          ) : hostedTools.length === 0 ? (
+            <div className="mt-4 rounded-[16px] border border-dashed border-border bg-secondary/30 py-14 text-center">
+              <AppWindow className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
+              <p className="mt-3 text-sm font-medium text-foreground/70">{en ? "No hosted tools yet" : "暂无托管工具"}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {en
+                  ? "Upload a self-contained HTML file (≤1MB) and it goes live instantly in a sandboxed iframe."
+                  : "上传一个自包含的 HTML 文件（≤1MB），即可立即在沙箱里上线运行。"}
+              </p>
+              <a href={p("/submit/?type=hosted", locale)} className="btn btn-accent mt-4 !h-9 px-5 text-xs">
+                {en ? "Upload your first tool" : "去上传工具"}
+              </a>
+            </div>
+          ) : (
+            <ul className="mt-4 grid gap-4">
+              {hostedTools.map((tool) => {
+                const hostedUrl = `${window.location.origin}${p(`/tools/?id=${tool.id}`, locale)}`;
+                return (
+                  <li key={tool.id} className="card p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <a
+                            href={hostedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="truncate text-sm font-bold text-foreground hover:text-accent"
+                          >
+                            {tool.name || tool.id}
+                          </a>
+                          <span className="shrink-0 rounded-sm bg-success/10 px-1.5 py-0.5 text-[10px] uppercase text-success">
+                            {en ? "Live" : "已上线"}
+                          </span>
+                          {tool.createdAt && (
+                            <span className="shrink-0 text-[11px] text-muted-foreground">
+                              {new Date(tool.createdAt).toLocaleDateString(en ? "en-US" : "zh-CN")}
+                            </span>
+                          )}
+                        </div>
+                        {tool.description && (
+                          <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-muted-foreground">{tool.description}</p>
+                        )}
+                        <div className="mt-3 flex min-w-0 items-center gap-2 rounded-[7px] border border-border bg-secondary/40 px-2.5 py-1.5">
+                          <LinkIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                          <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground/80">{hostedUrl}</code>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <a href={hostedUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline !h-7 gap-1.5 px-3 text-xs">
+                            {en ? "Open" : "打开"} <ExternalLink className="h-3 w-3" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void copyText(hostedUrl).then((ok) => {
+                                if (!ok) window.prompt(en ? "Copy this link:" : "复制下面的链接：", hostedUrl);
+                              });
+                            }}
+                            className="btn btn-outline !h-7 gap-1.5 px-3 text-xs"
+                          >
+                            {en ? "Copy link" : "复制链接"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void deleteHosted(tool)}
+                            disabled={hostedBusy === tool.id}
+                            className="btn btn-outline !h-7 gap-1.5 px-3 text-xs text-destructive hover:bg-destructive/10"
+                          >
+                            {hostedBusy === tool.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                            {en ? "Delete" : "删除"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </>
       )}
