@@ -2,7 +2,7 @@
  * SolHub 定时任务 —— CloudBase Event Function（定时触发）
  * =====================================================
  *
- * 这一个函数承担两件事，靠触发器的名字分流：
+ * 这一个函数承担两件事，靠触发器的名字 / 手动调用的 action 分流：
  *
  *   1. 官方推荐帖（原 official-* 触发器，**已下线**）
  *      发帖功能在 2026-11-04 下线，页面上不再有任何帖子入口，所以三个
@@ -24,7 +24,6 @@ const core = require("./core.cjs");
 const { createKV } = require("./kv.cjs");
 const { installCaches } = require("./caches.cjs");
 const { runBackup, runRestore, purgeExpired } = require("./backup.cjs");
-const { SKILLS_HOT_KEY, collectSkillsHot } = require("./skills-hot.cjs");
 
 if (!globalThis.crypto || !globalThis.crypto.subtle) {
   globalThis.crypto = webcrypto;
@@ -56,42 +55,8 @@ function taskOf(event) {
   if (e.action) return String(e.action);
   const name = String(e.TriggerName || e.Trigger || "");
   if (/backup/i.test(name)) return "backup";
-  if (/skills/i.test(name)) return "skills";
   return "official";
 }
-
-/**
- * Skill 今日热门：每天一轮，从 GitHub 搜热门 Skill 写进 kv:skills:hot:v1。
- * 全军覆没时保留昨天的旧数据（热门栏一天不更新好过一天消失）。
- */
-async function runSkillsHot() {
-  const startedAt = Date.now();
-  const env = { ...process.env, PROFILES: createKV() };
-  let old = [];
-  try {
-    const raw = await env.PROFILES.get(SKILLS_HOT_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.items)) old = parsed.items;
-    }
-  } catch (err) {
-    /* 旧值读不出来不影响抓取，只是翻译降级 */
-    console.error("[skills] 读取旧数据失败:", (err && err.message) || err);
-  }
-
-  const result = await collectSkillsHot(env, { old });
-  if (!result.ok) {
-    return { ok: false, error: result.error, queries: result.queries, kept: old.length };
-  }
-  const payload = { date: result.date, updatedAt: result.updatedAt, items: result.items };
-  await env.PROFILES.put(SKILLS_HOT_KEY, JSON.stringify(payload));
-  console.log(
-    `[skills] 写入 ${result.stored} 条，翻译 ${result.translation.done}/${result.translation.tried}，` +
-      `${Date.now() - startedAt}ms`,
-  );
-  return { ok: true, date: result.date, stored: result.stored, translation: result.translation, queries: result.queries };
-}
-
 
 exports.main = async (event, context) => {
   const startedAt = Date.now();
@@ -136,16 +101,6 @@ exports.main = async (event, context) => {
       return await runRestore({ takenOn: event.takenOn, dryRun: !!event.dryRun });
     } catch (err) {
       console.error("[restore] 执行失败:", err && err.stack ? err.stack : err);
-      return { ok: false, error: String((err && err.message) || err) };
-    }
-  }
-
-  /* Skill 今日热门（手动调用 {"action":"skills"} 或定时触发器 skills-daily） */
-  if (task === "skills") {
-    try {
-      return await runSkillsHot();
-    } catch (err) {
-      console.error("[skills] 执行失败:", err && err.stack ? err.stack : err);
       return { ok: false, error: String((err && err.message) || err) };
     }
   }

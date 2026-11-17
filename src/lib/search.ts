@@ -1,6 +1,4 @@
 import type { Product, SearchIndexEntry } from "@/data/types";
-import type { SkillItem } from "@/data/skills";
-import { skillCategoryName } from "@/data/skills";
 
 export type { SearchIndexEntry };
 import { productCategoryName } from "@/data/product-categories";
@@ -11,22 +9,14 @@ import {
   productCategoryNameLocalized,
 } from "@/i18n/data";
 
-/** Skill 的通用检索词：让「技能 / 指令 / agent / claude」等模糊词也能落到 Skill 上 */
-const SKILL_KEYWORDS = [
-  "skill", "skills", "agent", "智能体", "技能", "技能包", "指令", "提示词",
-  "SKILL.md", "npx", "plugin", "插件", "工作流", "教程", "安装命令",
-  "claude code", "codex", "cursor", "workbuddy", "skills.sh",
-];
-
 /**
- * 全局搜索索引 —— 产品来自 products.ts，Skill 来自 data/skills.ts（可选传入）。
- * 首页 Hero、导航搜索共用同一份索引；产品列表页只传 products，避免把 Skill 混进产品筛选。
+ * 全局搜索索引 —— 只索引产品（网站 / 在线工具）与站内托管的 HTML 工具。
+ * 首页 Hero、导航搜索、产品列表页共用同一份索引。
  * locale 决定展示文案语言，但索引里同时保留中英文，方便跨语言模糊搜索。
  */
 export function buildSearchIndex(
   products: Product[],
   locale: Locale = "zh",
-  skillItems: SkillItem[] = [],
 ): SearchIndexEntry[] {
   const productEntries: SearchIndexEntry[] = products.map((p) => ({
     kind: "product",
@@ -47,36 +37,14 @@ export function buildSearchIndex(
     href: `/products/${p.slug}/`,
   }));
 
-  const skillEntries: SearchIndexEntry[] = skillItems.map((s) => ({
-    kind: "skill",
-    slug: `skill:${s.id}`,
-    name: s.name,
-    description: locale === "en" ? s.descriptionEn : s.description,
-    category: s.category,
-    categoryName: `Skill · ${skillCategoryName(s.category, locale)}`,
-    tags: [...s.tags, ...s.platforms, s.repo],
-    keywords: [
-      s.description,
-      s.descriptionEn,
-      s.repo,
-      s.install ?? "",
-      s.github ?? "",
-      s.kind === "collection" ? "合集 框架 collection" : "单技能 skill",
-      s.official ? "官方 official" : "",
-      ...SKILL_KEYWORDS,
-    ].filter(Boolean),
-    /* Skill 没有独立详情页：跳到 Skill 库并预填该名称，用户可直接看到 install 命令 */
-    href: `/skills/?q=${encodeURIComponent(s.name)}`,
-  }));
-
-  return [...productEntries, ...skillEntries];
+  return productEntries;
 }
 
 /**
  * 关键词评分匹配：名称命中 > 分类 / 标签 / 关键词命中 > 描述命中。
  * - 多个词之间是 AND（都要命中），所以「pdf 转换」只会返回同时相关的条目；
- * - 单个词支持模糊：连字符/空格不敏感（find skills ↔ find-skills）、
- *   以及 1~2 个字符的拼写误差（frontedn-design 也能找到 frontend-design）；
+ * - 单个词支持模糊：连字符/空格不敏感（json-format ↔ json format）、
+ *   以及 1~2 个字符的拼写误差（camsmi 也能找到 camsim）；
  * - 中文按子串匹配，不走编辑距离，避免误召回。
  */
 export function searchIndex(
@@ -89,11 +57,7 @@ export function searchIndex(
   return index
     .map((entry) => ({ entry, score: scoreEntry(entry, tokens) }))
     .filter((r) => r.score > 0)
-    .sort((a, b) =>
-      b.score - a.score ||
-      (a.entry.kind === b.entry.kind ? 0 : a.entry.kind === "product" ? -1 : 1) ||
-      a.entry.name.localeCompare(b.entry.name),
-    )
+    .sort((a, b) => b.score - a.score || a.entry.name.localeCompare(b.entry.name))
     .map((r) => r.entry);
 }
 

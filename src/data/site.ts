@@ -25,7 +25,7 @@ export const siteConfig = {
   githubUrl: "https://github.com/SolYoung-Ai/solhub",
   /** 联系人邮箱 */
   contactEmail: ADMIN_EMAIL,
-  /** 产品 / Skill 邮件提交的收件地址 */
+  /** 产品邮件提交的收件地址 */
   submitEmail: ADMIN_EMAIL,
   /** 赞助合作专用邮箱：与账号/隐私的 contactEmail 分开，避免商务邮件混进注销请求 */
   sponsorEmail: ADMIN_EMAIL,

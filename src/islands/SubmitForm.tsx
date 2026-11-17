@@ -6,53 +6,32 @@ import {
   Loader2,
   Package,
   ShieldAlert,
-  Sparkles,
   UploadCloud,
 } from "lucide-react";
 import { productCategories } from "@/data/product-categories";
 import { siteConfig } from "@/data/site";
-import { skillCategories, skillCategoryName } from "@/data/skills";
 import { productCategoryNameLocalized } from "@/i18n/data";
 import { p } from "@/lib/paths";
 import { base } from "@/lib/api-base";
 import { isValidHttpUrl } from "@/lib/utils";
 import { request } from "@/lib/net";
 import { fetchMe, type AuthUser } from "@/lib/auth";
-import { ownerKey, saveMySkill } from "@/lib/my-skills";
 import { Message } from "@/components/tool-ui";
 import type { Locale } from "@/i18n";
 
 /**
- * 提交表单的三种互不冲突的类型：
- *   product  —— 网站 / SaaS / AI 工具，登录后走 /publish 自动收录到产品目录
- *   skill    —— Agent Skills（SKILL.md 技能包），走邮件人工核验，收录到 /skills/
+ * 提交表单的两种互不冲突的类型：
+ *   product  —— 网站 / SaaS / 在线工具（外链），登录后走 /publish 自动收录到产品目录
  *   hosted   —— 自包含 HTML 工具，登录后页面上传 HTML，存后端并立即生成托管链接
  *
- * 旧版还有「提交工具（外链）」，它和「提交产品」填同样的字段、写同一份
- * community.json，本质上是重复入口，所以改成了语义与数据链路都独立的 Skill。
- * Skill 绝对不能走 /publish：那会把技能包当成产品写进产品目录。
+ * 两者都会出现在「产品」页，用一级筛选区分「网站」与「在线工具」。
  */
-type SubmitKind = "product" | "skill" | "hosted";
-
-const SKILL_PLATFORMS = [
-  "通用（Agent Skills 标准）",
-  "Claude Code",
-  "Claude.ai / API",
-  "Codex",
-  "Cursor",
-  "Gemini CLI",
-  "WorkBuddy",
-  "OpenCode",
-  "飞书",
-  "其他",
-];
+type SubmitKind = "product" | "hosted";
 
 interface FormState {
   kind: SubmitKind;
   name: string;
   websiteUrl: string;
-  installCommand: string;
-  platform: string;
   shortDescription: string;
   description: string;
   category: string;
@@ -66,8 +45,6 @@ const initial: FormState = {
   kind: "product",
   name: "",
   websiteUrl: "",
-  installCommand: "",
-  platform: SKILL_PLATFORMS[0],
   shortDescription: "",
   description: "",
   category: "ai-tools",
@@ -76,8 +53,6 @@ const initial: FormState = {
   developerName: "",
   contact: "",
 };
-
-const defaultCategory = (kind: SubmitKind) => (kind === "skill" ? "engineering" : "ai-tools");
 
 type Errors = Partial<Record<keyof FormState, string>> & { htmlFile?: string };
 
@@ -106,27 +81,24 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
 
   useEffect(() => {
     void fetchMe().then(setMe);
-    /* 静态站读不到 query，只能在 island 挂载后从地址栏取，
-       让 /skills/ 的「提交 Skill」按钮直接落到 Skill 选项卡。 */
+    /* 静态站读不到 query，只能在 island 挂载后从地址栏取 */
     try {
       const type = new URLSearchParams(window.location.search).get("type");
-      if (type === "skill" || type === "hosted" || type === "product") {
-        setForm((f) => ({ ...f, kind: type, category: defaultCategory(type) }));
+      if (type === "hosted" || type === "product") {
+        setForm((f) => ({ ...f, kind: type }));
       }
     } catch {
       /* 地址栏解析失败时保持默认选项卡 */
     }
   }, []);
 
-  const isSkill = form.kind === "skill";
   const isHosted = form.kind === "hosted";
-  const needsUrl = form.kind === "product" || isSkill;
+  const needsUrl = !isHosted;
 
   const categoryLabel = useMemo(() => {
-    if (isSkill) return skillCategoryName(form.category, locale);
     const c = productCategories.find((x) => x.slug === form.category);
     return productCategoryNameLocalized(form.category, c?.name ?? form.category, locale);
-  }, [form.category, isSkill, locale]);
+  }, [form.category, locale]);
 
   const set = (key: keyof FormState, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -135,7 +107,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
   };
 
   const setKind = (kind: SubmitKind) => {
-    setForm((f) => ({ ...f, kind, category: defaultCategory(kind) }));
+    setForm((f) => ({ ...f, kind, category: "ai-tools" }));
     setErrors({});
     setStatus("idle");
     setShowPreview(false);
@@ -181,9 +153,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
 
     if (needsUrl) {
       if (!form.websiteUrl.trim()) {
-        e.websiteUrl = isSkill
-          ? en ? "Please enter the skill repo or homepage URL." : "请输入 Skill 仓库 / 主页 URL。"
-          : en ? "Please enter the product website URL." : "请输入产品官网 URL。";
+        e.websiteUrl = en ? "Please enter the product website URL." : "请输入产品官网 URL。";
       } else if (!isValidHttpUrl(form.websiteUrl.trim())) {
         e.websiteUrl = en ? "URL must start with http:// or https://." : "URL 需以 http:// 或 https:// 开头。";
       }
@@ -191,9 +161,6 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       e.websiteUrl = en ? "URL must start with http:// or https://." : "URL 需以 http:// 或 https:// 开头。";
     }
 
-    if (isSkill && form.installCommand.trim().length > 200) {
-      e.installCommand = en ? "Install command must be under 200 characters." : "安装命令请控制在 200 字以内。";
-    }
     if (!form.shortDescription.trim()) e.shortDescription = en ? "Please enter a one-line description." : "请输入一句话介绍。";
     else if (form.shortDescription.trim().length > 200) e.shortDescription = en ? "One-line description must be under 200 characters." : "一句话介绍请控制在 200 字以内。";
     if (!form.description.trim()) e.description = en ? "Please enter a detailed description." : "请输入详细描述。";
@@ -217,27 +184,24 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     setShowPreview(true);
   };
 
-  /** Skill 走邮件核验；托管工具直接上传；只有产品能一键自动收录。 */
+  /** 托管工具直接上传；未登录的产品走邮件核验。 */
   const buildEmail = () => {
-    const kindLabel = isSkill ? "Skill" : isHosted ? (en ? "Hosted Tool" : "托管工具") : (en ? "Product" : "产品");
+    const kindLabel = isHosted ? (en ? "Hosted Tool" : "托管工具") : (en ? "Product" : "产品");
     const subject = `[SolHub ${kindLabel} ${en ? "Submission" : "提交"}] ${form.name.trim()}`;
     const hasUploadedIcon = form.iconUrl.trim().startsWith("data:");
     const lines = [
       `${en ? "Submission type" : "提交类型"}：${kindLabel}`,
-      `${isSkill ? (en ? "Skill name" : "Skill 名称") : isHosted ? (en ? "Tool name" : "工具名称") : (en ? "Product name" : "产品名称")}：${form.name.trim()}`,
-      `${isSkill ? (en ? "Repo / homepage URL" : "Skill 仓库 / 主页 URL") : isHosted ? (en ? "Tool homepage URL" : "工具主页 URL") : (en ? "Website URL" : "官网 URL")}：${form.websiteUrl.trim()}`,
-      isSkill && form.installCommand.trim() ? `${en ? "Install command" : "安装命令"}：${form.installCommand.trim()}` : "",
-      isSkill ? `${en ? "Compatible agents" : "兼容平台"}：${form.platform}` : "",
+      `${isHosted ? (en ? "Tool name" : "工具名称") : (en ? "Product name" : "产品名称")}：${form.name.trim()}`,
+      `${isHosted ? (en ? "Tool homepage URL" : "工具主页 URL") : (en ? "Website URL" : "官网 URL")}：${form.websiteUrl.trim()}`,
       `${en ? "One-line description" : "一句话介绍"}：${form.shortDescription.trim()}`,
-      `${isSkill ? (en ? "Trigger scenarios & details" : "触发场景与详细说明") : (en ? "Detailed description" : "详细描述")}：${form.description.trim()}`,
+      `${en ? "Detailed description" : "详细描述"}：${form.description.trim()}`,
       `${en ? "Category" : "分类"}：${categoryLabel}`,
       `${en ? "Tags" : "标签"}：${form.tags.trim()}`,
       form.iconUrl.trim() && !hasUploadedIcon ? `${en ? "Icon URL" : "图标 URL"}：${form.iconUrl.trim()}` : "",
-      `${isSkill ? (en ? "Author / team" : "作者 / 团队") : (en ? "Developer / team" : "开发者 / 团队")}：${form.developerName.trim()}`,
+      `${en ? "Developer / team" : "开发者 / 团队"}：${form.developerName.trim()}`,
       form.contact.trim() ? `${en ? "Contact" : "联系方式"}：${form.contact.trim()}` : "",
       me ? `${en ? "Submitted by" : "提交账号"}：${me.displayName || me.login}` : "",
       hasUploadedIcon ? `\n${en ? "(Please attach the icon image to this email)" : "（请将图标图片文件作为附件添加到本邮件）"}` : "",
-      isHosted ? `\n${en ? "(Please attach the self-contained .html file to this email)" : "（请将自包含 .html 文件作为附件添加到本邮件）"}` : "",
     ].filter(Boolean);
     const mailto = `mailto:${siteConfig.submitEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join("\n"))}`;
     return mailto;
@@ -292,8 +256,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       }
     }
 
-    /* 托管工具：登录后直接上传 HTML，后端存储并立即生成托管链接。
-       不走邮件 —— 附件流程已废弃（2026-11-17）。 */
+    /* 托管工具：登录后直接上传 HTML，后端存储并立即生成托管链接。 */
     if (isHosted) {
       if (!me) {
         setStatus("error");
@@ -348,55 +311,23 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       }
     }
 
-    /* Skill 提交：邮件人工核验之外，本地留一份记录，让用户能在「个人中心 → Skill」
-       里查看、修改、删除或标记收录状态（Skill 不走 /publish，没有服务端记录）。 */
-    if (isSkill) {
-      saveMySkill(
-        {
-          name: form.name.trim(),
-          repoUrl: form.websiteUrl.trim(),
-          installCommand: form.installCommand.trim(),
-          platform: form.platform,
-          shortDescription: form.shortDescription.trim(),
-          description: form.description.trim(),
-          category: form.category,
-          tags: form.tags.trim(),
-          author: form.developerName.trim(),
-          contact: form.contact.trim(),
-        },
-        ownerKey(me),
-      );
-    }
-
-    /* Skill / 未登录产品：邮件提交，人工核验后收录（托管工具已在上面分支返回） */
+    /* 未登录的产品：邮件提交，人工核验后收录 */
     window.location.href = buildEmail();
     setStatus("success");
     setResult({
-      kind: form.kind,
+      kind: "product",
       via: "email",
-      message: isSkill
-        ? en
-          ? "Your email client is opening with all Skill details pre-filled. Send it and we'll review the repo, SKILL.md and installability — approved skills are added to the Skill directory within 24 hours. You can edit or delete this submission in My Account → Skills."
-          : "正在打开邮箱，Skill 信息已自动填好。发送后我们会核验仓库、SKILL.md 与可安装性，通过后 24 小时内收录到 Skill 库（不会进入产品列表）。这份提交已保存到「个人中心 → Skill」，可随时编辑或删除。"
-        : isHosted
-          ? en
-            ? "Your email client is opening. Attach the self-contained .html file and send it — we'll host it in a sandboxed iframe."
-            : "正在打开邮箱，请把自包含 .html 文件作为附件加入邮件后发送，我们会在沙箱 iframe 中托管运行。"
-          : en
-            ? "Your email client is opening with all details pre-filled. Send it and we'll review within 24 hours."
-            : "正在打开邮箱，发送邮件即完成提交，我们会在 24 小时内核验。",
+      message: en
+        ? "Your email client is opening with all details pre-filled. Send it and we'll review within 24 hours."
+        : "正在打开邮箱，发送邮件即完成提交，我们会在 24 小时内核验。",
     });
   };
 
-  const modeNote = isSkill
+  const modeNote = isHosted
     ? en
-      ? "Skills are reviewed before listing: we check that the repo is public, SKILL.md is complete, the install command works and the license allows redistribution. Approved skills appear in the Skill directory — never in the product list."
-      : "Skill 提交为人工核验收录：会核验仓库是否公开、SKILL.md 是否完整、安装命令是否可用、开源协议是否允许分发。通过后会加入 Skill 库，不会写进产品列表。"
-    : isHosted
-      ? en
-        ? "Log in, pick your .html file and submit — the tool goes live immediately and is listed under Products → Online tools. It runs in an isolated iframe that cannot access SolHub cookies or your account data. You can delete it anytime from My Account."
-        : "登录后选择 .html 文件提交，工具会立即上线，并出现在「产品 → 在线工具」列表里。它在隔离沙箱 iframe 中运行，无法访问 SolHub 的 Cookie 与你的账号数据；随时可在「我」页面删除。"
-      : form.kind === "product" && me
+      ? "Log in, pick your .html file and submit — the tool goes live immediately and is listed under Products → Online tools. It runs in an isolated iframe that cannot access SolHub cookies or your account data. You can delete it anytime from My Account."
+      : "登录后选择 .html 文件提交，工具会立即上线，并出现在「产品 → 在线工具」列表里。它在隔离沙箱 iframe 中运行，无法访问 SolHub 的 Cookie 与你的账号数据；随时可在「我」页面删除。"
+    : form.kind === "product" && me
       ? en
         ? "Logged-in product submissions are checked automatically (the link must open) and go live immediately. Verify your email and your badge lights up automatically."
         : "登录状态提交：官网链接可以正常打开即可通过自动检测，产品立即收录上线，无需人工审核；已验证邮箱的账号提交产品后，认证徽章自动点亮。"
@@ -407,7 +338,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
   return (
     <div className="space-y-6">
       {/* 登录引导（产品一键收录 / 托管上传都需要账号） */}
-      {!me && (form.kind === "product" || isHosted) && (
+      {!me && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-accent/30 bg-accent/5 p-4">
           <div className="text-[13px] leading-6">
             <p className="font-bold text-foreground">
@@ -421,8 +352,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
                   ? "Hosted tools are tied to your account so you can manage or delete them; without login you can't upload."
                   : "托管工具会归属到你的账号名下，方便后续管理和删除；未登录无法上传。")
                 : (en
-                  ? "Logged-in product submissions skip the email step and are managed from My Account. Skill submissions are reviewed by email."
-                  : "登录后提交产品无需走邮件流程，直接收录到你的账号名下；Skill 提交仍走邮件核验。")}
+                  ? "Logged-in product submissions skip the email step and are managed from My Account."
+                  : "登录后提交产品无需走邮件流程，直接收录到你的账号名下。")}
             </p>
           </div>
           <a href={p("/login/?next=" + encodeURIComponent("/submit/?type=hosted"), locale)} className="btn btn-accent shrink-0 !h-9 px-4 text-xs">
@@ -445,39 +376,23 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
         </div>
       </div>
 
-      {/* 收录标准：Skill 与产品口径不同 */}
+      {/* 收录标准 */}
       <div className="rounded-[8px] border border-border bg-card p-4">
-        <p className="text-[13px] font-bold text-foreground">
-          {isSkill ? (en ? "Skill listing criteria" : "Skill 收录标准") : en ? "Listing criteria" : "收录标准"}
-        </p>
+        <p className="text-[13px] font-bold text-foreground">{en ? "Listing criteria" : "收录标准"}</p>
         <ul className="mt-2 grid gap-1.5 text-[13px] leading-6 text-muted-foreground sm:grid-cols-2">
-          {(isSkill
-            ? en
-              ? [
-                "Public repo or skills.sh page, accessible without login",
-                "A complete SKILL.md with name, description and trigger scenarios",
-                "Installable and runnable — not an empty placeholder",
-                "Original or properly licensed, no malicious instructions",
-              ]
-              : [
-                "仓库或 skills.sh 页面公开可访问，无需登录",
-                "含完整 SKILL.md：名称、描述与触发场景清晰",
-                "可安装、可实际运行，不是空壳或占位",
-                "原创或遵循开源协议，不含恶意指令",
-              ]
-            : en
-              ? [
-                "The official site opens and is publicly accessible",
-                "Product info is real and complete (name, description, URL)",
-                "Original work — no infringing or illegal content",
-                "Ready to use, not a placeholder or under-construction page",
-              ]
-              : [
-                "官网可正常访问，无需登录即可浏览",
-                "产品信息真实完整（名称、介绍、链接一致）",
-                "原创产品，无侵权或违法违规内容",
-                "已可正常使用，不是占位页或半成品",
-              ]).map((item) => (
+          {(en
+            ? [
+              "The site or tool opens and is publicly accessible",
+              "Product info is real and complete (name, description, URL)",
+              "Original work — no infringing or illegal content",
+              "Ready to use, not a placeholder or under-construction page",
+            ]
+            : [
+              "网站或工具可正常访问，无需登录即可浏览",
+              "产品信息真实完整（名称、介绍、链接一致）",
+              "原创产品，无侵权或违法违规内容",
+              "已可正常使用，不是占位页或半成品",
+            ]).map((item) => (
             <li key={item} className="flex items-start gap-1.5">
               <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
               {item}
@@ -486,21 +401,14 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
         </ul>
       </div>
 
-      {/* 类型切换：产品 / Skill / 托管工具 */}
-      <div role="tablist" aria-label={en ? "Submission type" : "提交类型"} className="grid gap-2 sm:grid-cols-3">
+      {/* 类型切换：网站 / 在线工具（托管） */}
+      <div role="tablist" aria-label={en ? "Submission type" : "提交类型"} className="grid gap-2 sm:grid-cols-2">
         <TypeTab
           active={form.kind === "product"}
           onClick={() => setKind("product")}
           icon={<Package className="h-4 w-4" aria-hidden="true" />}
-          title={en ? "Submit a product" : "提交产品"}
-          desc={en ? "Sites, SaaS, AI tools…" : "网站、SaaS、AI 工具等"}
-        />
-        <TypeTab
-          active={isSkill}
-          onClick={() => setKind("skill")}
-          icon={<Sparkles className="h-4 w-4" aria-hidden="true" />}
-          title={en ? "Submit a Skill" : "提交 Skill"}
-          desc={en ? "Agent Skills, Claude Code skill packs" : "Agent Skills / Claude Code 技能包"}
+          title={en ? "Submit a website / tool" : "提交网站 / 在线工具"}
+          desc={en ? "External link, live once it opens" : "外链产品，链接可访问即上线"}
         />
         <TypeTab
           active={isHosted}
@@ -510,26 +418,6 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           desc={en ? "Upload HTML, runs in a sandbox here" : "上传 HTML，本站沙箱内运行"}
         />
       </div>
-
-      {/* Skill 说明条 */}
-      {isSkill && (
-        <div className="flex items-start gap-2.5 rounded-[8px] border border-accent/25 bg-accent/5 p-4 text-[13px] leading-6 text-muted-foreground">
-          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
-          <div>
-            <p className="font-semibold text-foreground/80">
-              {en ? "What counts as a Skill" : "什么是 Skill"}
-            </p>
-            <p className="mt-1">
-              {en
-                ? "A Skill is a folder with a SKILL.md plus optional scripts and references that teaches an AI agent a repeatable task. Skills follow the open Agent Skills spec and work across Claude Code, Codex, Cursor and other compatible agents."
-                : "Skill 是一个含 SKILL.md 的文件夹（可附带脚本与参考资料），用于教会 AI Agent 按固定流程完成某类任务。遵循开放的 Agent Skills 规范，可在 Claude Code、Codex、Cursor 等兼容平台间复用。"}
-            </p>
-            <a href={p("/skills/", locale)} className="mt-1 inline-flex items-center gap-1 font-medium text-accent hover:underline">
-              {en ? "Browse the Skill directory" : "查看 Skill 库"} <ExternalLink className="h-3 w-3" aria-hidden="true" />
-            </a>
-          </div>
-        </div>
-      )}
 
       <form
         className="space-y-5"
@@ -541,7 +429,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <Field
-            label={isSkill ? (en ? "Skill name" : "Skill 名称") : form.kind === "product" ? (en ? "Product name" : "产品名称") : (en ? "Tool name" : "工具名称")}
+            label={form.kind === "product" ? (en ? "Product name" : "产品名称") : (en ? "Tool name" : "工具名称")}
             required
             error={errors.name}
             hint={en ? "Shown in lists and search" : "将展示在列表与搜索中"}
@@ -550,50 +438,27 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
               type="text"
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
-              placeholder={isSkill ? (en ? "e.g. pdf, frontend-design, find-skills" : "例如：pdf、frontend-design、find-skills") : form.kind === "product" ? (en ? "e.g. SolHub" : "例如：SolHub") : (en ? "e.g. Markdown editor" : "例如：Markdown 编辑器")}
+              placeholder={form.kind === "product" ? (en ? "e.g. SolHub" : "例如：SolHub") : (en ? "e.g. Markdown editor" : "例如：Markdown 编辑器")}
               className="input"
               aria-required="true"
             />
           </Field>
           <Field
-            label={isSkill ? (en ? "Skill repo / homepage URL" : "Skill 仓库 / 主页 URL") : needsUrl ? (en ? "Product website URL" : "产品官网 URL") : (en ? "Tool homepage URL" : "工具主页 URL")}
+            label={needsUrl ? (en ? "Product website URL" : "产品官网 URL") : (en ? "Tool homepage URL" : "工具主页 URL")}
             required={needsUrl}
             error={errors.websiteUrl}
-            hint={isHosted ? (en ? "Optional" : "可选") : isSkill ? (en ? "GitHub repo or skills.sh page" : "GitHub 仓库或 skills.sh 页面") : (en ? "We will visit it during review" : "核验时会实际访问")}
+            hint={isHosted ? (en ? "Optional" : "可选") : (en ? "We will visit it during review" : "核验时会实际访问")}
           >
             <input
               type="url"
               value={form.websiteUrl}
               onChange={(e) => set("websiteUrl", e.target.value)}
-              placeholder={isSkill ? "https://github.com/owner/repo" : "https://example.com"}
+              placeholder="https://example.com"
               className="input font-mono sm:!text-[13px]"
               aria-required={needsUrl}
             />
           </Field>
         </div>
-
-        {isSkill && (
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field
-              label={en ? "Install command" : "安装命令"}
-              error={errors.installCommand}
-              hint={en ? "One line, ready to copy" : "一行命令，方便直接安装"}
-            >
-              <input
-                type="text"
-                value={form.installCommand}
-                onChange={(e) => set("installCommand", e.target.value)}
-                placeholder="npx skills add owner/repo"
-                className="input font-mono !text-[13px]"
-              />
-            </Field>
-            <Field label={en ? "Compatible agents" : "兼容平台"} required>
-              <select value={form.platform} onChange={(e) => set("platform", e.target.value)} className="input select" aria-required="true">
-                {SKILL_PLATFORMS.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
-            </Field>
-          </div>
-        )}
 
         {isHosted && (
           <Field
@@ -640,16 +505,14 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
             value={form.shortDescription}
             onChange={(e) => set("shortDescription", e.target.value)}
             rows={2}
-            placeholder={isSkill
-              ? en ? "e.g. Teaches an agent to turn a codebase into an interactive architecture diagram." : "例如：让 Agent 把代码库变成可交互的架构图。"
-              : en ? "e.g. A free online JSON formatter that works offline in your browser." : "例如：一款免费的在线 JSON 格式化工具，纯浏览器本地运行，无需登录。"}
+            placeholder={en ? "e.g. A free online JSON formatter that works offline in your browser." : "例如：一款免费的在线 JSON 格式化工具，纯浏览器本地运行，无需登录。"}
             className="input resize-y"
             aria-required="true"
           />
         </Field>
 
         <Field
-          label={isSkill ? (en ? "Trigger scenarios & details" : "触发场景 / 详细描述") : (en ? "Detailed description" : "详细描述")}
+          label={en ? "Detailed description" : "详细描述"}
           required
           error={errors.description}
           hint={`${form.description.length}/2000`}
@@ -658,13 +521,9 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
             rows={5}
-            placeholder={isSkill
-              ? en
-                ? "Suggested structure:\n1. What task it teaches, and when the agent should trigger it\n2. What's inside — SKILL.md, scripts, references, bundled assets\n3. Which agents / tools it supports, and an example prompt"
-                : "建议按下面的结构写：\n1. 它教 Agent 完成什么任务、什么场景会触发\n2. 包含什么 —— SKILL.md、脚本、参考资料与附带资源\n3. 兼容哪些 Agent / 工具，附一条示例指令"
-              : en
-                ? "Suggested structure:\n1. What it is — one sentence on the product\n2. Who it's for and what problem it solves\n3. Highlights — what makes it different"
-                : "建议按下面的结构写：\n1. 它是什么 —— 一句话说清产品定位\n2. 为谁解决什么问题 —— 目标用户与使用场景\n3. 有什么亮点 —— 与同类产品相比的差异点"}
+            placeholder={en
+              ? "Suggested structure:\n1. What it is — one sentence on the product\n2. Who it's for and what problem it solves\n3. Highlights — what makes it different"
+              : "建议按下面的结构写：\n1. 它是什么 —— 一句话说清产品定位\n2. 为谁解决什么问题 —— 目标用户与使用场景\n3. 有什么亮点 —— 与同类产品相比的差异点"}
             className="input resize-y"
             aria-required="true"
           />
@@ -673,13 +532,9 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label={en ? "Category" : "分类"} required>
             <select value={form.category} onChange={(e) => set("category", e.target.value)} className="input select" aria-required="true">
-              {isSkill
-                ? skillCategories.map((c) => (
-                  <option key={c.slug} value={c.slug}>{en ? c.nameEn : c.name}</option>
-                ))
-                : productCategories.map((c) => (
-                  <option key={c.slug} value={c.slug}>{productCategoryNameLocalized(c.slug, c.name, locale)}</option>
-                ))}
+              {productCategories.map((c) => (
+                <option key={c.slug} value={c.slug}>{productCategoryNameLocalized(c.slug, c.name, locale)}</option>
+              ))}
             </select>
           </Field>
           <Field label={en ? "Tags" : "标签"} required error={errors.tags} hint={en ? "comma-separated, max 8" : "用逗号分隔，最多 8 个"}>
@@ -687,7 +542,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
               type="text"
               value={form.tags}
               onChange={(e) => set("tags", e.target.value)}
-              placeholder={isSkill ? "agent-skills, pdf, official" : "video, ai, free"}
+              placeholder="video, ai, free"
               className="input"
               aria-required="true"
             />
@@ -728,7 +583,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
               </label>
             </div>
           </Field>
-          <Field label={isSkill ? (en ? "Author / team" : "作者 / 团队名称") : (en ? "Developer / team name" : "开发者 / 团队名称")} required error={errors.developerName}>
+          <Field label={en ? "Developer / team name" : "开发者 / 团队名称"} required error={errors.developerName}>
             <input
               type="text"
               value={form.developerName}
@@ -759,8 +614,6 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
               <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {en ? "Submitting…" : "提交中…"}</>
             ) : form.kind === "product" && me ? (
               <>{en ? "Submit" : "提交产品"}</>
-            ) : isSkill ? (
-              <>{en ? "Submit Skill via email" : "提交 Skill"}</>
             ) : isHosted ? (
               <>{me ? (en ? "Upload & host" : "上传并托管") : (en ? "Log in to upload" : "登录后上传")}</>
             ) : (
@@ -778,19 +631,17 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
             {en ? "Submission preview" : "提交预览"}
           </p>
           <dl className="grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-2">
-            <PreviewRow label={isSkill ? (en ? "Skill name" : "Skill 名称") : (en ? "Name" : "名称")} value={form.name} />
-            <PreviewRow label={isSkill ? (en ? "Repo URL" : "仓库 URL") : "URL"} value={form.websiteUrl || (isHosted ? (en ? "(hosted here)" : "（本站托管）") : "")} />
-            {isSkill && <PreviewRow label={en ? "Install command" : "安装命令"} value={form.installCommand || "—"} />}
-            {isSkill && <PreviewRow label={en ? "Compatible agents" : "兼容平台"} value={form.platform} />}
+            <PreviewRow label={en ? "Name" : "名称"} value={form.name} />
+            <PreviewRow label="URL" value={form.websiteUrl || (isHosted ? (en ? "(hosted here)" : "（本站托管）") : "")} />
             <PreviewRow label={en ? "Category" : "分类"} value={categoryLabel} />
             <PreviewRow label={en ? "Tags" : "标签"} value={form.tags} />
-            <PreviewRow label={isSkill ? (en ? "Author" : "作者") : (en ? "Developer" : "开发者")} value={form.developerName} />
+            <PreviewRow label={en ? "Developer" : "开发者"} value={form.developerName} />
             <div className="sm:col-span-2">
               <dt className="text-muted-foreground">{en ? "One-line description" : "一句话介绍"}</dt>
               <dd className="mt-0.5 text-foreground">{form.shortDescription}</dd>
             </div>
             <div className="sm:col-span-2">
-              <dt className="text-muted-foreground">{isSkill ? (en ? "Trigger scenarios & details" : "触发场景 / 详细描述") : (en ? "Detailed description" : "详细描述")}</dt>
+              <dt className="text-muted-foreground">{en ? "Detailed description" : "详细描述"}</dt>
               <dd className="mt-0.5 whitespace-pre-line text-foreground">{form.description}</dd>
             </div>
           </dl>
@@ -806,11 +657,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           </p>
           <p className="mt-2 text-[13px] leading-6 text-foreground/75">{result.message}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {result.kind === "skill" ? (
-              <a href={p("/skills/", locale)} className="btn btn-accent !h-8 px-3 text-xs">
-                {en ? "Browse Skill directory" : "查看 Skill 库"} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              </a>
-            ) : result.via === "hosted" && result.path ? (
+            {result.via === "hosted" && result.path ? (
               <>
                 <a href={p(result.path, locale)} className="btn btn-accent !h-8 px-3 text-xs">
                   {en ? "Open your hosted tool" : "打开托管页"} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />

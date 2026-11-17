@@ -11,7 +11,6 @@ import {
   Plus,
   Search,
   ShieldCheck,
-  Sparkles,
   Sun,
   Users,
   UserCog,
@@ -77,7 +76,6 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", no
   }[] = [
     { label: translate(dict, "nav.discover"), path: "/", icon: Compass, match: (r) => r === "/" },
     { label: translate(dict, "nav.launches"), path: "/launches/", icon: Package, match: (r) => r.startsWith("/launches/") },
-    { label: translate(dict, "nav.skills"), path: "/skills/", icon: Sparkles, match: (r) => r.startsWith("/skills/") },
     /* 热点占的是原来的赞助位。赞助墙 2026-11 已整体下线（页面、首页板块、
        页脚与账号菜单入口一并移除），恢复时把 src/pages/sponsors/ 一起还原。 */
     { label: translate(dict, "nav.hot"), path: "/hot/", icon: Flame, match: (r) => r.startsWith("/hot/") },
@@ -503,8 +501,8 @@ function SearchDialog({
   const dict = getDict(locale);
   const en = locale === "en";
   const hasQuery = query.trim().length > 0;
-  /* 全局索引含产品 + 精选 Skill，Skill 条目 href 已经自带 ?q= 预填 */
-  const skillHref = p(`/skills/?q=${encodeURIComponent(query.trim())}`, locale);
+  /* 索引只有产品：没有命中时，回车直接去产品页带着关键词搜 */
+  const fallbackHref = `${p("/launches/", locale)}?q=${encodeURIComponent(query.trim())}`;
 
   useEffect(() => { inputRef.current?.focus(); }, []);
   /* 底栏写着「Esc 关闭」，就必须真的能关。
@@ -531,7 +529,7 @@ function SearchDialog({
       e.preventDefault();
       const t = results[active];
       if (t) window.location.href = p(t.href, locale);
-      else if (hasQuery) window.location.href = skillHref;
+      else if (hasQuery) window.location.href = fallbackHref;
     }
   };
 
@@ -569,8 +567,8 @@ function SearchDialog({
             {hasQuery && results.length === 0 && (
               <div className="px-4 py-7 text-center">
                 <p className="text-sm text-muted-foreground">{translate(dict, "search.emptyTitle", { q: query.trim() })}</p>
-                <a href={skillHref} className="mt-2 inline-block text-[12px] text-accent hover:underline">
-                  {en ? "Search the Skill library instead →" : "去 Skill 库里搜搜看 →"}
+                <a href={fallbackHref} className="mt-2 inline-block text-[12px] text-accent hover:underline">
+                  {en ? "Search products with this keyword →" : "带着这个关键词去产品页搜 →"}
                 </a>
               </div>
             )}
@@ -584,12 +582,6 @@ function SearchDialog({
                 <span className="min-w-0">
                   <span className="flex min-w-0 items-center gap-2">
                     <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
-                    {r.kind === "skill" && (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
-                        <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
-                        Skill
-                      </span>
-                    )}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">{r.description}</span>
                 </span>
@@ -603,8 +595,8 @@ function SearchDialog({
             <span className="flex items-center gap-2">
               <span className="hidden sm:inline">{translate(dict, "search.localNote")}</span>
               {hasQuery && (
-                <a href={skillHref} className="text-accent hover:underline">
-                  {en ? "Search all Skills →" : "在 Skill 库中搜索 →"}
+                <a href={fallbackHref} className="text-accent hover:underline">
+                  {en ? "See all results →" : "查看全部结果 →"}
                 </a>
               )}
             </span>

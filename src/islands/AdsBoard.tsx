@@ -5,7 +5,7 @@ import type { Locale } from "@/i18n";
 
 /**
  * 广告墙 + 站内广告搜索（访客视角）。
- * 搜索范围只有广告，不碰产品与 Skill：匹配 name / tagline / 正文 / 关键词，
+ * 搜索范围只有广告，不碰产品：匹配 name / tagline / 正文 / 关键词，
  * 空格分词后逐词 AND，简单可预期，不引入分词库。
  *
  * 运营信息（出价、排名、剩余天数、怎么买）一律不在这里出现。
@@ -82,8 +82,8 @@ export default function AdsBoard({
 
       <p className="mt-2 text-[11px] text-muted-foreground/80">
         {en
-          ? "Search covers ads only — products and Skills are searched from the sidebar."
-          : "搜索范围仅限广告；产品与 Skill 请用左侧搜索。"}
+          ? "Search covers ads only — products are searched from the sidebar."
+          : "搜索范围仅限广告；产品请用左侧搜索。"}
       </p>
 
       {results.length === 0 ? (
@@ -103,8 +103,8 @@ export default function AdsBoard({
                 ? "Try a shorter word."
                 : "换个更短的词试试。"
               : en
-                ? "Products and Skills are below in the sidebar."
-                : "产品和 Skill 在左侧导航里。"}
+                ? "Products are listed in the sidebar."
+                : "产品在左侧导航里。"}
           </p>
           {q && (
             <button type="button" onClick={() => setQ("")} className="btn btn-outline mt-2 !h-9 px-4 text-xs">

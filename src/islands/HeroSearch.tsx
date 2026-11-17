@@ -4,7 +4,6 @@ import { getDict, translate, type Locale } from "@/i18n";
 import { searchIndex, buildSearchIndex, type SearchIndexEntry } from "@/lib/search";
 import { p } from "@/lib/paths";
 import { products } from "@/data/products";
-import { skills } from "@/data/skills";
 
 /**
  * 首页 Hero 搜索条：直接输入出下拉结果。
@@ -27,10 +26,9 @@ export default function HeroSearch({ locale = "zh" }: { locale?: Locale }) {
   const [narrow, setNarrow] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  /* 与导航搜索共用索引：产品 + 精选 Skill */
-  const index = useMemo(() => buildSearchIndex(products, locale, skills), [locale]);
+  /* 与导航搜索共用索引：产品（网站 / 在线工具 / 站内托管工具） */
+  const index = useMemo(() => buildSearchIndex(products, locale), [locale]);
   const results = query.trim() ? searchIndex(query, index, locale).slice(0, 8) : [];
-  const skillHref = `${p("/skills/", locale)}?q=${encodeURIComponent(query.trim())}`;
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
@@ -86,8 +84,8 @@ export default function HeroSearch({ locale = "zh" }: { locale?: Locale }) {
           }}
           placeholder={
             locale === "en"
-              ? narrow ? "Search products & Skills…" : "Search products, Skills or keywords, e.g. “json”, “pdf”, “find-skills”…"
-              : narrow ? "搜索产品、Skill…" : "搜索产品、Skill 或关键词，比如 “json”“二维码”“find-skills”…"
+              ? narrow ? "Search products…" : "Search websites, tools or keywords, e.g. “json”, “qr code”, “compressor”…"
+              : narrow ? "搜索网站、工具…" : "搜索网站、在线工具或关键词，比如 “json”“二维码”“压缩”…"
           }
           /* 移动端 16px：iOS Safari 对小于 16px 的输入框会在聚焦时自动放大页面。
              w-0 + min-w-0：flex 子项默认 min-width:auto，Safari 会按 input 的固有宽度
@@ -128,20 +126,13 @@ export default function HeroSearch({ locale = "zh" }: { locale?: Locale }) {
                 >
                   <span className="h-2 w-2 shrink-0 rounded-full bg-foreground/40" />
                   <span className="min-w-0 flex-1 truncate text-foreground">{r.name}</span>
-                  <span
-                    className={
-                      "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] " +
-                      (r.kind === "skill"
-                        ? "bg-accent/10 text-accent"
-                        : "bg-secondary text-muted-foreground")
-                    }
-                  >
-                    {r.kind === "skill" ? "Skill" : locale === "en" ? "Product" : "产品"}
+                  <span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {locale === "en" ? "Product" : "产品"}
                   </span>
                 </button>
               </li>
             ))}
-            {/* 不想逐条挑？去产品页看完整结果，或去 Skill 库按关键词筛选 */}
+            {/* 不想逐条挑？去产品页看完整结果 */}
             <li className="border-t border-border">
               <button
                 type="button"
@@ -151,15 +142,6 @@ export default function HeroSearch({ locale = "zh" }: { locale?: Locale }) {
                 <span>{locale === "en" ? "See all results in products" : "在产品中查看全部结果"}</span>
                 <span aria-hidden="true">→</span>
               </button>
-            </li>
-            <li className="border-t border-border">
-              <a
-                href={skillHref}
-                className="flex w-full items-center justify-between px-4 py-2 text-[12px] text-muted-foreground hover:bg-secondary hover:text-foreground"
-              >
-                <span>{locale === "en" ? "Search this keyword in the Skill library" : "在 Skill 库中搜索这个关键词"}</span>
-                <span aria-hidden="true">→</span>
-              </a>
             </li>
           </ul>
         </div>
@@ -171,9 +153,6 @@ export default function HeroSearch({ locale = "zh" }: { locale?: Locale }) {
             <button type="button" onClick={submit} className="text-[12px] text-accent hover:underline">
               {locale === "en" ? "Search products anyway →" : "仍然去产品里搜一次 →"}
             </button>
-            <a href={skillHref} className="text-[12px] text-accent hover:underline">
-              {locale === "en" ? "Search Skills →" : "去 Skill 库里搜一次 →"}
-            </a>
           </div>
         </div>
       )}

@@ -137,12 +137,12 @@ const metaDesc = en
           style="background-image: radial-gradient(circle at 80% 20%, rgb(24 24 27 / 0.03), transparent 50%)"
         />
         <h2 class="font-display relative text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          {en ? "Built a website, an AI tool or a Skill?" : "做了网站、AI 工具还是 Skill？"}
+          {en ? "Built a website or an online tool?" : "做了网站还是在线工具？"}
         </h2>
         <p class="relative mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
           {en
-            ? "Built a website, an AI tool or an Agent Skill? Submit it to SolHub and let more developers find it. Product links that open are published instantly; Skills are reviewed for the Skill directory; self-contained HTML tools run in our sandbox."
-            : "做了网站、AI 工具还是 Agent Skill？提交到 SolHub，让更多开发者与使用者发现它。产品链接可访问即自动收录；Skill 经核验后加入 Skill 库；自包含 HTML 工具可在本站沙箱内运行。"}
+            ? "Built a website or an online tool? Submit it to SolHub and let more people find it. Website links are published instantly once they open; self-contained HTML tools can run in our sandbox."
+            : "做了网站或在线工具？提交到 SolHub，让更多人发现它。网站链接可访问即自动收录；自包含 HTML 工具可直接上传，在本站沙箱内运行。"}
         </p>
         <p class="relative mx-auto mt-3 inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent/5 px-3.5 py-1.5 text-[13px] font-medium text-foreground/80">
           <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" aria-hidden="true">
@@ -158,8 +158,8 @@ const metaDesc = en
             {en ? "Submit a Product" : "提交你的产品"}
             <span aria-hidden="true">→</span>
           </a>
-          <a href={p("/submit/?type=skill", locale)} class="btn btn-outline !h-10 px-5">
-            {en ? "Submit a Skill" : "提交 Skill"}
+          <a href={p("/submit/?type=hosted", locale)} class="btn btn-outline !h-10 px-5">
+            {en ? "Upload a hosted tool" : "上传在线工具"}
           </a>
         </div>
       </div>

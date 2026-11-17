@@ -1,7 +1,6 @@
 ---
 import { siteConfig } from "@/data/site";
 import { products } from "@/data/products";
-import { skills } from "@/data/skills";
 import { buildSearchIndex } from "@/lib/search";
 import { p, stripBase, absoluteUrl, baseUrl } from "@/lib/paths";
 import { getDict } from "@/i18n";
@@ -47,8 +46,8 @@ const pageTitle =
 const canonical = absoluteUrl(route, locale);
 /* OG 图片必须是绝对地址（抓取方在站外解析），统一用根路径那一张 */
 const ogImage = absoluteUrl("/og.png", "zh");
-/* 全站导航搜索同时索引产品与 Skill 库；产品列表页自己只传 products */
-const searchIndex = buildSearchIndex(products, locale, skills);
+/* 全站导航搜索索引产品（网站 / 在线工具 / 站内托管工具） */
+const searchIndex = buildSearchIndex(products, locale);
 const currentRoute = stripBase(Astro.url.pathname);
 
 const orgJsonLd = {

@@ -54,7 +54,6 @@
    而本文件已经太长；scripts/sync-cloudbase-fn.mjs 会把它一并带进云函数。 */
 import { QUOTES_KEY, QUOTES_TTL_MS, fetchQuotes } from "./quotes.js";
 import { searchHotItems } from "./hot-search.js";
-import { SKILLS_HOT_KEY } from "./skills-hot.js";
 
 const REPO = "SolYoung-Ai/solhub";
 const SITE_BASE = "https://solhub.solyoung.top";
@@ -1746,34 +1745,6 @@ const HOT_KEY = "hot:v1";
 const HOT_TTL_MS = 60 * 1000;
 const EMPTY_HOT = { fetchedAt: null, items: [] };
 
-/* ---------- Skill 今日热门（/skills-hot） ----------
-   写入侧是 solhub-cron 云函数（每天一轮），这里只读。
-   数据一天才变一次，实例缓存 10 分钟足够，把 KV 读压到几乎为零。 */
-
-let skillsHotCache = null; // { at: number, data }
-
-function readSkillsHot(env) {
-  const now = Date.now();
-  if (skillsHotCache && now - skillsHotCache.at < 10 * 60 * 1000) return Promise.resolve(skillsHotCache.data);
-  return (async () => {
-    let data = { date: null, updatedAt: null, items: [] };
-    try {
-      const raw = await env.PROFILES.get(SKILLS_HOT_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.items)) {
-          data = { date: parsed.date || null, updatedAt: parsed.updatedAt || null, items: parsed.items };
-        }
-      }
-    } catch {
-      /* 坏数据当作没有 */
-    }
-    skillsHotCache = { at: now, data };
-    return data;
-  })();
-}
-
-
 let hotCache = null; // { at: number, data: { fetchedAt, items } }
 
 async function readHotFeed(env) {
@@ -3416,15 +3387,6 @@ export default {
       if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
       const quotes = await readQuotes(env);
       return json(request, quotes);
-    }
-
-    /* ---------- Skill 今日热门 ----------
-       给 /skills/ 页面的「今日热门」栏用。数据由 solhub-cron 每天抓一轮，
-       这里只读 KV；取不到就返回空 items，前端把整栏隐藏。 */
-    if (url.pathname === "/skills-hot" && request.method === "GET") {
-      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
-      const hot = await readSkillsHot(env);
-      return json(request, hot);
     }
 
     /* ---------- 创作者名录 ----------

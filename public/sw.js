@@ -5,7 +5,7 @@
    不做后台同步、不做推送、不碰接口请求（登录态必须永远走网络）。
 
    缓存分三层：
-   - STATIC：安装时预取的壳（首页 / Skill 库 / manifest / 图标）
+   - STATIC：安装时预取的壳（首页 / 热点 / manifest / 图标）
    - PAGES ：访问过的 HTML，网络优先，断网时兜底
    - ASSETS：带内容哈希的 _astro 资源、图标、数据快照、字体，缓存优先
    ============================================================ */
@@ -20,7 +20,6 @@ const ASSETS = `solhub-assets-${VERSION}`;
 const PRECACHE = [
   "/",
   "/hot/",
-  "/skills/",
   "/offline.html",
   "/manifest.webmanifest",
   "/icons/app-192.png",
