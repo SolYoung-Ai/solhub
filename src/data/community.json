@@ -23,7 +23,8 @@
     "verifiedAt": "2026-11-08",
     "isDemo": false,
     "submittedBy": "solyoung",
-    "rankPosition": 1
+    "rankPosition": 1,
+    "kind": "tool"
   },
   {
     "id": "ofx-atlas",
@@ -47,6 +48,7 @@
     "verificationMethod": "人工访问 https://ofx.solyoung.top，核对产品定位、功能与页面内容后核验通过。",
     "verifiedAt": "2026-10-21",
     "isDemo": false,
-    "submittedBy": "solyoung"
+    "submittedBy": "solyoung",
+    "kind": "site"
   }
 ]

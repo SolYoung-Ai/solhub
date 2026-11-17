@@ -1,4 +1,4 @@
-import type { Product } from "./types";
+import type { Product, ProductKind } from "./types";
 import communityProducts from "./community.json";
 
 /**
@@ -27,6 +27,7 @@ export const products: Product[] = [
       "SolYoung 是独立创作者宋杨（Sol Young）的个人网站：以数字档案式排版承载作品集、此刻时间线、思考文章与产品入口，是个人品牌的主阵地。内容覆盖影像创作、AI 实践与轻量产品开发，持续更新。",
     websiteUrl: "https://solyoung.top",
     category: "creator-space",
+    kind: "site",
     tags: ["personal-site", "portfolio", "content"],
     developerName: "Sol Young",
     developerLogin: OWNER_LOGIN,
@@ -49,6 +50,7 @@ export const products: Product[] = [
       "SolYoung Studio 是面向创作者、自由职业者和小型品牌的服务型站点：从需求梳理、视觉设计到 AI 辅助制作与部署，把想法逐步变成真实可用的作品，并提供品牌与商业合作入口。",
     websiteUrl: "https://studio.solyoung.top",
     category: "services",
+    kind: "site",
     tags: ["website", "brand", "ai-assisted"],
     developerName: "Sol Young",
     developerLogin: OWNER_LOGIN,
@@ -71,6 +73,7 @@ export const products: Product[] = [
       "My.OS 是一套在线可用的个人创作系统：把记录、灵感、创作、项目、此刻与档案收拢在同一个入口，减少想法散落的焦虑，免费开放使用。",
     websiteUrl: "https://myos.solyoung.top",
     category: "productivity",
+    kind: "tool",
     tags: ["personal-os", "notes", "productivity"],
     developerName: "Sol Young",
     developerLogin: OWNER_LOGIN,
@@ -92,6 +95,7 @@ export const products: Product[] = [
       "Verity 是在线可用的测试集合站：结构统一的人格、心理与行为测试入口，测试持续上新，结果即时生成，免费开放。适合想快速了解自己的人。",
     websiteUrl: "https://verity.solyoung.top",
     category: "fun-tools",
+    kind: "tool",
     tags: ["personality", "quiz", "free"],
     developerName: "Sol Young",
     developerLogin: OWNER_LOGIN,
@@ -113,6 +117,7 @@ export const products: Product[] = [
       "CamSim 是面向摄影新手的交互工具：告诉它你想拍成什么样，得到一组可参考的光圈 / 快门 / ISO 参数，免费开放使用。",
     websiteUrl: "https://camera.solyoung.top",
     category: "creator-tools",
+    kind: "tool",
     tags: ["photography", "simulator", "free"],
     developerName: "Sol Young",
     developerLogin: OWNER_LOGIN,
@@ -134,6 +139,7 @@ export const products: Product[] = [
       "SolClip 是面向内容创作者的短视频素材提取工具：粘贴抖音、小红书、微信视频号、哔哩哔哩的分享链接，即可解析公开作品、保存媒体文件，并提取发布文案、字幕与口播文字。仅处理公开内容，不提供付费、DRM 或登录权限绕过。",
     websiteUrl: "https://clip.solyoung.top",
     category: "creator-tools",
+    kind: "tool",
     tags: ["video-parser", "subtitle", "content-creator", "douyin"],
     developerName: "Sol Young",
     developerLogin: OWNER_LOGIN,
@@ -155,6 +161,7 @@ export const products: Product[] = [
       "X Account Insight 是面向 X（Twitter）运营者的数据体检工具：本地导入账号数据 CSV，透明计算关键运营指标，输出可解释的分析结果。所有数据在浏览器本地处理，不上传服务器，不触碰账号权限。",
     websiteUrl: "https://x.insight.solyoung.top",
     category: "growth-marketing",
+    kind: "tool",
     tags: ["x-twitter", "analytics", "csv", "privacy"],
     developerName: "Sol Young",
     developerLogin: OWNER_LOGIN,
@@ -171,6 +178,15 @@ export const products: Product[] = [
 
 export function getProduct(slug: string): Product | undefined {
   return products.find((p) => p.slug === slug);
+}
+
+/** 分类到形态的兜底映射：只有「工具类」分类默认算 tool，其余算 site。 */
+const TOOL_CATEGORIES = new Set(["ai-tools", "productivity", "fun-tools", "creator-tools", "design-tools"]);
+
+/** 产品形态（网站 / 在线工具）。数据里没写 kind 时按分类推断。 */
+export function productKind(p: Product): ProductKind {
+  if (p.kind === "site" || p.kind === "tool") return p.kind;
+  return TOOL_CATEGORIES.has(p.category) ? "tool" : "site";
 }
 
 export function getRealProducts(): Product[] {

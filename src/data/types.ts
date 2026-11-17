@@ -5,6 +5,13 @@
 
 export type VerificationStatus = "verified" | "pending" | "unverified";
 
+/**
+ * 产品页一级筛选的形态维度（与「分类」正交）：
+ * - site：官网、个人空间、作品集 —— 点开跳外站，纯浏览
+ * - tool：在线工具 —— 站内托管或外链的交互工具，有输入有输出
+ */
+export type ProductKind = "site" | "tool";
+
 export interface Product {
   id: string;
   slug: string;
@@ -37,6 +44,11 @@ export interface Product {
   verifiedAt?: string;
   /** 精选排序值（人工精选顺序），可选 */
   rankPosition?: number;
+  /**
+   * 形态：网站 / 在线工具。缺省时由 productKind() 兜底推断
+   * （分类属于工具类的算 tool，其余算 site）。
+   */
+  kind?: ProductKind;
   /** 是否为演示数据。演示数据不会获得虚假核验状态。 */
   isDemo: boolean;
 }

@@ -1,12 +1,14 @@
 import { useMemo, useRef, useState, useEffect } from "react";
-import { ArrowRight, Filter, Search, ShieldCheck } from "lucide-react";
+import { AppWindow, ArrowRight, Filter, Globe, Search, ShieldCheck } from "lucide-react";
 import type { Product } from "@/data/types";
+import { productKind } from "@/data/products";
 import { rankProducts } from "@/lib/ranking";
-import { productCategoryName } from "@/data/product-categories";
+import { productCategories, productCategoryName } from "@/data/product-categories";
 import { formatDateIso } from "@/lib/utils";
 import { p } from "@/lib/paths";
 import { buildSearchIndex, searchIndex } from "@/lib/search";
 import { cx, getLocale } from "@/lib/utils";
+import { fetchHostedTools, type HostedTool } from "@/lib/hosted";
 import type { Locale } from "@/i18n";
 import { getDict, translate } from "@/i18n";
 import { productCategoryNameLocalized, productShortDescription } from "@/i18n/data";
@@ -17,6 +19,9 @@ interface Props {
 }
 
 const PAGE_SIZE = 8;
+
+/** 一级筛选：形态维度，与下面的「分类」筛选正交 */
+type KindFilter = "all" | "site" | "tool";
 
 interface CommunityItem {
   id: number;
@@ -62,6 +67,19 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
 
   const [community] = useState<CommunityItem[]>([]);
 
+  /* 公开托管工具：客户端拉取（接口异常就当作没有，不影响静态列表） */
+  const [hosted, setHosted] = useState<HostedTool[]>([]);
+  useEffect(() => {
+    let alive = true;
+    fetchHostedTools().then((list) => {
+      if (alive) setHosted(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const [kind, setKind] = useState<KindFilter>("all");
   const [category, setCategory] = useState<string>("all");
   const [sort, setSort] = useState<"ranked" | "newest">("ranked");
   const [query, setQuery] = useState("");
@@ -69,17 +87,20 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
   const urlSynced = useRef(false);
 
   /* 首页搜索条提交后带 ?q= 跳到这里：挂载后读一次，命中就把关键词填进搜索框。
-     用 effect 而不是 useState 初始值 —— SSR 阶段没有 location，写成初始值会导致水合不一致。 */
+     用 effect 而不是 useState 初始值 —— SSR 阶段没有 location，写成初始值会导致水合不一致。
+     ?kind=site|tool 支持从别处深链到对应形态。 */
   useEffect(() => {
-    const q = new URLSearchParams(window.location.search).get("q");
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
     if (q) {
       setQuery(q);
       setVisible(PAGE_SIZE);
     }
+    const k = params.get("kind");
+    if (k === "site" || k === "tool") setKind(k);
   }, []);
 
-  /* 关键词变化时把它写回地址栏，方便分享 / 刷新后还在。
-     首次渲染跳过（那一次由上面的读 URL 负责），避免把 ?q= 先删掉再写回导致地址栏闪动。 */
+  /* 关键词 / 形态变化时写回地址栏，方便分享。首次渲染跳过，避免地址栏闪动。 */
   useEffect(() => {
     if (!urlSynced.current) {
       urlSynced.current = true;
@@ -89,11 +110,28 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     const q = query.trim();
     if (q) url.searchParams.set("q", q);
     else url.searchParams.delete("q");
+    if (kind === "all") url.searchParams.delete("kind");
+    else url.searchParams.set("kind", kind);
     window.history.replaceState(null, "", url.toString());
-  }, [query]);
+  }, [query, kind]);
 
-  const filtered = useMemo(() => {
-    let list = ranked;
+  /* 分类 chips：产品分类 + 托管工具实际用到的分类，按 productCategories 顺序排 */
+  const categoryChips = useMemo(() => {
+    const set = new Set(categories);
+    hosted.forEach((t) => set.add(t.category));
+    const ordered = productCategories.filter((c) => set.has(c.slug)).map((c) => c.slug);
+    const extra = Array.from(set).filter((c) => !ordered.includes(c));
+    return [...ordered, ...extra];
+  }, [categories, hosted]);
+
+  const kindCounts = useMemo(() => {
+    const site = ranked.filter((p) => productKind(p) === "site").length;
+    const tool = ranked.filter((p) => productKind(p) === "tool").length + hosted.length;
+    return { site, tool, all: site + tool };
+  }, [ranked, hosted]);
+
+  const filteredProducts = useMemo(() => {
+    let list = ranked.filter((p) => kind === "all" || productKind(p) === kind);
     if (category !== "all") {
       list = list.filter((p) => p.category === category);
     }
@@ -104,16 +142,44 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
       );
       list = list.filter((p) => matched.has(p.slug));
     }
-    if (sort === "newest") {
-      list = [...list].sort(
-        (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
-      );
-    }
     return list;
-  }, [ranked, category, query, sort, locale]);
+  }, [ranked, kind, category, query, locale, products]);
 
-  const shown = filtered.slice(0, visible);
+  const filteredHosted = useMemo(() => {
+    if (kind === "site") return [];
+    const q = query.trim().toLowerCase();
+    return hosted
+      .filter((t) => (category === "all" ? true : t.category === category))
+      .filter((t) =>
+        !q ? true : `${t.name} ${t.description} ${t.tags.join(" ")}`.toLowerCase().includes(q),
+      )
+      .slice()
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  }, [hosted, kind, category, query]);
+
+  /* 列表行：产品 + 托管工具合并，按排序规则排列 */
+  const rows = useMemo(() => {
+    const prodRows = filteredProducts.map((p) => ({ type: "product" as const, p }));
+    const hostedRows = filteredHosted.map((t) => ({ type: "hosted" as const, t }));
+    if (sort === "newest") {
+      return [...prodRows, ...hostedRows].sort((a, b) => {
+        const da = a.type === "product" ? a.p.publishedAt : a.t.createdAt;
+        const db = b.type === "product" ? b.p.publishedAt : b.t.createdAt;
+        return new Date(db).getTime() - new Date(da).getTime();
+      });
+    }
+    return [...prodRows, ...hostedRows];
+  }, [filteredProducts, filteredHosted, sort]);
+
+  const shown = rows.slice(0, visible);
+  const total = rows.length;
   const rankOf = (p: Product) => ranked.findIndex((r) => r.id === p.id) + 1;
+
+  const kindTabs: { key: KindFilter; label: string; count: number; icon: typeof Globe }[] = [
+    { key: "all", label: locale === "en" ? "All" : "全部", count: kindCounts.all, icon: Filter },
+    { key: "site", label: locale === "en" ? "Websites" : "网站", count: kindCounts.site, icon: Globe },
+    { key: "tool", label: locale === "en" ? "Online tools" : "在线工具", count: kindCounts.tool, icon: AppWindow },
+  ];
 
   return (
     <div>
@@ -123,7 +189,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
           <span>
             {locale === "en" ? "Results for " : "搜索结果："}
             <strong className="font-medium text-foreground">“{query.trim()}”</strong>
-            {locale === "en" ? ` · ${filtered.length} found` : ` · 共 ${filtered.length} 个`}
+            {locale === "en" ? ` · ${total} found` : ` · 共 ${total} 个`}
           </span>
           <button
             type="button"
@@ -137,6 +203,40 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
           </button>
         </div>
       )}
+
+      {/* 一级筛选：形态（网站 / 在线工具），与下面的分类是两个维度 */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {kindTabs.map(({ key, label, count, icon: Icon }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => {
+              setKind(key);
+              setVisible(PAGE_SIZE);
+            }}
+            aria-pressed={kind === key}
+            className={cx(
+              "inline-flex items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-[13px] font-medium transition-colors",
+              kind === key
+                ? "border-foreground bg-foreground text-background"
+                : "border-border bg-card text-foreground/70 hover:border-foreground/40",
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            {label}
+            <span className={cx("text-[11px]", kind === key ? "text-background/70" : "text-muted-foreground")}>{count}</span>
+          </button>
+        ))}
+        {kind === "tool" && (
+          <a
+            href={p("/submit/?type=hosted", locale)}
+            className="ml-auto inline-flex items-center gap-1 text-[12px] text-muted-foreground underline-offset-2 hover:text-accent hover:underline"
+          >
+            {locale === "en" ? "Upload your own HTML tool" : "上传自己的 HTML 工具"}
+            <ArrowRight className="h-3 w-3" aria-hidden="true" />
+          </a>
+        )}
+      </div>
 
       {/* 筛选与排序工具条 */}
       <div className="flex flex-col gap-3">
@@ -157,7 +257,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
           >
             {locale === "en" ? "All" : "全部"}
           </button>
-          {categories.map((c) => (
+          {categoryChips.map((c) => (
             <button
               key={c}
               type="button"
@@ -184,7 +284,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                 setQuery(e.target.value);
                 setVisible(PAGE_SIZE);
               }}
-              placeholder={locale === "en" ? "Search by name, description or tag…" : "搜索产品名称、介绍或标签…"}
+              placeholder={locale === "en" ? "Search by name, description or tag…" : "搜索名称、介绍或标签…"}
               className="input !pl-8"
               aria-label={locale === "en" ? "Search products" : "搜索产品"}
             />
@@ -220,13 +320,56 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
       <div className="mt-6">
         {shown.length === 0 && (
           <div className="card p-10 text-center">
-            <p className="text-sm text-foreground/70">{locale === "en" ? "No products match your criteria." : "没有符合条件的产品。"}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{locale === "en" ? "Try adjusting the category, keywords or sort order." : "试试调整分类、关键词或排序方式。"}</p>
+            <p className="text-sm text-foreground/70">{locale === "en" ? "Nothing matches your criteria." : "没有符合条件的内容。"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{locale === "en" ? "Try adjusting the type, category, keywords or sort order." : "试试调整形态、分类、关键词或排序方式。"}</p>
           </div>
         )}
 
         <ul className="divide-y divide-border rounded-[8px] border border-border bg-card">
-          {shown.map((product) => {
+          {shown.map((row) => {
+            /* ---------- 在线工具（站内托管，沙箱运行） ---------- */
+            if (row.type === "hosted") {
+              const t = row.t;
+              return (
+                <li key={`hosted-${t.id}`}>
+                  <a
+                    href={p(`/tools/?id=${t.id}`, locale)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex items-center gap-4 px-4 py-4 transition-colors hover:bg-secondary/40 sm:px-5"
+                  >
+                    <span className="w-7 shrink-0" aria-hidden="true" />
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-border bg-secondary text-foreground/60" aria-hidden="true">
+                      <AppWindow className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="font-display text-[15px] font-bold text-foreground group-hover:text-accent">{t.name}</span>
+                        <span className="badge border-accent/30 bg-accent/10 text-accent">
+                          {locale === "en" ? "Runs on SolHub" : "站内运行"}
+                        </span>
+                      </span>
+                      {t.description && (
+                        <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{t.description}</span>
+                      )}
+                      <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                        <span className="font-medium text-foreground/60">
+                          {productCategoryNameLocalized(t.category, productCategoryName(t.category), locale)}
+                        </span>
+                        {t.tags.slice(0, 3).map((tag) => (
+                          <span key={tag}>#{tag}</span>
+                        ))}
+                        <span>{locale === "en" ? `Added ${formatDateIso(t.createdAt)}` : `收录于 ${formatDateIso(t.createdAt)}`}</span>
+                      </span>
+                    </span>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-all duration-150 group-hover:translate-x-0.5 group-hover:text-accent" aria-hidden="true" />
+                  </a>
+                </li>
+              );
+            }
+
+            /* ---------- 目录产品（网站 / 外链工具） ---------- */
+            const product = row.p;
             const rank = sort === "ranked" ? rankOf(product) : null;
             return (
               <li key={product.id}>
@@ -234,7 +377,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                   href={p(`/products/${product.slug}/`, locale)}
                   className="group flex items-center gap-4 px-4 py-4 transition-colors hover:bg-secondary/40 sm:px-5"
                 >
-                  {rank !== null && (
+                  {rank !== null ? (
                     <span
                       className={cx(
                         "font-display w-7 shrink-0 text-center text-base font-bold",
@@ -244,6 +387,8 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                     >
                       #{rank}
                     </span>
+                  ) : (
+                    <span className="w-7 shrink-0" aria-hidden="true" />
                   )}
                   {product.icon ? (
                     <img src={product.icon} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-[8px] border border-border bg-card object-cover" />
@@ -256,6 +401,11 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="font-display text-[15px] font-bold text-foreground group-hover:text-accent">
                         {product.name}
+                      </span>
+                      <span className="badge border-border-strong bg-secondary/60 text-muted-foreground">
+                        {productKind(product) === "site"
+                          ? locale === "en" ? "Website" : "网站"
+                          : locale === "en" ? "Online tool" : "在线工具"}
                       </span>
                       <span className="badge border-border-strong bg-secondary/60 text-muted-foreground">
                         {productCategoryNameLocalized(product.category, productCategoryName(product.category), locale)}
@@ -281,7 +431,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
 
           {/* 社区提交的产品（合并在同一列表，连续编号） */}
           {community.map((item, ci) => {
-            const communityRank = sort === "ranked" ? filtered.length + ci + 1 : null;
+            const communityRank = sort === "ranked" ? shown.length + ci + 1 : null;
             return (
               <li key={`community-${item.id}`}>
                 <a
@@ -328,18 +478,18 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
       </div>
 
       {/* 加载更多 */}
-      {visible < filtered.length && (
+      {visible < total && (
         <div className="mt-6 text-center">
           <button type="button" onClick={() => setVisible((v) => v + PAGE_SIZE)} className="btn btn-outline">
-            {locale === "en" ? `Load more (${filtered.length - visible})` : `加载更多（${filtered.length - visible}）`}
+            {locale === "en" ? `Load more (${total - visible})` : `加载更多（${total - visible}）`}
           </button>
         </div>
       )}
 
       <p className="mt-4 text-center text-xs text-muted-foreground">
         {locale === "en"
-          ? `${filtered.length} products · verification reflects actual SolHub checks`
-          : `共 ${filtered.length} 个产品 · 核验状态以 SolHub 实际核验为准`}
+          ? `${total} listed · ${kindCounts.site} websites · ${kindCounts.tool} online tools · verification reflects actual SolHub checks`
+          : `共 ${total} 个 · ${kindCounts.site} 个网站 · ${kindCounts.tool} 个在线工具 · 核验状态以 SolHub 实际核验为准`}
       </p>
     </div>
   );

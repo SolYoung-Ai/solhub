@@ -318,6 +318,9 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           body: JSON.stringify({
             name: form.name.trim(),
             description: form.shortDescription.trim(),
+            category: form.category,
+            tags: form.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean),
+            websiteUrl: form.websiteUrl.trim(),
             html: htmlContent,
           }),
         }, { retries: 0 });
@@ -334,8 +337,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
           via: "hosted",
           path: data.path || `/tools/?id=${data.id}`,
           message: en
-            ? "Hosted! Your tool is live — the sandboxed link works and can be shared right away. Listing it in the product directory is still reviewed manually."
-            : "托管成功！工具已立即上线，沙箱链接可以随时使用和分享；是否收录进产品列表仍会人工核验。",
+            ? "Hosted! Your tool is live and now listed under Products → Online tools. The sandboxed link works immediately and can be shared anywhere."
+            : "托管成功！工具已立即上线，并出现在「产品 → 在线工具」列表里；沙箱链接可以随时打开和分享。",
         });
         return;
       } catch {
@@ -391,8 +394,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       : "Skill 提交为人工核验收录：会核验仓库是否公开、SKILL.md 是否完整、安装命令是否可用、开源协议是否允许分发。通过后会加入 Skill 库，不会写进产品列表。"
     : isHosted
       ? en
-        ? "Log in, pick your .html file and submit — the tool goes live immediately with a shareable sandboxed link. It runs in an isolated iframe that cannot access SolHub cookies or your account data. Listing in the product directory is still reviewed manually."
-        : "登录后选择 .html 文件提交，工具会立即上线并生成可分享的托管链接。它在隔离沙箱 iframe 中运行，无法访问 SolHub 的 Cookie 与你的账号数据；是否收录进产品列表仍需人工核验。"
+        ? "Log in, pick your .html file and submit — the tool goes live immediately and is listed under Products → Online tools. It runs in an isolated iframe that cannot access SolHub cookies or your account data. You can delete it anytime from My Account."
+        : "登录后选择 .html 文件提交，工具会立即上线，并出现在「产品 → 在线工具」列表里。它在隔离沙箱 iframe 中运行，无法访问 SolHub 的 Cookie 与你的账号数据；随时可在「我」页面删除。"
       : form.kind === "product" && me
       ? en
         ? "Logged-in product submissions are checked automatically (the link must open) and go live immediately. Verify your email and your badge lights up automatically."
@@ -808,9 +811,14 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
                 {en ? "Browse Skill directory" : "查看 Skill 库"} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               </a>
             ) : result.via === "hosted" && result.path ? (
-              <a href={p(result.path, locale)} className="btn btn-accent !h-8 px-3 text-xs">
-                {en ? "Open your hosted tool" : "打开托管页"} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              </a>
+              <>
+                <a href={p(result.path, locale)} className="btn btn-accent !h-8 px-3 text-xs">
+                  {en ? "Open your hosted tool" : "打开托管页"} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+                <a href={p("/launches/?kind=tool", locale)} className="btn btn-outline !h-8 px-3 text-xs">
+                  {en ? "See it under Online tools" : "在产品页看在线工具"}
+                </a>
+              </>
             ) : (
               <a href={p("/launches/", locale)} className="btn btn-accent !h-8 px-3 text-xs">
                 {en ? "View community products" : "查看社区产品"} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />

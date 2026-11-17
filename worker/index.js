@@ -1926,6 +1926,39 @@ function hostedToolId() {
   return s;
 }
 
+/* 托管工具公开目录索引 hosted:index:v1 —— 数组形式，只存元信息（无 html、无 owner）。
+   上限 500 条，超出丢最旧的；产品页列表只读这一个键。 */
+const HOSTED_INDEX_KEY = "hosted:index:v1";
+const HOSTED_INDEX_MAX = 500;
+
+function hostedMeta(rec) {
+  return {
+    id: rec.id,
+    name: rec.name,
+    description: rec.description || "",
+    category: rec.category || "productivity",
+    tags: Array.isArray(rec.tags) ? rec.tags : [],
+    createdAt: rec.createdAt || "",
+    hidden: !!rec.hidden,
+  };
+}
+
+async function hostedIndexRead(env) {
+  const list = (await kvGetJSON(env, HOSTED_INDEX_KEY, [])) || [];
+  return Array.isArray(list) ? list : [];
+}
+
+async function hostedIndexAdd(env, rec) {
+  const list = (await hostedIndexRead(env)).filter((t) => t && t.id !== rec.id);
+  list.unshift(hostedMeta(rec));
+  await kvPutJSON(env, HOSTED_INDEX_KEY, list.slice(0, HOSTED_INDEX_MAX));
+}
+
+async function hostedIndexRemove(env, id) {
+  const list = (await hostedIndexRead(env)).filter((t) => t && t.id !== id);
+  await kvPutJSON(env, HOSTED_INDEX_KEY, list);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -2665,6 +2698,16 @@ export default {
       if (!html.trim()) return json(request, { ok: false, error: "缺少 HTML 内容" }, 400);
       /* 1MB 上限（字符数 ≈ 字节数，中文标签场景偏保守但安全） */
       if (html.length > 1024 * 1024) return json(request, { ok: false, error: "HTML 超过 1MB 上限，请精简后重试" }, 413);
+      /* 分类 / 标签 / 官网：产品页一级筛选「在线工具」需要，缺省给 productivity */
+      const category = String(body.category || "").trim().slice(0, 40) || "productivity";
+      const tags = Array.isArray(body.tags)
+        ? body.tags.map((t) => String(t).trim().slice(0, 24)).filter(Boolean).slice(0, 8)
+        : String(body.tags || "")
+            .split(/[,，、]/)
+            .map((t) => t.trim().slice(0, 24))
+            .filter(Boolean)
+            .slice(0, 8);
+      const websiteUrl = String(body.websiteUrl || "").trim().slice(0, 300);
       const listKey = `hosted:user:${identity.login}`;
       const mine = (await kvGetJSON(env, listKey, [])) || [];
       if (mine.length >= 20) {
@@ -2681,14 +2724,20 @@ export default {
         id,
         name,
         description,
+        category,
+        tags,
+        websiteUrl,
         owner: identity.login,
         ownerType: identity.type,
         createdAt: new Date().toISOString(),
         html,
       };
       await kvPutJSON(env, `hosted:tool:${id}`, rec);
-      mine.unshift({ id, name, createdAt: rec.createdAt });
+      mine.unshift({ id, name, description, category, tags, createdAt: rec.createdAt });
       await kvPutJSON(env, listKey, mine);
+      /* 公开目录索引：产品页「在线工具」直接读它，避免遍历 kv。
+         只放元信息，且**不含 owner**（邮箱登录名不能出现在公开列表里）。 */
+      await hostedIndexAdd(env, rec);
       /* 通知管理员（尽力而为，失败不影响提交） */
       const notifyTo = env.HOSTED_NOTIFY_EMAIL || "";
       if (notifyTo) {
@@ -2702,6 +2751,34 @@ export default {
         } catch { /* 通知失败不阻塞 */ }
       }
       return json(request, { ok: true, id, path: `/tools/?id=${id}` });
+    }
+
+    /* 公开托管工具目录：GET /hosted/list?category=&limit=&offset=
+       产品页「在线工具」用，无需登录。只返回元信息，不含 html / owner。 */
+    if (url.pathname === "/hosted/list" && request.method === "GET") {
+      const all = await hostedIndexRead(env);
+      const cat = String(url.searchParams.get("category") || "").trim();
+      const limitRaw = parseInt(url.searchParams.get("limit") || "60", 10);
+      const offsetRaw = parseInt(url.searchParams.get("offset") || "0", 10);
+      const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 60, 1), 100);
+      const offset = Math.max(Number.isFinite(offsetRaw) ? offsetRaw : 0, 0);
+      let list = all.filter((t) => t && t.id && !t.hidden);
+      if (cat && cat !== "all") list = list.filter((t) => t.category === cat);
+      list.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+      const page = list.slice(offset, offset + limit);
+      return json(request, {
+        ok: true,
+        total: list.length,
+        hasMore: offset + page.length < list.length,
+        tools: page.map((t) => ({
+          id: t.id,
+          name: t.name,
+          description: t.description || "",
+          category: t.category || "productivity",
+          tags: Array.isArray(t.tags) ? t.tags : [],
+          createdAt: t.createdAt || "",
+        })),
+      });
     }
 
     /* 我托管的工具：GET /hosted/mine（登录，返回元信息列表）。
@@ -2752,6 +2829,7 @@ export default {
         const listKey = `hosted:user:${identity.login}`;
         const mine = ((await kvGetJSON(env, listKey, [])) || []).filter((t) => t.id !== m[1]);
         await kvPutJSON(env, listKey, mine);
+        await hostedIndexRemove(env, m[1]);
         return json(request, { ok: true });
       }
     }
