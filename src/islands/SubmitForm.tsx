@@ -26,7 +26,7 @@ import type { Locale } from "@/i18n";
  * 提交表单的三种互不冲突的类型：
  *   product  —— 网站 / SaaS / AI 工具，登录后走 /publish 自动收录到产品目录
  *   skill    —— Agent Skills（SKILL.md 技能包），走邮件人工核验，收录到 /skills/
- *   hosted   —— 自包含 HTML 工具，邮件附附件后托管到沙箱
+ *   hosted   —— 自包含 HTML 工具，登录后页面上传 HTML，存后端并立即生成托管链接
  *
  * 旧版还有「提交工具（外链）」，它和「提交产品」填同样的字段、写同一份
  * community.json，本质上是重复入口，所以改成了语义与数据链路都独立的 Skill。
@@ -79,12 +79,16 @@ const initial: FormState = {
 
 const defaultCategory = (kind: SubmitKind) => (kind === "skill" ? "engineering" : "ai-tools");
 
-type Errors = Partial<Record<keyof FormState, string>>;
+type Errors = Partial<Record<keyof FormState, string>> & { htmlFile?: string };
+
+const HOSTED_HTML_MAX = 1024 * 1024; /* 与后端 /hosted/submit 的上限一致 */
 
 interface SubmitResult {
   kind: SubmitKind;
   message: string;
-  via: "publish" | "email";
+  via: "publish" | "email" | "hosted";
+  /** hosted 上传成功后的托管页路径，如 /tools/?id=xxxx */
+  path?: string;
 }
 
 export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
@@ -96,6 +100,9 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [me, setMe] = useState<AuthUser | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const htmlInputRef = useRef<HTMLInputElement>(null);
+  const [htmlMeta, setHtmlMeta] = useState<{ name: string; size: number } | null>(null);
+  const [htmlContent, setHtmlContent] = useState("");
 
   useEffect(() => {
     void fetchMe().then(setMe);
@@ -133,6 +140,38 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     setStatus("idle");
     setShowPreview(false);
     setResult(null);
+  };
+
+  /** 读取用户选择的 HTML 文件（前端先做类型/大小校验，后端还有一道） */
+  const handleHtmlFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; /* 允许重选同一个文件 */
+    if (!file) return;
+    if (!/\.html?$/i.test(file.name)) {
+      setErrors((er) => ({ ...er, htmlFile: en ? "Please choose an .html file." : "请选择 .html 文件。" }));
+      return;
+    }
+    if (file.size > HOSTED_HTML_MAX) {
+      setErrors((er) => ({ ...er, htmlFile: en ? "File is over the 1MB limit." : "文件超过 1MB 上限，请精简后重试。" }));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setHtmlContent(String(reader.result || ""));
+      setHtmlMeta({ name: file.name, size: file.size });
+      setErrors((er) => ({ ...er, htmlFile: undefined }));
+      setStatus("idle");
+    };
+    reader.onerror = () => {
+      setErrors((er) => ({ ...er, htmlFile: en ? "Failed to read the file." : "文件读取失败，请重试。" }));
+    };
+    reader.readAsText(file);
+  };
+
+  const clearHtmlFile = () => {
+    setHtmlContent("");
+    setHtmlMeta(null);
+    if (htmlInputRef.current) htmlInputRef.current.value = "";
   };
 
   const validate = (): Errors => {
@@ -178,7 +217,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     setShowPreview(true);
   };
 
-  /** Skill / 托管工具走邮件核验；只有产品能一键自动收录。 */
+  /** Skill 走邮件核验；托管工具直接上传；只有产品能一键自动收录。 */
   const buildEmail = () => {
     const kindLabel = isSkill ? "Skill" : isHosted ? (en ? "Hosted Tool" : "托管工具") : (en ? "Product" : "产品");
     const subject = `[SolHub ${kindLabel} ${en ? "Submission" : "提交"}] ${form.name.trim()}`;
@@ -253,6 +292,59 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       }
     }
 
+    /* 托管工具：登录后直接上传 HTML，后端存储并立即生成托管链接。
+       不走邮件 —— 附件流程已废弃（2026-11-17）。 */
+    if (isHosted) {
+      if (!me) {
+        setStatus("error");
+        setResult({
+          kind: "hosted",
+          via: "hosted",
+          message: en
+            ? "Please log in first — hosted tools belong to your account so you can manage or delete them."
+            : "请先登录再上传托管工具：工具会归属到你的账号，方便后续管理或删除。",
+        });
+        return;
+      }
+      if (!htmlContent.trim()) {
+        setErrors((er) => ({ ...er, htmlFile: en ? "Choose an .html file first." : "请先选择 .html 文件。" }));
+        return;
+      }
+      setStatus("submitting");
+      try {
+        const res = await request(`${base()}/hosted/submit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            description: form.shortDescription.trim(),
+            html: htmlContent,
+          }),
+        }, { retries: 0 });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus("error");
+          setResult({ kind: "hosted", via: "hosted", message: data.error || data.message || `上传失败（${res.status}）` });
+          return;
+        }
+        clearHtmlFile();
+        setStatus("success");
+        setResult({
+          kind: "hosted",
+          via: "hosted",
+          path: data.path || `/tools/?id=${data.id}`,
+          message: en
+            ? "Hosted! Your tool is live — the sandboxed link works and can be shared right away. Listing it in the product directory is still reviewed manually."
+            : "托管成功！工具已立即上线，沙箱链接可以随时使用和分享；是否收录进产品列表仍会人工核验。",
+        });
+        return;
+      } catch {
+        setStatus("error");
+        setResult({ kind: "hosted", via: "hosted", message: en ? "Network error. Please retry." : "网络错误，请稍后重试。" });
+        return;
+      }
+    }
+
     /* Skill 提交：邮件人工核验之外，本地留一份记录，让用户能在「个人中心 → Skill」
        里查看、修改、删除或标记收录状态（Skill 不走 /publish，没有服务端记录）。 */
     if (isSkill) {
@@ -273,7 +365,7 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
       );
     }
 
-    /* Skill / 托管工具 / 未登录产品：邮件提交，人工核验后收录 */
+    /* Skill / 未登录产品：邮件提交，人工核验后收录（托管工具已在上面分支返回） */
     window.location.href = buildEmail();
     setStatus("success");
     setResult({
@@ -297,7 +389,11 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
     ? en
       ? "Skills are reviewed before listing: we check that the repo is public, SKILL.md is complete, the install command works and the license allows redistribution. Approved skills appear in the Skill directory — never in the product list."
       : "Skill 提交为人工核验收录：会核验仓库是否公开、SKILL.md 是否完整、安装命令是否可用、开源协议是否允许分发。通过后会加入 Skill 库，不会写进产品列表。"
-    : form.kind === "product" && me
+    : isHosted
+      ? en
+        ? "Log in, pick your .html file and submit — the tool goes live immediately with a shareable sandboxed link. It runs in an isolated iframe that cannot access SolHub cookies or your account data. Listing in the product directory is still reviewed manually."
+        : "登录后选择 .html 文件提交，工具会立即上线并生成可分享的托管链接。它在隔离沙箱 iframe 中运行，无法访问 SolHub 的 Cookie 与你的账号数据；是否收录进产品列表仍需人工核验。"
+      : form.kind === "product" && me
       ? en
         ? "Logged-in product submissions are checked automatically (the link must open) and go live immediately. Verify your email and your badge lights up automatically."
         : "登录状态提交：官网链接可以正常打开即可通过自动检测，产品立即收录上线，无需人工审核；已验证邮箱的账号提交产品后，认证徽章自动点亮。"
@@ -307,20 +403,26 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
 
   return (
     <div className="space-y-6">
-      {/* 登录引导（仅产品提交需要提示，Skill 走邮件通道） */}
-      {!me && form.kind === "product" && (
+      {/* 登录引导（产品一键收录 / 托管上传都需要账号） */}
+      {!me && (form.kind === "product" || isHosted) && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-accent/30 bg-accent/5 p-4">
           <div className="text-[13px] leading-6">
             <p className="font-bold text-foreground">
-              {en ? "Tip: log in to publish a product in one click" : "提示：登录后产品可以一键收录"}
+              {isHosted
+                ? (en ? "Log in to upload a hosted tool" : "登录后即可上传托管工具")
+                : (en ? "Tip: log in to publish a product in one click" : "提示：登录后产品可以一键收录")}
             </p>
             <p className="mt-0.5 text-muted-foreground">
-              {en
-                ? "Logged-in product submissions skip the email step and are managed from My Account. Skill submissions are reviewed by email."
-                : "登录后提交产品无需走邮件流程，直接收录到你的账号名下；Skill 提交仍走邮件核验。"}
+              {isHosted
+                ? (en
+                  ? "Hosted tools are tied to your account so you can manage or delete them; without login you can't upload."
+                  : "托管工具会归属到你的账号名下，方便后续管理和删除；未登录无法上传。")
+                : (en
+                  ? "Logged-in product submissions skip the email step and are managed from My Account. Skill submissions are reviewed by email."
+                  : "登录后提交产品无需走邮件流程，直接收录到你的账号名下；Skill 提交仍走邮件核验。")}
             </p>
           </div>
-          <a href={p("/login/?next=" + encodeURIComponent("/submit/"), locale)} className="btn btn-accent shrink-0 !h-9 px-4 text-xs">
+          <a href={p("/login/?next=" + encodeURIComponent("/submit/?type=hosted"), locale)} className="btn btn-accent shrink-0 !h-9 px-4 text-xs">
             {en ? "Log in / Sign up" : "登录 / 注册"}
           </a>
         </div>
@@ -491,14 +593,43 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
         )}
 
         {isHosted && (
-          <div className="rounded-[8px] border border-dashed border-border-strong bg-secondary/40 p-4 text-[13px] leading-6 text-muted-foreground">
-            <p className="font-semibold text-foreground/80">{en ? "Attach your HTML file to the email" : "请将 HTML 文件作为附件添加到邮件"}</p>
-            <p className="mt-1">
-              {en
-                ? "After filling the form and clicking submit, your email client opens. Attach the .html file (≤1MB, self-contained) and send it. We'll host it in a sandboxed iframe."
-                : "填完表单点击提交后邮箱会自动打开，请将 .html 文件（≤1MB，自包含）作为附件加入邮件后发送。我们会在沙箱 iframe 中托管运行。"}
-            </p>
-          </div>
+          <Field
+            label={en ? "HTML file" : "HTML 文件"}
+            required
+            error={errors.htmlFile}
+            hint={en ? "≤1MB, all styles/scripts inline" : "≤1MB，自包含（样式与脚本全部内联）"}
+          >
+            <div className="flex flex-wrap items-center gap-3 rounded-[8px] border border-dashed border-border-strong bg-secondary/40 p-4">
+              <label className="btn btn-outline shrink-0 cursor-pointer !h-9">
+                <UploadCloud className="h-4 w-4" aria-hidden="true" />
+                {htmlMeta ? (en ? "Replace file" : "重新选择") : en ? "Choose .html file" : "选择 .html 文件"}
+                <input
+                  ref={htmlInputRef}
+                  type="file"
+                  accept=".html,.htm,text/html"
+                  className="hidden"
+                  onChange={handleHtmlFile}
+                />
+              </label>
+              {htmlMeta ? (
+                <div className="min-w-0 flex-1 text-[13px]">
+                  <p className="truncate font-medium text-foreground">{htmlMeta.name}</p>
+                  <p className="text-muted-foreground">{(htmlMeta.size / 1024).toFixed(1)} KB</p>
+                </div>
+              ) : (
+                <p className="min-w-0 flex-1 text-muted-foreground">
+                  {en
+                    ? "Runs in a sandboxed iframe on our side — the page cannot access SolHub cookies or your data."
+                    : "文件将在本站沙箱 iframe 中托管运行，无法访问 SolHub 的 Cookie 与你的账号数据。"}
+                </p>
+              )}
+              {htmlMeta && (
+                <button type="button" onClick={clearHtmlFile} className="btn btn-outline shrink-0 !h-8 px-3 text-xs">
+                  {en ? "Remove" : "移除"}
+                </button>
+              )}
+            </div>
+          </Field>
         )}
 
         <Field label={en ? "One-line description" : "一句话介绍"} required error={errors.shortDescription} hint={`${form.shortDescription.length}/200`}>
@@ -627,6 +758,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
               <>{en ? "Submit" : "提交产品"}</>
             ) : isSkill ? (
               <>{en ? "Submit Skill via email" : "提交 Skill"}</>
+            ) : isHosted ? (
+              <>{me ? (en ? "Upload & host" : "上传并托管") : (en ? "Log in to upload" : "登录后上传")}</>
             ) : (
               <>{en ? "Submit via email" : "发送邮件提交"}</>
             )}
@@ -673,6 +806,10 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
             {result.kind === "skill" ? (
               <a href={p("/skills/", locale)} className="btn btn-accent !h-8 px-3 text-xs">
                 {en ? "Browse Skill directory" : "查看 Skill 库"} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              </a>
+            ) : result.via === "hosted" && result.path ? (
+              <a href={p(result.path, locale)} className="btn btn-accent !h-8 px-3 text-xs">
+                {en ? "Open your hosted tool" : "打开托管页"} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               </a>
             ) : (
               <a href={p("/launches/", locale)} className="btn btn-accent !h-8 px-3 text-xs">

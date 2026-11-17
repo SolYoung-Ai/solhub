@@ -1,0 +1,113 @@
+---
+/**
+ * 托管工具运行页（/tools/?id=xxxx）
+ * ==================================
+ *
+ * 用户在 /submit/ 上传的自包含 HTML 托管在云函数（GET /api/hosted/<id>），
+ * 本页用沙箱 iframe 把它嵌进来。三层隔离：
+ *   1. iframe 的 sandbox 属性不给 allow-same-origin —— 工具页是「不透明 origin」，
+ *      读不到 SolHub 的 Cookie / localStorage；
+ *   2. 云函数响应带 CSP: sandbox（同上），双保险；
+ *   3. API 域名与主站不同源，天然隔离。
+ *
+ * id 只从地址栏读（静态站没有服务端参数），格式校验在前端做一层，
+ * 非法的 id 直接显示「工具不存在」，不发起请求。
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { p } from "@/lib/paths";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+---
+
+<BaseLayout
+  title={en ? "Hosted tool" : "托管工具"}
+  description={en ? "A community-built tool hosted and sandboxed on SolHub." : "社区上传的工具，在 SolHub 沙箱中托管运行。"}
+  route="/tools/"
+  locale={locale}
+>
+  <section class="flex items-center justify-between gap-3 border-b border-border bg-secondary/30 px-4 py-3 sm:px-6">
+    <div class="min-w-0">
+      <h1 class="truncate text-sm font-bold text-foreground">{en ? "Hosted tool" : "托管工具"}</h1>
+      <p class="mt-0.5 text-[11px] text-muted-foreground">
+        {en
+          ? "Uploaded by a community member · runs in a sandboxed iframe · SolHub doesn't review its content"
+          : "由社区成员上传 · 沙箱 iframe 内运行 · SolHub 不审查其内容"}
+      </p>
+    </div>
+    <div class="flex shrink-0 items-center gap-2">
+      <a href={p("/submit/?type=hosted", locale)} class="btn btn-outline !h-8 px-3 text-xs">
+        {en ? "Upload yours" : "上传我的工具"}
+      </a>
+    </div>
+  </section>
+
+  <section class="relative">
+    {/* 加载/错误态：内容取回并渲染之前显示 */}
+    <div id="tool-status" class="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
+      <div id="tool-spinner" class="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent" role="status" aria-label={en ? "Loading" : "加载中"}></div>
+      <p id="tool-status-text" class="text-[13px] text-muted-foreground">{en ? "Loading tool…" : "正在加载工具…"}</p>
+    </div>
+    <iframe
+      id="tool-frame"
+      class="hidden h-[calc(100dvh-120px)] w-full border-0 bg-white"
+      title={en ? "Hosted tool" : "托管工具"}
+      referrerpolicy="no-referrer"
+    ></iframe>
+    <noscript>
+      <p class="p-6 text-[13px] text-muted-foreground">{en ? "This page needs JavaScript to run the tool." : "运行工具需要启用 JavaScript。"}</p>
+    </noscript>
+  </section>
+
+  <script define:vars={{ apiHint: en ? "Invalid tool link." : "工具链接无效。" }}>
+    /* 为什么用 fetch + srcdoc 而不是 iframe src 直指 API：
+       CloudBase 网关对函数返回的 text/html 强制加 content-disposition: attachment，
+       iframe 导航会变成「下载文件」而不是渲染。fetch 读响应不受这个头影响，
+       拿到文本后塞进 srcdoc —— 沙箱隔离由 iframe 的 sandbox 属性提供
+       （不给 allow-same-origin = 不透明 origin，读不到主站 Cookie/存储），
+       与云函数响应里那份 CSP sandbox 头形成双保险。 */
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var id = (params.get("id") || "").trim();
+      var statusBox = document.getElementById("tool-status");
+      var statusText = document.getElementById("tool-status-text");
+      var spinner = document.getElementById("tool-spinner");
+      var frame = document.getElementById("tool-frame");
+      var openBtn = document.getElementById("tool-open");
+      function fail(msg) {
+        if (spinner) spinner.classList.add("hidden");
+        if (statusText) statusText.textContent = msg;
+      }
+      if (!/^[a-z0-9]{4,16}$/.test(id)) {
+        fail(apiHint);
+        return;
+      }
+      var baseEl = document.querySelector('meta[name="solhub-api-base"]');
+      var base = (baseEl && baseEl.content) ||
+        "https://solyoung-d4gpp1f7s4e075f6d-1499756427.ap-shanghai.app.tcloudbase.com/api";
+      var url = base.replace(/\/$/, "") + "/hosted/" + id;
+      fetch(url, { credentials: "omit" }).then(function (res) {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.text();
+      }).then(function (html) {
+        if (!/<[a-z]/i.test(html)) throw new Error("empty");
+        /* sandbox 与云函数 CSP 保持一致：无 allow-same-origin */
+        frame.setAttribute("sandbox", "allow-scripts allow-forms allow-popups allow-modals");
+        frame.srcdoc = html;
+        frame.addEventListener("load", function () {
+          statusBox.classList.add("hidden");
+          frame.classList.remove("hidden");
+        });
+      }).catch(function (err) {
+        fail(err && err.message === "404"
+          ? (window.location.pathname.indexOf("/en/") === 0 ? "Tool not found." : "工具不存在或已被删除。")
+          : (window.location.pathname.indexOf("/en/") === 0 ? "Failed to load the tool. Please retry." : "工具加载失败，请稍后重试。"));
+      });
+    })();
+  </script>
+</BaseLayout>

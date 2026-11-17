@@ -1918,6 +1918,14 @@ async function creatorsList(env, imgBase) {
 
 /* ---------------- 主路由 ---------------- */
 
+/* 托管工具 ID：8 位小写字母数字，用于 /tools/?id= 与 /hosted/<id> */
+function hostedToolId() {
+  const abc = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let s = "";
+  for (let i = 0; i < 8; i++) s += abc[Math.floor(Math.random() * abc.length)];
+  return s;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -2626,6 +2634,125 @@ export default {
         return json(request, { ok: false, status: res.status, error: `网站返回 ${res.status}` });
       } catch {
         return json(request, { ok: false, error: "网站无法访问，请检查 URL 是否正确" });
+      }
+    }
+
+    /* ---------- 托管工具（用户上传自包含 HTML，站内沙箱托管） ----------
+       存储：PG kv，键 hosted:tool:<id>（无过期）；hosted:user:<login> 是该用户
+       的工具索引（只存元信息，不含 html，避免列表请求拖着 1MB 跑）。
+       托管页 GET /hosted/<id> 直接输出 text/html，响应带 CSP sandbox 且**不含
+       allow-same-origin** —— 工具页运行在不透明 origin 上，拿不到 SolHub 的
+       Cookie / localStorage，也发不了同源请求，与主站完全隔离。
+       规则（2026-11-17 用户拍板）：要登录 + 上传即上线；是否收录进产品目录
+       仍走人工核验，与本页 URL 无关。 */
+    if (url.pathname === "/hosted/submit" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      /* 限流：同一账号每小时最多 10 次（含失败），挡脚本刷库 */
+      const rlKey = `hostedsub:${identity.login}`;
+      const rl = await rateLimitPeek(rlKey);
+      if (rl.count >= 10) {
+        return json(request, { ok: false, error: `提交过于频繁，请 ${retryAfterSec(rl.startedAt, 3600)} 秒后再试` }, 429);
+      }
+      await rateLimitHit(rlKey, 3600);
+      const body = await request.json().catch(() => null);
+      if (!body) return json(request, { ok: false, error: "请求格式错误" }, 400);
+      const name = String(body.name || "").trim().slice(0, 60);
+      const description = String(body.description || "").trim().slice(0, 300);
+      const html = String(body.html || "");
+      if (!name) return json(request, { ok: false, error: "缺少工具名称" }, 400);
+      if (!html.trim()) return json(request, { ok: false, error: "缺少 HTML 内容" }, 400);
+      /* 1MB 上限（字符数 ≈ 字节数，中文标签场景偏保守但安全） */
+      if (html.length > 1024 * 1024) return json(request, { ok: false, error: "HTML 超过 1MB 上限，请精简后重试" }, 413);
+      const listKey = `hosted:user:${identity.login}`;
+      const mine = (await kvGetJSON(env, listKey, [])) || [];
+      if (mine.length >= 20) {
+        return json(request, { ok: false, error: "每个账号最多托管 20 个工具，请先删除不需要的" }, 403);
+      }
+      let id = "";
+      for (let i = 0; i < 5; i++) {
+        id = hostedToolId();
+        if (!(await env.PROFILES.get(`hosted:tool:${id}`))) break;
+        id = "";
+      }
+      if (!id) return json(request, { ok: false, error: "生成 ID 失败，请重试" }, 500);
+      const rec = {
+        id,
+        name,
+        description,
+        owner: identity.login,
+        ownerType: identity.type,
+        createdAt: new Date().toISOString(),
+        html,
+      };
+      await kvPutJSON(env, `hosted:tool:${id}`, rec);
+      mine.unshift({ id, name, createdAt: rec.createdAt });
+      await kvPutJSON(env, listKey, mine);
+      /* 通知管理员（尽力而为，失败不影响提交） */
+      const notifyTo = env.HOSTED_NOTIFY_EMAIL || "";
+      if (notifyTo) {
+        try {
+          await sendMail(env, {
+            to: notifyTo,
+            subject: `[SolHub] 新托管工具：${name}`,
+            text: `${identity.login} 上传了托管工具「${name}」(${id})，访问 https://solhub.solyoung.top/tools/?id=${id}`,
+            html: `<p>${identity.login} 上传了托管工具「${name}」(<code>${id}</code>)。</p><p><a href="https://solhub.solyoung.top/tools/?id=${id}">打开托管页</a></p>`,
+          });
+        } catch { /* 通知失败不阻塞 */ }
+      }
+      return json(request, { ok: true, id, path: `/tools/?id=${id}` });
+    }
+
+    /* 我托管的工具：GET /hosted/mine（登录，返回元信息列表）。
+       必须放在通用 /hosted/<id> 路由之前 —— "mine" 本身就是合法 id 格式。 */
+    if (url.pathname === "/hosted/mine" && request.method === "GET") {
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const mine = (await kvGetJSON(env, `hosted:user:${identity.login}`, [])) || [];
+      return json(request, { ok: true, tools: mine });
+    }
+
+    /* 工具本体：GET /hosted/<id>，输出原始 HTML（沙箱响应头） */
+    {
+      const m = url.pathname.match(/^\/hosted\/([a-z0-9]{4,16})$/);
+      if (m && request.method === "GET") {
+        const rec = await kvGetJSON(env, `hosted:tool:${m[1]}`, null);
+        if (!rec || typeof rec.html !== "string" || !rec.html.trim()) {
+          return new Response("Not Found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+        }
+        return new Response(rec.html, {
+          status: 200,
+          headers: {
+            ...corsFor(request),
+            "Content-Type": "text/html; charset=utf-8",
+            /* 网关会默认加 content-disposition: attachment（iframe 里会变成
+               下载而不是渲染），必须显式 inline 覆盖。 */
+            "Content-Disposition": "inline",
+            /* 不含 allow-same-origin：不透明 origin，读不到主站 Cookie/存储 */
+            "Content-Security-Policy": "sandbox allow-scripts allow-forms allow-popups allow-modals",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+    }
+
+    /* 删除自己的托管工具：DELETE /hosted/<id> */
+    {
+      const m = url.pathname.match(/^\/hosted\/([a-z0-9]{4,16})$/);
+      if (m && request.method === "DELETE") {
+        const identity = await getIdentity(request, env);
+        if (!identity) return json(request, { error: "请先登录" }, 401);
+        const rec = await kvGetJSON(env, `hosted:tool:${m[1]}`, null);
+        if (!rec) return json(request, { ok: false, error: "工具不存在" }, 404);
+        if (rec.owner !== identity.login) return json(request, { ok: false, error: "只能删除自己上传的工具" }, 403);
+        await env.PROFILES.delete(`hosted:tool:${m[1]}`);
+        const listKey = `hosted:user:${identity.login}`;
+        const mine = ((await kvGetJSON(env, listKey, [])) || []).filter((t) => t.id !== m[1]);
+        await kvPutJSON(env, listKey, mine);
+        return json(request, { ok: true });
       }
     }
 
