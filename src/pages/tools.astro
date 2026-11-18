@@ -1,20 +1,23 @@
 ---
 /**
- * 托管工具运行页（/tools/?id=xxxx）
- * ==================================
+ * 托管工具详情页（/tools/?id=xxxx）
+ * ================================
  *
- * 用户在 /submit/ 上传的自包含 HTML 托管在云函数（GET /api/hosted/<id>），
- * 本页用沙箱 iframe 把它嵌进来。三层隔离：
- *   1. iframe 的 sandbox 属性不给 allow-same-origin —— 工具页是「不透明 origin」，
- *      读不到 SolHub 的 Cookie / localStorage；
- *   2. 云函数响应带 CSP: sandbox（同上），双保险；
- *   3. API 域名与主站不同源，天然隔离。
+ * 和 /products/<slug>/ 用同一套版式：图标 + 名称 + 一句话 + 关于 + 标签 + 主按钮，
+ * 侧栏是核验状态 / 分类 / 开发者 / 收录时间。区别只有一个：
+ * 主按钮是「访问工具」，点了才在页面下方展开沙箱 iframe 运行工具本体。
  *
- * id 只从地址栏读（静态站没有服务端参数），格式校验在前端做一层，
- * 非法的 id 直接显示「工具不存在」，不发起请求。
+ * 数据来源：GET /hosted/meta/<id>（元信息）；工具本体 GET /hosted/<id> 在点击时才拉。
+ *
+ * 三层隔离（与之前一致）：
+ *   1. iframe 的 sandbox 不给 allow-same-origin —— 工具页是不透明 origin；
+ *   2. 云函数响应带 CSP: sandbox，双保险；
+ *   3. API 域名与主站不同源。
  */
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { p } from "@/lib/paths";
+import { productCategories } from "@/data/product-categories";
+import { productCatEn } from "@/i18n/data";
 import type { Locale } from "@/i18n";
 
 interface Props {
@@ -23,91 +26,328 @@ interface Props {
 
 const locale = Astro.props.locale ?? "zh";
 const en = locale === "en";
+
+/* 分类 slug → 显示名：托管工具的分类存在云端，页面是静态的，只能在前端查表 */
+const catNames: Record<string, string> = {};
+for (const c of productCategories) {
+  catNames[c.slug] = en ? (productCatEn[c.slug]?.name ?? c.name) : c.name;
+}
+
+const copy = {
+  crumb: en ? "Products" : "产品",
+  missing: en ? "This tool doesn't exist or has been removed." : "工具不存在或已被删除。",
+  invalid: en ? "Invalid tool link." : "工具链接无效。",
+  loadFail: en ? "Failed to load. Please retry." : "加载失败，请稍后重试。",
+  aboutTitle: en ? "About this tool" : "关于这个工具",
+  aboutFallback: en
+    ? "Uploaded as a single self-contained HTML file. Everything runs inside the tool's own sandboxed frame on SolHub — the tool can't read SolHub cookies, localStorage or your account data."
+    : "以单个自包含 HTML 文件上传。工具在 SolHub 的独立沙箱 iframe 内运行，读不到 SolHub 的 Cookie、localStorage 与你的账号数据。",
+  visit: en ? "Open tool" : "访问工具",
+  collapse: en ? "Close tool" : "收起工具",
+  running: en ? "Running in sandbox" : "沙箱内运行中",
+  verification: en ? "Verification status" : "核验状态",
+  verificationText: en
+    ? "This tool was uploaded by a community member. SolHub verified automatically that the file loads and runs inside the sandbox, and that its name and description match its content. This is not an editorial review of what the tool does — please judge before use."
+    : "该工具由社区成员上传。SolHub 已完成系统自动核验：文件可在沙箱内正常加载运行，名称与描述与内容一致。该状态不代表 SolHub 人工审查了工具内容，请自行判断后使用。",
+  verifiedAt: en ? "Checked at" : "核验时间",
+  method: en ? "Method" : "核验方式",
+  methodAuto: en ? "Automatic (sandbox run)" : "系统自动核验（沙箱运行）",
+  category: en ? "Category" : "分类",
+  developer: en ? "Uploader" : "上传者",
+  communityUser: en ? "Community member" : "社区用户",
+  addedAt: en ? "Added" : "收录时间",
+  ctaTitle: en ? "Host your own tool" : "托管你自己的工具",
+  ctaText: en
+    ? "Upload a single self-contained HTML file — it goes live immediately and shows up in the product list."
+    : "上传一个自包含的 HTML 文件即可，立即上线并出现在产品列表里。",
+  ctaBtn: en ? "Upload a tool" : "上传工具",
+};
 ---
 
 <BaseLayout
   title={en ? "Hosted tool" : "托管工具"}
-  description={en ? "A community-built tool hosted and sandboxed on SolHub." : "社区上传的工具，在 SolHub 沙箱中托管运行。"}
+  description={en ? "A community-built tool running in a sandbox on SolHub." : "社区上传的工具，在 SolHub 沙箱内运行。"}
   route="/tools/"
   locale={locale}
 >
-  <section class="flex items-center justify-between gap-3 border-b border-border bg-secondary/30 px-4 py-3 sm:px-6">
-    <div class="min-w-0">
-      <h1 class="truncate text-sm font-bold text-foreground">{en ? "Hosted tool" : "托管工具"}</h1>
-      <p class="mt-0.5 text-[11px] text-muted-foreground">
-        {en
-          ? "Uploaded by a community member · runs in a sandboxed iframe · SolHub doesn't review its content"
-          : "由社区成员上传 · 沙箱 iframe 内运行 · SolHub 不审查其内容"}
-      </p>
-    </div>
-    <div class="flex shrink-0 items-center gap-2">
-      <a href={p("/submit/?type=hosted", locale)} class="btn btn-outline !h-8 px-3 text-xs">
-        {en ? "Upload yours" : "上传我的工具"}
-      </a>
-    </div>
-  </section>
+  <div class="container-page py-10">
+    <!-- 面包屑 -->
+    <nav class="mb-6 flex items-center gap-1.5 text-xs text-muted-foreground" aria-label={en ? "Breadcrumb" : "面包屑"}>
+      <a href={p("/", locale)} class="hover:text-foreground">Home</a>
+      <span aria-hidden="true">/</span>
+      <a href={p("/launches/", locale)} class="hover:text-foreground">{copy.crumb}</a>
+      <span aria-hidden="true">/</span>
+      <span id="tool-crumb" class="truncate text-foreground/80">{en ? "Loading…" : "加载中…"}</span>
+    </nav>
 
-  <section class="relative">
-    {/* 加载/错误态：内容取回并渲染之前显示 */}
-    <div id="tool-status" class="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
-      <div id="tool-spinner" class="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent" role="status" aria-label={en ? "Loading" : "加载中"}></div>
-      <p id="tool-status-text" class="text-[13px] text-muted-foreground">{en ? "Loading tool…" : "正在加载工具…"}</p>
+    <!-- 加载中 -->
+    <div id="tool-loading" class="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
+      <div class="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent" role="status" aria-label={en ? "Loading" : "加载中"}></div>
+      <p class="text-[13px] text-muted-foreground">{en ? "Loading tool…" : "正在加载工具…"}</p>
     </div>
-    <iframe
-      id="tool-frame"
-      class="hidden h-[calc(100dvh-120px)] w-full border-0 bg-white"
-      title={en ? "Hosted tool" : "托管工具"}
-      referrerpolicy="no-referrer"
-    ></iframe>
-    <noscript>
-      <p class="p-6 text-[13px] text-muted-foreground">{en ? "This page needs JavaScript to run the tool." : "运行工具需要启用 JavaScript。"}</p>
-    </noscript>
-  </section>
 
-  <script define:vars={{ apiHint: en ? "Invalid tool link." : "工具链接无效。" }}>
-    /* 为什么用 fetch + srcdoc 而不是 iframe src 直指 API：
-       CloudBase 网关对函数返回的 text/html 强制加 content-disposition: attachment，
-       iframe 导航会变成「下载文件」而不是渲染。fetch 读响应不受这个头影响，
-       拿到文本后塞进 srcdoc —— 沙箱隔离由 iframe 的 sandbox 属性提供
-       （不给 allow-same-origin = 不透明 origin，读不到主站 Cookie/存储），
-       与云函数响应里那份 CSP sandbox 头形成双保险。 */
-    (function () {
-      var params = new URLSearchParams(location.search);
-      var id = (params.get("id") || "").trim();
-      var statusBox = document.getElementById("tool-status");
-      var statusText = document.getElementById("tool-status-text");
-      var spinner = document.getElementById("tool-spinner");
-      var frame = document.getElementById("tool-frame");
-      var openBtn = document.getElementById("tool-open");
-      function fail(msg) {
-        if (spinner) spinner.classList.add("hidden");
-        if (statusText) statusText.textContent = msg;
-      }
-      if (!/^[a-z0-9]{4,16}$/.test(id)) {
-        fail(apiHint);
+    <!-- 不存在 -->
+    <div id="tool-missing" class="card hidden p-10 text-center">
+      <p id="tool-missing-text" class="text-sm text-foreground/70">{copy.missing}</p>
+      <a href={p("/launches/", locale)} class="btn btn-outline mt-4 !h-9 px-3 text-xs">{en ? "Back to products" : "返回产品列表"}</a>
+    </div>
+
+    <div id="tool-content" class="hidden grid gap-10 lg:grid-cols-[1fr_300px]">
+      <!-- 主栏 -->
+      <article>
+        <div class="flex items-start gap-4">
+          <span class="flex h-16 w-16 shrink-0 items-center justify-center rounded-[16px] border border-border bg-secondary text-foreground/60" aria-hidden="true">
+            <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <path d="M10 4v4"></path>
+              <path d="M2 8h20"></path>
+              <path d="M6 4v4"></path>
+            </svg>
+          </span>
+          <div class="min-w-0">
+            <h1 id="tool-name" class="font-display text-3xl font-extrabold tracking-tight text-foreground"></h1>
+            <p id="tool-desc" class="mt-2 text-[15px] leading-7 text-muted-foreground"></p>
+            <div id="tool-badges" class="mt-3 flex flex-wrap items-center gap-2">
+              <span class="badge border-border-strong bg-secondary/60 text-muted-foreground">{en ? "Online tool" : "在线工具"}</span>
+              <span id="tool-category-badge" class="badge border-border-strong bg-secondary/60 text-muted-foreground">—</span>
+              <span class="badge inline-flex items-center gap-1 border-success/30 bg-success/10 text-success">
+                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                  <path d="M9 12l2 2 4-4"></path>
+                </svg>
+                Verified
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8">
+          <h2 class="font-display text-lg font-bold text-foreground">{copy.aboutTitle}</h2>
+          <p id="tool-about" class="prose-solhub mt-3 whitespace-pre-line"></p>
+        </div>
+
+        <div id="tool-tags" class="mt-8 flex flex-wrap gap-2"></div>
+
+        <div class="mt-8 grid gap-4 sm:grid-cols-2">
+          <button id="tool-run" type="button" class="btn btn-primary !h-11 w-full" aria-expanded="false" aria-controls="tool-runner">
+            <span id="tool-run-label">{copy.visit}</span>
+          </button>
+          <a href={p("/submit/?type=hosted", locale)} class="btn btn-outline !h-11 w-full">
+            {en ? "Upload your own" : "上传我的工具"}
+          </a>
+        </div>
+
+        <!-- 工具本体：点了「访问工具」才加载，避免详情页一进来就拉 1MB HTML -->
+        <section id="tool-runner" class="mt-8 hidden">
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <h2 class="font-display text-lg font-bold text-foreground">{copy.running}</h2>
+            <a id="tool-direct" href="#" target="_blank" rel="noopener noreferrer" class="text-[12px] text-muted-foreground underline-offset-2 hover:text-accent hover:underline">
+              {en ? "Open in a new tab" : "新标签页打开"}
+            </a>
+          </div>
+          <div class="relative overflow-hidden rounded-[10px] border border-border bg-white">
+            <div id="tool-status" class="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
+              <div id="tool-spinner" class="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent" role="status" aria-label={en ? "Loading" : "加载中"}></div>
+              <p id="tool-status-text" class="text-[13px] text-muted-foreground">{en ? "Loading tool…" : "正在加载工具…"}</p>
+            </div>
+            <iframe
+              id="tool-frame"
+              class="hidden h-[70dvh] w-full border-0 bg-white"
+              title={en ? "Hosted tool" : "托管工具"}
+              referrerpolicy="no-referrer"
+            ></iframe>
+          </div>
+        </section>
+
+        <noscript>
+          <p class="mt-6 text-[13px] text-muted-foreground">{en ? "This page needs JavaScript to load and run the tool." : "加载并运行工具需要启用 JavaScript。"}</p>
+        </noscript>
+      </article>
+
+      <!-- 侧栏 -->
+      <aside class="space-y-5 lg:pt-1">
+        <div class="card p-5">
+          <h2 class="flex items-center gap-2 text-sm font-bold text-foreground">
+            <svg class="h-4 w-4 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <path d="M9 12l2 2 4-4"></path>
+            </svg>
+            {copy.verification}
+          </h2>
+          <div class="mt-3">
+            <span class="badge inline-flex items-center gap-1 border-success/30 bg-success/10 text-success">Verified</span>
+          </div>
+          <p class="mt-3 text-[13px] leading-6 text-muted-foreground">{copy.verificationText}</p>
+          <p class="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+            {copy.verifiedAt}：<span id="tool-verified-at">—</span>
+            <br />
+            {copy.method}：{copy.methodAuto}
+          </p>
+        </div>
+
+        <dl class="card divide-y divide-border p-5 text-sm">
+          <div class="flex items-center justify-between gap-3 py-2">
+            <dt class="text-muted-foreground">{copy.category}</dt>
+            <dd id="tool-category" class="font-medium text-foreground">—</dd>
+          </div>
+          <div class="flex items-center justify-between gap-3 py-2">
+            <dt class="text-muted-foreground">{copy.developer}</dt>
+            <dd id="tool-dev" class="font-medium text-foreground">{copy.communityUser}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-3 py-2">
+            <dt class="text-muted-foreground">{copy.addedAt}</dt>
+            <dd id="tool-date" class="font-medium text-foreground">—</dd>
+          </div>
+        </dl>
+
+        <div class="card p-5">
+          <p class="text-[13px] font-bold text-foreground">{copy.ctaTitle}</p>
+          <p class="mt-2 text-[13px] leading-6 text-muted-foreground">{copy.ctaText}</p>
+          <a href={p("/submit/?type=hosted", locale)} class="btn btn-accent mt-3 w-full !h-9">{copy.ctaBtn}</a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</BaseLayout>
+
+<script type="application/json" id="tool-labels" set:html={JSON.stringify({ catNames, copy })}></script>
+<script is:inline>
+  (function () {
+    var labelsEl = document.getElementById("tool-labels");
+    var labels = labelsEl && labelsEl.textContent ? JSON.parse(labelsEl.textContent) : {};
+    var catNames = labels.catNames || {};
+    var copy = labels.copy || {};
+    var params = new URLSearchParams(location.search);
+    var id = (params.get("id") || "").trim();
+    var el = function (s) { return document.getElementById(s); };
+    var loading = el("tool-loading");
+    var content = el("tool-content");
+    var missing = el("tool-missing");
+    var runner = el("tool-runner");
+    var frame = el("tool-frame");
+    var statusBox = el("tool-status");
+    var statusText = el("tool-status-text");
+    var spinner = el("tool-spinner");
+    var runBtn = el("tool-run");
+    var runLabel = el("tool-run-label");
+    var loaded = false;
+
+    function fail(msg) {
+      loading.classList.add("hidden");
+      content.classList.add("hidden");
+      missing.classList.remove("hidden");
+      el("tool-crumb").textContent = "—";
+      el("tool-missing-text").textContent = msg || copy.missing;
+    }
+
+    if (!/^[a-z0-9]{4,16}$/.test(id)) {
+      fail(copy.invalid);
+      return;
+    }
+
+    var baseEl = document.querySelector('meta[name="solhub-api-base"]');
+    var base = ((baseEl && baseEl.content) ||
+      "https://solyoung-d4gpp1f7s4e075f6d-1499756427.ap-shanghai.app.tcloudbase.com/api").replace(/\/$/, "");
+    var metaUrl = base + "/hosted/meta/" + id;
+    var htmlUrl = base + "/hosted/" + id;
+
+    /* 工具本体：首次点击才拉。CloudBase 网关对 text/html 强制
+       content-disposition: attachment，iframe 导航会变下载，所以 fetch 取文本塞 srcdoc。 */
+    function loadTool() {
+      if (loaded) {
+        runner.classList.remove("hidden");
         return;
       }
-      var baseEl = document.querySelector('meta[name="solhub-api-base"]');
-      var base = (baseEl && baseEl.content) ||
-        "https://solyoung-d4gpp1f7s4e075f6d-1499756427.ap-shanghai.app.tcloudbase.com/api";
-      var url = base.replace(/\/$/, "") + "/hosted/" + id;
-      fetch(url, { credentials: "omit" }).then(function (res) {
+      runner.classList.remove("hidden");
+      fetch(htmlUrl, { credentials: "omit" }).then(function (res) {
         if (!res.ok) throw new Error(String(res.status));
         return res.text();
       }).then(function (html) {
         if (!/<[a-z]/i.test(html)) throw new Error("empty");
-        /* sandbox 与云函数 CSP 保持一致：无 allow-same-origin */
         frame.setAttribute("sandbox", "allow-scripts allow-forms allow-popups allow-modals");
         frame.srcdoc = html;
         frame.addEventListener("load", function () {
           statusBox.classList.add("hidden");
           frame.classList.remove("hidden");
         });
+        loaded = true;
       }).catch(function (err) {
-        fail(err && err.message === "404"
-          ? (window.location.pathname.indexOf("/en/") === 0 ? "Tool not found." : "工具不存在或已被删除。")
-          : (window.location.pathname.indexOf("/en/") === 0 ? "Failed to load the tool. Please retry." : "工具加载失败，请稍后重试。"));
+        if (spinner) spinner.classList.add("hidden");
+        statusText.textContent = err && err.message === "404" ? copy.missing : copy.loadFail;
       });
-    })();
-  </script>
-</BaseLayout>
+    }
+
+    function setRunning(on) {
+      runBtn.setAttribute("aria-expanded", on ? "true" : "false");
+      runLabel.textContent = on ? copy.collapse : copy.visit;
+    }
+
+    runBtn.addEventListener("click", function () {
+      var open = runBtn.getAttribute("aria-expanded") === "true";
+      if (open) {
+        runner.classList.add("hidden");
+        setRunning(false);
+        return;
+      }
+      setRunning(true);
+      loadTool();
+      setTimeout(function () {
+        runner.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 30);
+    });
+
+    fetch(metaUrl, { credentials: "omit" }).then(function (res) {
+      if (!res.ok) throw new Error(String(res.status));
+      return res.json();
+    }).then(function (data) {
+      var t = data && data.tool;
+      if (!t || !t.name) throw new Error("empty");
+      loading.classList.add("hidden");
+      content.classList.remove("hidden");
+
+      var desc = t.description || "";
+      var firstSentence = desc.split(/[。．.!！?？\n]/)[0] || desc;
+      document.title = t.name + " · SolHub";
+      el("tool-crumb").textContent = t.name;
+      el("tool-name").textContent = t.name;
+      el("tool-desc").textContent = firstSentence && firstSentence !== desc ? firstSentence + "。" : desc;
+      el("tool-about").textContent = firstSentence && firstSentence !== desc ? desc : copy.aboutFallback;
+
+      var catName = catNames[t.category] || t.category || "—";
+      el("tool-category").textContent = catName;
+      el("tool-category-badge").textContent = catName;
+      el("tool-date").textContent = (t.createdAt || "").slice(0, 10) || "—";
+      el("tool-verified-at").textContent = (t.createdAt || "").slice(0, 10) || "—";
+
+      if (t.ownerHandle) {
+        var dev = el("tool-dev");
+        var a = document.createElement("a");
+        a.href = "/world/?u=" + encodeURIComponent(t.ownerHandle);
+        a.className = "hover:text-accent";
+        a.textContent = "@" + t.ownerHandle;
+        dev.textContent = "";
+        dev.appendChild(a);
+      }
+
+      var tagsEl = el("tool-tags");
+      (t.tags || []).forEach(function (tag) {
+        var span = document.createElement("span");
+        span.className = "badge border-border bg-secondary/50 text-muted-foreground";
+        span.textContent = "#" + tag;
+        tagsEl.appendChild(span);
+      });
+
+      /* 独立运行链接：指向本页带 run=1，新标签打开即自动展开沙箱运行（
+         不能直指 /hosted/<id> —— 网关会强制下载 HTML 而不是渲染） */
+      var direct = el("tool-direct");
+      direct.href = location.pathname + "?id=" + encodeURIComponent(id) + "&run=1";
+
+      if (params.get("run") === "1") {
+        setRunning(true);
+        loadTool();
+      }
+    }).catch(function (err) {
+      fail(err && err.message === "404" ? copy.missing : copy.loadFail);
+    });
+  })();
+</script>

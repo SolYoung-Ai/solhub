@@ -2761,6 +2761,31 @@ export default {
       return json(request, { ok: true, tools: mine });
     }
 
+    /* 单个托管工具的元信息：GET /hosted/meta/<id>
+       详情页 /tools/?id= 用。只回元信息，**不含 html 与邮箱登录名**：
+       owner 只有在 GitHub 登录时（ownerType==="github"）才作为 handle 公开，
+       邮箱登录的账号一律不透露。 */
+    {
+      const m = url.pathname.match(/^\/hosted\/meta\/([a-z0-9]{4,16})$/);
+      if (m && request.method === "GET") {
+        const rec = await kvGetJSON(env, `hosted:tool:${m[1]}`, null);
+        if (!rec || rec.hidden) return json(request, { ok: false, error: "工具不存在" }, 404);
+        return json(request, {
+          ok: true,
+          tool: {
+            id: rec.id,
+            name: rec.name,
+            description: rec.description || "",
+            category: rec.category || "productivity",
+            tags: Array.isArray(rec.tags) ? rec.tags : [],
+            createdAt: rec.createdAt || "",
+            websiteUrl: /^https?:\/\//i.test(rec.websiteUrl || "") ? rec.websiteUrl : "",
+            ownerHandle: rec.ownerType === "github" ? String(rec.owner || "") : "",
+          },
+        });
+      }
+    }
+
     /* 工具本体：GET /hosted/<id>，输出原始 HTML（沙箱响应头） */
     {
       const m = url.pathname.match(/^\/hosted\/([a-z0-9]{4,16})$/);

@@ -117,8 +117,6 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     return [...ordered, ...extra];
   }, [categories, hosted]);
 
-  const hostedCount = hosted.length;
-
   const filteredProducts = useMemo(() => {
     let list = ranked;
     if (category !== "all") {
@@ -317,8 +315,16 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="font-display text-[15px] font-bold text-foreground group-hover:text-accent">{t.name}</span>
-                        <span className="badge border-accent/30 bg-accent/10 text-accent">
-                          {locale === "en" ? "Runs on SolHub" : "站内运行"}
+                        {/* 与目录产品同一套标签：形态（灰）+ 分类（灰）+ 核验状态，不给托管工具搞特殊样式 */}
+                        <span className="badge border-border-strong bg-secondary/60 text-muted-foreground">
+                          {locale === "en" ? "Online tool" : "在线工具"}
+                        </span>
+                        <span className="badge border-border-strong bg-secondary/60 text-muted-foreground">
+                          {productCategoryNameLocalized(t.category, productCategoryName(t.category), locale)}
+                        </span>
+                        <span className="badge inline-flex items-center gap-1 border-success/30 bg-success/10 text-success">
+                          <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+                          Verified
                         </span>
                       </span>
                       {t.description && (
@@ -460,8 +466,8 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
 
       <p className="mt-4 text-center text-xs text-muted-foreground">
         {locale === "en"
-          ? `${total} listed${hostedCount ? ` · ${hostedCount} run on SolHub` : ""} · verification reflects actual SolHub checks`
-          : `共 ${total} 个${hostedCount ? ` · 其中 ${hostedCount} 个站内直接运行` : ""} · 核验状态以 SolHub 实际核验为准`}
+          ? `${total} listed · verification reflects actual SolHub checks`
+          : `共 ${total} 个 · 核验状态以 SolHub 实际核验为准`}
       </p>
     </div>
   );
