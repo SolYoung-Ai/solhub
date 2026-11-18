@@ -305,13 +305,14 @@ const copy = {
       loading.classList.add("hidden");
       content.classList.remove("hidden");
 
-      var desc = t.description || "";
-      var firstSentence = desc.split(/[。．.!！?？\n]/)[0] || desc;
+      /* 托管工具只有一个描述字段：头部当一句话用（过长截断），
+         「关于」区放完整描述 + 运行方式说明，避免两处一模一样。 */
+      var desc = (t.description || "").trim();
       document.title = t.name + " · SolHub";
       el("tool-crumb").textContent = t.name;
       el("tool-name").textContent = t.name;
-      el("tool-desc").textContent = firstSentence && firstSentence !== desc ? firstSentence + "。" : desc;
-      el("tool-about").textContent = firstSentence && firstSentence !== desc ? desc : copy.aboutFallback;
+      el("tool-desc").textContent = desc.length > 46 ? desc.slice(0, 46) + "…" : desc;
+      el("tool-about").textContent = desc ? desc + "\n\n" + copy.aboutFallback : copy.aboutFallback;
 
       var catName = catNames[t.category] || t.category || "—";
       el("tool-category").textContent = catName;
