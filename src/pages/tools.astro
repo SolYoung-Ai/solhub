@@ -49,6 +49,9 @@ const copy = {
   verificationText: en
     ? "This tool was uploaded by a community member. SolHub verified automatically that the file loads and runs inside the sandbox, and that its name and description match its content. This is not an editorial review of what the tool does — please judge before use."
     : "该工具由社区成员上传。SolHub 已完成系统自动核验：文件可在沙箱内正常加载运行，名称与描述与内容一致。该状态不代表 SolHub 人工审查了工具内容，请自行判断后使用。",
+  verificationTextOfficial: en
+    ? "This tool is built and maintained by SolHub. It runs in the same isolated sandbox as every hosted tool — it can't read your SolHub account, cookies or localStorage."
+    : "该工具由 SolHub 官方开发维护。它与其他托管工具一样运行在独立沙箱中，读不到你的账号数据、Cookie 与本地存储。",
   verifiedAt: en ? "Checked at" : "核验时间",
   method: en ? "Method" : "核验方式",
   methodAuto: en ? "Automatic (sandbox run)" : "系统自动核验（沙箱运行）",
@@ -178,7 +181,7 @@ const copy = {
           <div class="mt-3">
             <span class="badge inline-flex items-center gap-1 border-success/30 bg-success/10 text-success">Verified</span>
           </div>
-          <p class="mt-3 text-[13px] leading-6 text-muted-foreground">{copy.verificationText}</p>
+          <p id="tool-verification-text" class="mt-3 text-[13px] leading-6 text-muted-foreground">{copy.verificationText}</p>
           <p class="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
             {copy.verifiedAt}：<span id="tool-verified-at">—</span>
             <br />
@@ -306,13 +309,16 @@ const copy = {
       loading.classList.add("hidden");
       content.classList.remove("hidden");
 
-      /* 托管工具只有一个描述字段：头部当一句话用（过长截断），
-         「关于」区放完整描述 + 运行方式说明，避免两处一模一样。 */
+      /* 托管工具只有一个描述字段：头部取首句当一句话（按标点切，避免把
+         "SVG" 这类词切成 "SV…"），「关于」区放完整描述 + 运行方式说明。 */
       var desc = (t.description || "").trim();
+      var cut = desc.search(/[。！？!?；;，,]/);
+      var firstSentence = cut > 0 ? desc.slice(0, cut) : desc;
+      var headline = firstSentence.length <= 46 ? firstSentence : desc.slice(0, 44) + "…";
       document.title = t.name + " · SolHub";
       el("tool-crumb").textContent = t.name;
       el("tool-name").textContent = t.name;
-      el("tool-desc").textContent = desc.length > 46 ? desc.slice(0, 46) + "…" : desc;
+      el("tool-desc").textContent = headline;
       el("tool-about").textContent = desc ? desc + "\n\n" + copy.aboutFallback : copy.aboutFallback;
 
       var catName = catNames[t.category] || t.category || "—";
@@ -338,6 +344,10 @@ const copy = {
         dev.appendChild(a);
       } else if (t.author) {
         el("tool-dev").textContent = t.author;
+      }
+
+      if (t.author && copy.verificationTextOfficial) {
+        el("tool-verification-text").textContent = copy.verificationTextOfficial;
       }
 
       var tagsEl = el("tool-tags");
