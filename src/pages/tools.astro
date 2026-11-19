@@ -76,6 +76,19 @@ const copy = {
   locale={locale}
 >
   <div class="container-page py-10">
+    <!-- 返回：手机浏览器/微信内置浏览器不一定有返回键，给一个明确的出口。
+         能回上一步就回上一步（来路是本域时），否则退回产品列表。 -->
+    <a
+      id="tool-back"
+      href={p("/launches/", locale)}
+      class="-ml-2 mb-5 inline-flex h-8 items-center gap-1 rounded-full border border-border bg-card px-3 text-[13px] font-medium text-foreground/80 transition-colors hover:border-accent/40 hover:text-foreground"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 18l-6-6 6-6"></path>
+      </svg>
+      {en ? "Back" : "返回"}
+    </a>
+
     <!-- 面包屑 -->
     <nav class="mb-6 flex items-center gap-1.5 text-xs text-muted-foreground" aria-label={en ? "Breadcrumb" : "面包屑"}>
       <a href={p("/", locale)} class="hover:text-foreground">Home</a>
@@ -223,6 +236,22 @@ const copy = {
 </BaseLayout>
 
 <script type="application/json" id="tool-labels" set:html={JSON.stringify({ catNames, copy })}></script>
+<script is:inline>
+  /* 返回按钮：来路是本域（产品列表 / 主页）就退一步，保留用户的筛选与滚动位置；
+     直接打开链接（外部来源、无 referrer）则退回产品列表。 */
+  (function () {
+    var back = document.getElementById("tool-back");
+    if (!back) return;
+    back.addEventListener("click", function (e) {
+      var ref = document.referrer || "";
+      var sameOrigin = ref && ref.indexOf(location.origin) === 0;
+      if (sameOrigin && window.history.length > 1) {
+        e.preventDefault();
+        window.history.back();
+      }
+    });
+  })();
+</script>
 <script is:inline>
   (function () {
     var labelsEl = document.getElementById("tool-labels");
