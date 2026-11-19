@@ -2821,6 +2821,25 @@ export default {
       }
     }
 
+    /* 只改图标（管理员）：POST /admin/hosted/<id>/logo
+       用于给早期上传、还没有图标的工具补 Logo —— 不动 owner，
+       原来的上传者依然能在「我」页删除自己的工具。 */
+    {
+      const m = url.pathname.match(/^\/admin\/hosted\/([a-z0-9]{4,16})\/logo$/);
+      if (m && request.method === "POST") {
+        if (!adminKeyOk(request, env)) return json(request, { error: "需要管理口令", needKey: true }, 401);
+        const rec = await kvGetJSON(env, `hosted:tool:${m[1]}`, null);
+        if (!rec) return json(request, { ok: false, error: "工具不存在" }, 404);
+        const body = await request.json().catch(() => ({}));
+        const logo = normalizeHostedLogo(body.logo);
+        if (!logo) return json(request, { ok: false, error: "图标格式不支持或体积过大" }, 400);
+        rec.logo = logo;
+        await kvPutJSON(env, `hosted:tool:${rec.id}`, rec);
+        await hostedIndexAdd(env, rec);
+        return json(request, { ok: true, id: rec.id });
+      }
+    }
+
     /* 单个托管工具的元信息：GET /hosted/meta/<id>
        详情页 /tools/?id= 用。只回元信息，**不含 html 与邮箱登录名**：
        owner 只有在 GitHub 登录时（ownerType==="github"）才作为 handle 公开，

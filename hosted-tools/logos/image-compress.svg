@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="图片压缩工具">
+  <rect width="512" height="512" rx="112" fill="#fbf7f2"/>
+  <rect x="1" y="1" width="510" height="510" rx="111" fill="none" stroke="#e8e4de" stroke-width="2"/>
+  <rect x="92" y="126" width="208" height="260" rx="26" fill="#ffffff" stroke="#18181b" stroke-width="16"/>
+  <path d="M108 340l56-70 42 50 28-30 58 76z" fill="#d96a24"/>
+  <circle cx="248" cy="176" r="18" fill="#18181b"/>
+  <g stroke="#18181b" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M356 168v62M356 230l-26-26M356 230l26-26"/>
+    <path d="M356 344v-62M356 282l-26 26M356 282l26 26"/>
+  </g>
+</svg>
