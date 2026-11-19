@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { AppWindow, ArrowRight, Filter, Globe, Search, ShieldCheck } from "lucide-react";
 import type { Product } from "@/data/types";
-import { productKind } from "@/data/products";
 import { rankProducts } from "@/lib/ranking";
 import { productCategories, productCategoryName } from "@/data/product-categories";
 import { formatDateIso } from "@/lib/utils";
@@ -117,14 +116,15 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     return [...ordered, ...extra];
   }, [categories, hosted]);
 
-  const kindCounts = useMemo(() => {
-    const site = ranked.filter((p) => productKind(p) === "site").length;
-    const tool = ranked.filter((p) => productKind(p) === "tool").length + hosted.length;
-    return { site, tool, all: site + tool };
-  }, [ranked, hosted]);
+  /* 口径（2026-11-20 用户定）：目录收录的一律算「网站」（外链），
+     「工具」只指用户上传、站内沙箱运行的 HTML 工具。 */
+  const kindCounts = useMemo(
+    () => ({ site: ranked.length, tool: hosted.length, all: ranked.length + hosted.length }),
+    [ranked, hosted],
+  );
 
   const filteredProducts = useMemo(() => {
-    let list = kind === "all" ? ranked : ranked.filter((p) => productKind(p) === kind);
+    let list = kind === "tool" ? [] : ranked;
     if (category !== "all") {
       list = list.filter((p) => p.category === category);
     }
@@ -335,7 +335,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                         <span className="font-display text-[15px] font-bold text-foreground group-hover:text-accent">{t.name}</span>
                         {/* 与目录产品同一套标签：形态（灰）+ 分类（灰）+ 核验状态，不给托管工具搞特殊样式 */}
                         <span className="badge border-border-strong bg-secondary/60 text-muted-foreground">
-                          {locale === "en" ? "Online tool" : "在线工具"}
+                          {locale === "en" ? "Tool" : "工具"}
                         </span>
                         <span className="badge border-border-strong bg-secondary/60 text-muted-foreground">
                           {productCategoryNameLocalized(t.category, productCategoryName(t.category), locale)}
@@ -399,9 +399,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                         {product.name}
                       </span>
                       <span className="badge border-border-strong bg-secondary/60 text-muted-foreground">
-                        {productKind(product) === "site"
-                          ? locale === "en" ? "Website" : "网站"
-                          : locale === "en" ? "Online tool" : "在线工具"}
+                        {locale === "en" ? "Website" : "网站"}
                       </span>
                       <span className="badge border-border-strong bg-secondary/60 text-muted-foreground">
                         {productCategoryNameLocalized(product.category, productCategoryName(product.category), locale)}
