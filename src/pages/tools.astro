@@ -291,6 +291,14 @@ const copy = {
       if (!hidden) runner.scrollIntoView({ behavior: "smooth", block: "start" });
     });
 
+    function localDate(iso) {
+      if (!iso) return "—";
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return String(iso).slice(0, 10);
+      var p2 = function (n) { return String(n).padStart(2, "0"); };
+      return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
+    }
+
     fetch(metaUrl, { credentials: "omit" }).then(function (res) {
       if (!res.ok) throw new Error(String(res.status));
       return res.json();
@@ -315,8 +323,9 @@ const copy = {
       var catName = catNames[t.category] || t.category || "—";
       el("tool-category").textContent = catName;
       el("tool-category-badge").textContent = catName;
-      el("tool-date").textContent = (t.createdAt || "").slice(0, 10) || "—";
-      el("tool-verified-at").textContent = (t.createdAt || "").slice(0, 10) || "—";
+      /* 收录时间按本地日期显示：直接切 ISO 字符串会差一天（云端存的是 UTC） */
+      el("tool-date").textContent = localDate(t.createdAt);
+      el("tool-verified-at").textContent = localDate(t.createdAt);
 
       if (t.logoUrl) {
         var logo = el("tool-logo");
