@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from "react";
-import { AppWindow, ArrowRight, Filter, Search, ShieldCheck } from "lucide-react";
+import { AppWindow, ArrowRight, Filter, Globe, Search, ShieldCheck } from "lucide-react";
 import type { Product } from "@/data/types";
 import { productKind } from "@/data/products";
 import { rankProducts } from "@/lib/ranking";
@@ -17,6 +17,9 @@ interface Props {
   products: Product[];
   locale?: Locale;
 }
+
+/** 一级筛选：网站 / 工具（工具 = 目录里的在线工具 + 站内托管的 HTML 工具） */
+type KindFilter = "all" | "site" | "tool";
 
 interface CommunityItem {
   id: number;
@@ -74,6 +77,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     };
   }, []);
 
+  const [kind, setKind] = useState<KindFilter>("all");
   const [category, setCategory] = useState<string>("all");
   const [sort, setSort] = useState<"ranked" | "newest">("ranked");
   const [query, setQuery] = useState("");
@@ -85,9 +89,11 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     const params = new URLSearchParams(window.location.search);
     const q = params.get("q");
     if (q) setQuery(q);
+    const k = params.get("kind");
+    if (k === "site" || k === "tool") setKind(k);
   }, []);
 
-  /* 关键词变化时写回地址栏，方便分享。首次渲染跳过，避免地址栏闪动。 */
+  /* 关键词 / 形态变化时写回地址栏，方便分享。首次渲染跳过，避免地址栏闪动。 */
   useEffect(() => {
     if (!urlSynced.current) {
       urlSynced.current = true;
@@ -97,10 +103,10 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     const q = query.trim();
     if (q) url.searchParams.set("q", q);
     else url.searchParams.delete("q");
-    /* 旧的 ?kind=site|tool 深链已废弃，顺手清掉 */
-    url.searchParams.delete("kind");
+    if (kind === "all") url.searchParams.delete("kind");
+    else url.searchParams.set("kind", kind);
     window.history.replaceState(null, "", url.toString());
-  }, [query]);
+  }, [query, kind]);
 
   /* 分类 chips：产品分类 + 托管工具实际用到的分类，按 productCategories 顺序排 */
   const categoryChips = useMemo(() => {
@@ -111,8 +117,14 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     return [...ordered, ...extra];
   }, [categories, hosted]);
 
+  const kindCounts = useMemo(() => {
+    const site = ranked.filter((p) => productKind(p) === "site").length;
+    const tool = ranked.filter((p) => productKind(p) === "tool").length + hosted.length;
+    return { site, tool, all: site + tool };
+  }, [ranked, hosted]);
+
   const filteredProducts = useMemo(() => {
-    let list = ranked;
+    let list = kind === "all" ? ranked : ranked.filter((p) => productKind(p) === kind);
     if (category !== "all") {
       list = list.filter((p) => p.category === category);
     }
@@ -124,9 +136,10 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
       list = list.filter((p) => matched.has(p.slug));
     }
     return list;
-  }, [ranked, category, query, locale, products]);
+  }, [ranked, kind, category, query, locale, products]);
 
   const filteredHosted = useMemo(() => {
+    if (kind === "site") return [];
     const q = query.trim().toLowerCase();
     return hosted
       .filter((t) => (category === "all" ? true : t.category === category))
@@ -135,7 +148,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
       )
       .slice()
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  }, [hosted, category, query]);
+  }, [hosted, kind, category, query]);
 
   /* 列表行：产品 + 托管工具合并，按排序规则排列 */
   const rows = useMemo(() => {
@@ -160,6 +173,12 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
   const total = rows.length;
   const rankOf = (p: Product) => ranked.findIndex((r) => r.id === p.id) + 1;
 
+  const kindTabs: { key: KindFilter; label: string; count: number; icon: typeof Globe }[] = [
+    { key: "all", label: locale === "en" ? "All" : "全部", count: kindCounts.all, icon: Filter },
+    { key: "site", label: locale === "en" ? "Websites" : "网站", count: kindCounts.site, icon: Globe },
+    { key: "tool", label: locale === "en" ? "Tools" : "工具", count: kindCounts.tool, icon: AppWindow },
+  ];
+
   return (
     <div>
       {/* 从首页搜索跳过来时的关键词提示条：让人一眼确认「搜的就是这个词」 */}
@@ -179,6 +198,28 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
           </button>
         </div>
       )}
+
+      {/* 一级筛选：网站 / 工具（工具 = 目录工具 + 站内托管 HTML） */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {kindTabs.map(({ key, label, count, icon: Icon }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setKind(key)}
+            aria-pressed={kind === key}
+            className={cx(
+              "inline-flex items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-[13px] font-medium transition-colors",
+              kind === key
+                ? "border-foreground bg-foreground text-background"
+                : "border-border bg-card text-foreground/70 hover:border-foreground/40",
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            {label}
+            <span className={cx("text-[11px]", kind === key ? "text-background/70" : "text-muted-foreground")}>{count}</span>
+          </button>
+        ))}
+      </div>
 
       {/* 筛选与排序工具条 */}
       <div className="flex flex-col gap-3">
@@ -215,17 +256,6 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
             </button>
           ))}
         </div>
-        {/* 上传入口单独一行：和分类 chips 同一行在窄屏会被撑出横向滚动 */}
-        <div className="flex justify-end">
-          <a
-            href={p("/submit/?type=hosted", locale)}
-            className="inline-flex items-center gap-1 text-[12px] text-muted-foreground underline-offset-2 hover:text-accent hover:underline"
-          >
-            {locale === "en" ? "Upload your own HTML tool" : "上传自己的 HTML 工具"}
-            <ArrowRight className="h-3 w-3" aria-hidden="true" />
-          </a>
-        </div>
-
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -443,11 +473,20 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
         </ul>
       </div>
 
-      <p className="mt-4 text-center text-xs text-muted-foreground">
-        {locale === "en"
-          ? `${total} listed · verification reflects actual SolHub checks`
-          : `共 ${total} 个 · 核验状态以 SolHub 实际核验为准`}
-      </p>
+      <div className="mt-4 flex flex-col items-center gap-1.5">
+        <p className="text-center text-xs text-muted-foreground">
+          {locale === "en"
+            ? `${total} listed · ${kindCounts.site} websites · ${kindCounts.tool} tools · verification reflects actual SolHub checks`
+            : `共 ${total} 个 · ${kindCounts.site} 个网站 · ${kindCounts.tool} 个工具 · 核验状态以 SolHub 实际核验为准`}
+        </p>
+        <a
+          href={p("/submit/?type=hosted", locale)}
+          className="inline-flex items-center gap-1 text-[12px] text-muted-foreground underline-offset-2 hover:text-accent hover:underline"
+        >
+          {locale === "en" ? "Upload your own HTML tool" : "上传自己的 HTML 工具"}
+          <ArrowRight className="h-3 w-3" aria-hidden="true" />
+        </a>
+      </div>
     </div>
   );
 }

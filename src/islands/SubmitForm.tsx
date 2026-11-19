@@ -662,8 +662,8 @@ export default function SubmitForm({ locale = "zh" }: { locale?: Locale }) {
                 <a href={p(result.path, locale)} className="btn btn-accent !h-8 px-3 text-xs">
                   {en ? "Open your hosted tool" : "打开托管页"} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                 </a>
-                <a href={p("/launches/", locale)} className="btn btn-outline !h-8 px-3 text-xs">
-                  {en ? "See it in the product list" : "在产品页查看"}
+                <a href={p("/launches/?kind=tool", locale)} className="btn btn-outline !h-8 px-3 text-xs">
+                  {en ? "See it under Tools" : "在产品页看工具"}
                 </a>
               </>
             ) : (
