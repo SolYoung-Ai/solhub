@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>二维码生成器 · SolHub</title>
+<style>
+  :root{
+    --bg:#f7f5f2; --card:#ffffff; --ink:#18181b; --muted:#71717a; --line:#e8e4de;
+    --soft:#f1ede8; --accent:#d96a24; --accent-soft:#fdf1e8; --ok:#15803d;
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink); color-scheme:light;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1060px;margin:0 auto;padding:28px 20px 56px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .mark{width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgb(24 24 27/.06)}
+  h1{font-size:19px;line-height:1.2;margin:0;letter-spacing:-.01em}
+  header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .grid{display:grid;gap:18px;grid-template-columns:minmax(0,1fr) 340px}
+  @media (max-width:820px){ .grid{grid-template-columns:1fr} }
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+  .field{margin-bottom:18px}
+  .field:last-child{margin-bottom:0}
+  label.lbl{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:7px;letter-spacing:.02em}
+  textarea,input[type=text],input[type=url],select{
+    width:100%;font:inherit;color:inherit;background:#fdfcfb;border:1px solid var(--line);
+    border-radius:10px;padding:9px 11px;outline:none;transition:border-color .15s,box-shadow .15s
+  }
+  textarea{min-height:96px;resize:vertical;line-height:1.55}
+  textarea:focus,input:focus,select:focus{border-color:#c9bfb4;box-shadow:0 0 0 3px rgb(217 106 36/.09)}
+  .seg{display:inline-flex;padding:3px;background:var(--soft);border-radius:10px;gap:2px}
+  .seg button{border:0;background:transparent;font:inherit;font-size:13px;color:var(--muted);
+    padding:6px 14px;border-radius:8px;cursor:pointer;transition:.15s}
+  .seg button[aria-pressed=true]{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgb(24 24 27/.08)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chips button{border:1px solid var(--line);background:#fff;font:inherit;font-size:12.5px;color:var(--muted);
+    padding:5px 11px;border-radius:8px;cursor:pointer;transition:.15s}
+  .chips button:hover{border-color:#cfc7bd}
+  .chips button[aria-pressed=true]{border-color:var(--ink);background:var(--ink);color:#fff;font-weight:600}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:520px){ .row{grid-template-columns:1fr} }
+  .swatches{display:flex;gap:8px;margin-top:8px}
+  .swatches button{width:28px;height:28px;border-radius:8px;border:1px solid rgb(24 24 27/.12);cursor:pointer;padding:0}
+  .picker{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:4px 10px 4px 5px;background:#fdfcfb}
+  .picker input[type=color]{width:26px;height:26px;border:0;background:none;padding:0;cursor:pointer;border-radius:6px}
+  .picker code{font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);min-width:58px}
+  .cap{font-size:11px;color:var(--muted);margin-bottom:6px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .preview{position:sticky;top:24px;align-self:start}
+  @media (max-width:820px){ .preview{position:static} }
+  .canvas-box{display:flex;align-items:center;justify-content:center;background:#faf8f6;
+    border:1px solid var(--line);border-radius:12px;padding:16px;min-height:280px}
+  #cv{max-width:100%;height:auto;border-radius:4px;image-rendering:pixelated}
+  .hint{font-size:12px;color:var(--muted);margin-top:10px;text-align:center;min-height:18px}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+  .btn{font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:9px 12px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s}
+  .btn:hover{background:#faf8f6}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(.95)}
+  .err{color:#b91c1c;font-size:12px;margin-top:8px;min-height:16px}
+  .copyline{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;
+    font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+  .copyline button{border:0;background:none;color:var(--accent);font:inherit;font-size:12px;cursor:pointer;padding:0}
+  .hidden{display:none!important}
+  footer{margin-top:26px;text-align:center;font-size:11.5px;color:#a1a1aa}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="mark" aria-hidden="true">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1.4"/><rect x="14" y="3" width="7" height="7" rx="1.4"/>
+        <rect x="3" y="14" width="7" height="7" rx="1.4"/><path d="M14 14h3v3h-3zM20 20h1M14 20h2M20 14v2"/>
+      </svg>
+    </span>
+    <div>
+      <h1>二维码生成器</h1>
+      <p>文本、网址、Wi-Fi 一键生成，可调颜色与容错，导出 PNG / SVG</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <div class="field">
+        <label class="lbl">内容类型</label>
+        <div class="seg" id="type-seg">
+          <button type="button" data-type="text" aria-pressed="true">文本 / 网址</button>
+          <button type="button" data-type="wifi" aria-pressed="false">Wi-Fi</button>
+        </div>
+      </div>
+
+      <div class="field" id="pane-text">
+        <label class="lbl" for="content">内容</label>
+        <textarea id="content" placeholder="粘贴网址，或输入任意文字…" spellcheck="false">https://solhub.solyoung.top</textarea>
+      </div>
+
+      <div class="field hidden" id="pane-wifi">
+        <div class="row">
+          <div>
+            <label class="lbl" for="ssid">网络名称 SSID</label>
+            <input type="text" id="ssid" placeholder="MyWiFi" autocomplete="off">
+          </div>
+          <div>
+            <label class="lbl" for="pass">密码</label>
+            <input type="text" id="pass" placeholder="至少 8 位" autocomplete="off">
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div>
+            <label class="lbl" for="enc">加密方式</label>
+            <select id="enc">
+              <option value="WPA">WPA / WPA2 / WPA3</option>
+              <option value="WEP">WEP</option>
+              <option value="nopass">无密码</option>
+            </select>
+          </div>
+          <div>
+            <label class="lbl">隐藏网络</label>
+            <div class="seg" id="hidden-seg">
+              <button type="button" data-hidden="0" aria-pressed="true">否</button>
+              <button type="button" data-hidden="1" aria-pressed="false">是</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl">导出尺寸</label>
+        <div class="chips" id="size-chips">
+          <button type="button" data-size="256">256 px</button>
+          <button type="button" data-size="512" aria-pressed="true">512 px</button>
+          <button type="button" data-size="1024">1024 px</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl">容错级别（越高越抗污损，图案越密）</label>
+        <div class="chips" id="ecc-chips">
+          <button type="button" data-ecc="L">L · 7%</button>
+          <button type="button" data-ecc="M" aria-pressed="true">M · 15%</button>
+          <button type="button" data-ecc="Q">Q · 25%</button>
+          <button type="button" data-ecc="H">H · 30%</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl">颜色</label>
+        <div class="row">
+          <div>
+            <div class="cap">前景色（码点）</div>
+            <div class="picker"><input type="color" id="fg" value="#18181b"><code id="fg-hex">#18181b</code></div>
+            <div class="swatches" id="fg-presets">
+              <button type="button" data-fg="#18181b" style="background:#18181b" title="墨黑"></button>
+              <button type="button" data-fg="#d96a24" style="background:#d96a24" title="品牌橙"></button>
+              <button type="button" data-fg="#1d4ed8" style="background:#1d4ed8" title="蓝"></button>
+              <button type="button" data-fg="#15803d" style="background:#15803d" title="绿"></button>
+            </div>
+          </div>
+          <div>
+            <div class="cap">背景色</div>
+            <div class="picker"><input type="color" id="bg" value="#ffffff"><code id="bg-hex">#ffffff</code></div>
+            <div class="swatches" id="bg-presets">
+              <button type="button" data-bg="#ffffff" style="background:#fff" title="白"></button>
+              <button type="button" data-bg="#fdf6ee" style="background:#fdf6ee" title="米白"></button>
+              <button type="button" data-bg="#f1f5f9" style="background:#f1f5f9" title="浅灰蓝"></button>
+              <button type="button" data-bg="#139549" style="background:#139549" title="微信绿"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl">留白边距 <span id="margin-val" style="color:var(--muted);font-weight:400">2 格</span></label>
+        <input type="range" id="margin" min="0" max="6" step="1" value="2">
+      </div>
+
+      <div class="field">
+        <label class="lbl">样式</label>
+        <div class="chips" id="style-chips">
+          <button type="button" data-dot="0" aria-pressed="true">方块</button>
+          <button type="button" data-dot="1">圆点</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="preview">
+      <div class="card">
+        <div class="canvas-box"><canvas id="cv" width="512" height="512" role="img" aria-label="二维码预览"></canvas></div>
+        <p class="hint" id="hint">用手机相机对准即可识别</p>
+        <p class="err" id="err"></p>
+        <div class="btns">
+          <button class="btn primary" id="dl-png" type="button">下载 PNG</button>
+          <button class="btn" id="dl-svg" type="button">下载 SVG</button>
+        </div>
+        <div class="copyline">
+          <span id="meta">—</span>
+          <button type="button" id="copy">复制内容</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer>SolHub 官方工具 · 二维码在本机生成，内容不会上传</footer>
+</div>
+
+<script src="vendor/qrcode-gen.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var cv = $("cv"), ctx = cv.getContext("2d");
+
+  /* 中文内容必须走 UTF-8 编码，库里默认只处理单字节 */
+  if (qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs["UTF-8"]) {
+    qrcode.stringToBytes = qrcode.stringToBytesFuncs["UTF-8"];
+  }
+
+  var state = { type: "text", size: 512, ecc: "M", fg: "#18181b", bg: "#ffffff", margin: 2, dot: false, wifiHidden: "0" };
+
+  /* ---------- 内容拼装 ---------- */
+  function payload() {
+    if (state.type === "text") return $("content").value.trim();
+    var ssid = $("ssid").value.trim();
+    if (!ssid) return "";
+    var enc = $("enc").value;
+    var pass = enc === "nopass" ? "" : $("pass").value;
+    var esc = function (s) { return String(s).replace(/([\\;,":])/g, "\\$1"); };
+    return "WIFI:T:" + enc + ";S:" + esc(ssid) + ";P:" + esc(pass) + ";" + (state.wifiHidden === "1" ? "H:true;" : "") + ";";
+  }
+
+  /* ---------- 绘制 ---------- */
+  var current = null; /* { qr, n } */
+  function build() {
+    var text = payload();
+    if (!text) { current = null; return "empty"; }
+    try {
+      var qr = qrcode(0, state.ecc);
+      qr.addData(text);
+      qr.make();
+      current = { qr: qr, n: qr.getModuleCount() };
+      return "";
+    } catch (e) {
+      current = null;
+      return "内容过长，请缩短文本或降低容错级别";
+    }
+  }
+
+  /* 在指定画布上按目标像素绘制；返回实际边长 */
+  function paint(canvas, targetPx) {
+    if (!current) {
+      var c0 = canvas.getContext("2d");
+      canvas.width = targetPx; canvas.height = targetPx;
+      c0.fillStyle = "#ffffff"; c0.fillRect(0, 0, targetPx, targetPx);
+      c0.fillStyle = "#a1a1aa"; c0.font = "14px sans-serif"; c0.textAlign = "center";
+      c0.fillText("输入内容后生成二维码", targetPx / 2, targetPx / 2);
+      return targetPx;
+    }
+    var n = current.n, margin = state.margin;
+    var total = n + margin * 2;
+    var cell = Math.max(1, Math.floor(targetPx / total));
+    var side = cell * total;
+    canvas.width = side; canvas.height = side;
+    var g = canvas.getContext("2d");
+    g.fillStyle = state.bg;
+    g.fillRect(0, 0, side, side);
+    g.fillStyle = state.fg;
+    var inset = state.dot ? 1 : 0;
+    for (var r = 0; r < n; r++) {
+      for (var col = 0; col < n; col++) {
+        if (!current.qr.isDark(r, col)) continue;
+        var x = (col + margin) * cell, y = (r + margin) * cell;
+        if (state.dot) {
+          g.beginPath();
+          g.arc(x + cell / 2, y + cell / 2, cell * 0.45, 0, Math.PI * 2);
+          g.fill();
+        } else {
+          g.fillRect(x, y, cell + inset, cell + inset);
+        }
+      }
+    }
+    return side;
+  }
+
+  function render() {
+    var err = build();
+    $("err").textContent = err === "empty" ? "" : err;
+    paint(cv, 512);
+    cv.style.width = "min(300px, 100%)";
+    cv.style.height = "auto";
+    $("meta").textContent = current ? current.n + " × " + current.n + " 模块" : "—";
+    $("hint").textContent = current ? "用手机相机对准即可识别" : "先填写内容";
+  }
+
+  /* ---------- 导出 ---------- */
+  function download(name, url) {
+    var a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  $("dl-png").addEventListener("click", function () {
+    if (!current) { $("err").textContent = "还没有可导出的二维码"; return; }
+    var off = document.createElement("canvas");
+    var side = paint(off, state.size);
+    download("qrcode-" + side + ".png", off.toDataURL("image/png"));
+  });
+  $("dl-svg").addEventListener("click", function () {
+    if (!current) { $("err").textContent = "还没有可导出的二维码"; return; }
+    var n = current.n, margin = state.margin, total = n + margin * 2;
+    var parts = [];
+    for (var r = 0; r < n; r++) {
+      for (var c = 0; c < n; c++) {
+        if (!current.qr.isDark(r, c)) continue;
+        if (state.dot) {
+          parts.push('<circle cx="' + (c + margin + 0.5) + '" cy="' + (r + margin + 0.5) + '" r="0.45"/>');
+        } else {
+          parts.push("M" + (c + margin) + " " + (r + margin) + "h1v1h-1z");
+        }
+      }
+    }
+    var body = state.dot
+      ? '<g fill="' + state.fg + '">' + parts.join("") + "</g>"
+      : '<path fill="' + state.fg + '" d="' + parts.join("") + '"/>';
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + state.size + '" height="' + state.size +
+      '" viewBox="0 0 ' + total + " " + total + '" shape-rendering="crispEdges">' +
+      '<rect width="' + total + '" height="' + total + '" fill="' + state.bg + '"/>' + body + "</svg>";
+    var blob = new Blob([svg], { type: "image/svg+xml" });
+    download("qrcode.svg", URL.createObjectURL(blob));
+  });
+  $("copy").addEventListener("click", function () {
+    var text = payload();
+    if (!text) return;
+    navigator.clipboard && navigator.clipboard.writeText(text);
+    var btn = $("copy");
+    btn.textContent = "已复制";
+    setTimeout(function () { btn.textContent = "复制内容"; }, 1400);
+  });
+
+  /* ---------- 交互绑定 ---------- */
+  function bindChips(container, attr, apply) {
+    container.addEventListener("click", function (e) {
+      var btn = e.target.closest("button[data-" + attr + "]");
+      if (!btn) return;
+      Array.prototype.forEach.call(container.querySelectorAll("button"), function (b) {
+        b.setAttribute("aria-pressed", String(b === btn));
+      });
+      apply(btn.getAttribute("data-" + attr));
+      render();
+    });
+  }
+
+  $("type-seg").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-type]");
+    if (!btn) return;
+    state.type = btn.getAttribute("data-type");
+    Array.prototype.forEach.call(this.querySelectorAll("button"), function (b) {
+      b.setAttribute("aria-pressed", String(b === btn));
+    });
+    $("pane-text").classList.toggle("hidden", state.type !== "text");
+    $("pane-wifi").classList.toggle("hidden", state.type !== "wifi");
+    render();
+  });
+
+  bindChips($("size-chips"), "size", function (v) { state.size = parseInt(v, 10); });
+  bindChips($("ecc-chips"), "ecc", function (v) { state.ecc = v; });
+  bindChips($("style-chips"), "dot", function (v) { state.dot = v === "1"; });
+  bindChips($("hidden-seg"), "hidden", function (v) { state.wifiHidden = v; });
+
+  $("fg").addEventListener("input", function () {
+    state.fg = this.value; $("fg-hex").textContent = this.value; render();
+  });
+  $("bg").addEventListener("input", function () {
+    state.bg = this.value; $("bg-hex").textContent = this.value; render();
+  });
+  $("fg-presets").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-fg]");
+    if (!b) return;
+    state.fg = b.getAttribute("data-fg");
+    $("fg").value = state.fg; $("fg-hex").textContent = state.fg; render();
+  });
+  $("bg-presets").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-bg]");
+    if (!b) return;
+    state.bg = b.getAttribute("data-bg");
+    $("bg").value = state.bg; $("bg-hex").textContent = state.bg; render();
+  });
+  $("margin").addEventListener("input", function () {
+    state.margin = parseInt(this.value, 10);
+    $("margin-val").textContent = state.margin + " 格";
+    render();
+  });
+
+  var timer = null;
+  function later() { clearTimeout(timer); timer = setTimeout(render, 180); }
+  $("content").addEventListener("input", later);
+  ["ssid", "pass", "enc"].forEach(function (id) { $(id).addEventListener("input", later); $(id).addEventListener("change", later); });
+
+  render();
+})();
+</script>
+</body>
+</html>

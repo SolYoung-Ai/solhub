@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="二维码生成器">
+  <rect width="512" height="512" rx="112" fill="#fbf7f2"/>
+  <rect x="1" y="1" width="510" height="510" rx="111" fill="none" stroke="#e8e4de" stroke-width="2"/>
+  <g fill="none" stroke="#18181b" stroke-width="18" stroke-linejoin="round">
+    <rect x="108" y="108" width="82" height="82" rx="14"/>
+    <rect x="322" y="108" width="82" height="82" rx="14"/>
+    <rect x="108" y="322" width="82" height="82" rx="14"/>
+  </g>
+  <g fill="#18181b">
+    <rect x="132" y="132" width="34" height="34" rx="8"/>
+    <rect x="346" y="132" width="34" height="34" rx="8"/>
+    <rect x="132" y="346" width="34" height="34" rx="8"/>
+    <rect x="322" y="322" width="30" height="30" rx="6"/>
+    <rect x="374" y="322" width="30" height="30" rx="6"/>
+    <rect x="322" y="374" width="30" height="30" rx="6"/>
+  </g>
+  <rect x="374" y="374" width="30" height="30" rx="6" fill="#d96a24"/>
+</svg>

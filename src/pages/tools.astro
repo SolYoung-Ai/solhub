@@ -96,7 +96,8 @@ const copy = {
       <!-- 主栏 -->
       <article>
         <div class="flex items-start gap-4">
-          <span class="flex h-16 w-16 shrink-0 items-center justify-center rounded-[16px] border border-border bg-secondary text-foreground/60" aria-hidden="true">
+          <img id="tool-logo" alt="" class="hidden h-16 w-16 shrink-0 rounded-[16px] border border-border bg-card object-cover" />
+          <span id="tool-logo-fallback" class="flex h-16 w-16 shrink-0 items-center justify-center rounded-[16px] border border-border bg-secondary text-foreground/60" aria-hidden="true">
             <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <rect x="2" y="4" width="20" height="16" rx="2"></rect>
               <path d="M10 4v4"></path>
@@ -320,6 +321,13 @@ const copy = {
       el("tool-date").textContent = (t.createdAt || "").slice(0, 10) || "—";
       el("tool-verified-at").textContent = (t.createdAt || "").slice(0, 10) || "—";
 
+      if (t.logoUrl) {
+        var logo = el("tool-logo");
+        logo.src = t.logoUrl;
+        logo.classList.remove("hidden");
+        el("tool-logo-fallback").classList.add("hidden");
+      }
+
       if (t.ownerHandle) {
         var dev = el("tool-dev");
         var a = document.createElement("a");
@@ -328,6 +336,8 @@ const copy = {
         a.textContent = "@" + t.ownerHandle;
         dev.textContent = "";
         dev.appendChild(a);
+      } else if (t.author) {
+        el("tool-dev").textContent = t.author;
       }
 
       var tagsEl = el("tool-tags");

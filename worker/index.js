@@ -1911,7 +1911,17 @@ function hostedMeta(rec) {
     tags: Array.isArray(rec.tags) ? rec.tags : [],
     createdAt: rec.createdAt || "",
     hidden: !!rec.hidden,
+    /* 官方工具：署名 + 是否有图标（列表按需拼 /hosted/logo/<id>，不塞 base64） */
+    author: rec.author || "",
+    hasLogo: !!rec.logo,
   };
+}
+
+/** 图标只接受 data URI 形式的图片，且限制体积（60KB 以内，存 kv 不撑爆） */
+function normalizeHostedLogo(v) {
+  const s = String(v || "").trim();
+  if (!s || s.length > 80 * 1024) return "";
+  return /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(s) ? s : "";
 }
 
 async function hostedIndexRead(env) {
@@ -2651,15 +2661,20 @@ export default {
        仍走人工核验，与本页 URL 无关。 */
     if (url.pathname === "/hosted/submit" && request.method === "POST") {
       if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
-      const identity = await getIdentity(request, env);
+      /* 官方工具用管理口令发布：不必登录，owner 固定 solhub（ownerType=official）；
+         带 body.id 时覆盖已有记录，方便脚本反复发布同一件工具而不产生新 id。 */
+      const admin = adminKeyOk(request, env);
+      const identity = admin ? { login: "solhub", type: "official" } : await getIdentity(request, env);
       if (!identity) return json(request, { error: "请先登录" }, 401);
-      /* 限流：同一账号每小时最多 10 次（含失败），挡脚本刷库 */
-      const rlKey = `hostedsub:${identity.login}`;
-      const rl = await rateLimitPeek(rlKey);
-      if (rl.count >= 10) {
-        return json(request, { ok: false, error: `提交过于频繁，请 ${retryAfterSec(rl.startedAt, 3600)} 秒后再试` }, 429);
+      /* 限流：同一账号每小时最多 10 次（含失败），挡脚本刷库；管理员不限 */
+      if (!admin) {
+        const rlKey = `hostedsub:${identity.login}`;
+        const rl = await rateLimitPeek(rlKey);
+        if (rl.count >= 10) {
+          return json(request, { ok: false, error: `提交过于频繁，请 ${retryAfterSec(rl.startedAt, 3600)} 秒后再试` }, 429);
+        }
+        await rateLimitHit(rlKey, 3600);
       }
-      await rateLimitHit(rlKey, 3600);
       const body = await request.json().catch(() => null);
       if (!body) return json(request, { ok: false, error: "请求格式错误" }, 400);
       const name = String(body.name || "").trim().slice(0, 60);
@@ -2680,15 +2695,20 @@ export default {
             .slice(0, 8);
       const websiteUrl = String(body.websiteUrl || "").trim().slice(0, 300);
       const listKey = `hosted:user:${identity.login}`;
-      const mine = (await kvGetJSON(env, listKey, [])) || [];
-      if (mine.length >= 20) {
+      const mine = admin ? [] : ((await kvGetJSON(env, listKey, [])) || []);
+      if (!admin && mine.length >= 20) {
         return json(request, { ok: false, error: "每个账号最多托管 20 个工具，请先删除不需要的" }, 403);
       }
-      let id = "";
-      for (let i = 0; i < 5; i++) {
-        id = hostedToolId();
-        if (!(await env.PROFILES.get(`hosted:tool:${id}`))) break;
-        id = "";
+      /* 管理员可指定 id 覆盖（更新已有工具），否则新生成 */
+      const idWanted = admin ? String(body.id || "").trim() : "";
+      let id = /^[a-z0-9]{4,16}$/.test(idWanted) ? idWanted : "";
+      const prev = id ? await kvGetJSON(env, `hosted:tool:${id}`, null) : null;
+      if (!id) {
+        for (let i = 0; i < 5; i++) {
+          id = hostedToolId();
+          if (!(await env.PROFILES.get(`hosted:tool:${id}`))) break;
+          id = "";
+        }
       }
       if (!id) return json(request, { ok: false, error: "生成 ID 失败，请重试" }, 500);
       const rec = {
@@ -2700,17 +2720,27 @@ export default {
         websiteUrl,
         owner: identity.login,
         ownerType: identity.type,
-        createdAt: new Date().toISOString(),
+        createdAt: (prev && prev.createdAt) || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         html,
       };
+      /* Logo 与署名只对管理员开放，普通用户提交不受影响（避免冒充官方） */
+      if (admin) {
+        const logo = normalizeHostedLogo(body.logo);
+        if (logo) rec.logo = logo;
+        else if (prev && prev.logo) rec.logo = prev.logo;
+        rec.author = String(body.author || "").trim().slice(0, 40) || (prev && prev.author) || "SolHub 官方";
+      }
       await kvPutJSON(env, `hosted:tool:${id}`, rec);
-      mine.unshift({ id, name, description, category, tags, createdAt: rec.createdAt });
-      await kvPutJSON(env, listKey, mine);
+      if (!admin) {
+        mine.unshift({ id, name, description, category, tags, createdAt: rec.createdAt });
+        await kvPutJSON(env, listKey, mine);
+      }
       /* 公开目录索引：产品页「在线工具」直接读它，避免遍历 kv。
          只放元信息，且**不含 owner**（邮箱登录名不能出现在公开列表里）。 */
       await hostedIndexAdd(env, rec);
       /* 通知管理员（尽力而为，失败不影响提交） */
-      const notifyTo = env.HOSTED_NOTIFY_EMAIL || "";
+      const notifyTo = admin ? "" : env.HOSTED_NOTIFY_EMAIL || "";
       if (notifyTo) {
         try {
           await sendMail(env, {
@@ -2748,6 +2778,8 @@ export default {
           category: t.category || "productivity",
           tags: Array.isArray(t.tags) ? t.tags : [],
           createdAt: t.createdAt || "",
+          author: t.author || "",
+          logoUrl: t.hasLogo ? `${imgBase}/hosted/logo/${t.id}` : "",
         })),
       });
     }
@@ -2759,6 +2791,34 @@ export default {
       if (!identity) return json(request, { error: "请先登录" }, 401);
       const mine = (await kvGetJSON(env, `hosted:user:${identity.login}`, [])) || [];
       return json(request, { ok: true, tools: mine });
+    }
+
+    /* 工具图标：GET /hosted/logo/<id> —— 直接发图片字节。
+       库里存的是 data URI，这里解码成二进制；没有图标返回 404，前端回落通用占位图。 */
+    {
+      const m = url.pathname.match(/^\/hosted\/logo\/([a-z0-9]{4,16})$/);
+      if (m && request.method === "GET") {
+        const rec = await kvGetJSON(env, `hosted:tool:${m[1]}`, null);
+        const lm =
+          rec && typeof rec.logo === "string"
+            ? rec.logo.match(/^data:(image\/[a-z+]+);base64,([A-Za-z0-9+/=]+)$/)
+            : null;
+        if (!lm) {
+          return new Response("Not Found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+        }
+        const bin = atob(lm[2]);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new Response(bytes, {
+          status: 200,
+          headers: {
+            ...corsFor(request),
+            "Content-Type": lm[1],
+            "Cache-Control": "public, max-age=604800",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
+      }
     }
 
     /* 单个托管工具的元信息：GET /hosted/meta/<id>
@@ -2781,6 +2841,8 @@ export default {
             createdAt: rec.createdAt || "",
             websiteUrl: /^https?:\/\//i.test(rec.websiteUrl || "") ? rec.websiteUrl : "",
             ownerHandle: rec.ownerType === "github" ? String(rec.owner || "") : "",
+            author: rec.author || (rec.ownerType === "official" ? "SolHub 官方" : ""),
+            logoUrl: rec.logo ? `${imgBase}/hosted/logo/${rec.id}` : "",
           },
         });
       }

@@ -1,0 +1,32 @@
+{
+  "author": "SolHub 官方",
+  "tools": [
+    {
+      "id": "solqr",
+      "file": "qr-code.html",
+      "logo": "logos/qr-code.svg",
+      "name": "二维码生成器",
+      "description": "把网址、文字或 Wi-Fi 密码变成二维码，可调颜色、容错级别与留白，导出 PNG / SVG。",
+      "category": "productivity",
+      "tags": ["二维码", "QR", "离线可用"]
+    },
+    {
+      "id": "solcolor",
+      "file": "contrast-lab.html",
+      "logo": "logos/contrast-lab.svg",
+      "name": "配色与对比度",
+      "description": "选一个主色生成整套色阶，并检查 WCAG 对比度是否达标，一键复制 CSS 变量与 Tailwind 配置。",
+      "category": "design-tools",
+      "tags": ["配色", "对比度", "设计"]
+    },
+    {
+      "id": "solshot",
+      "file": "screenshot-mockup.html",
+      "logo": "logos/screenshot-mockup.svg",
+      "name": "截图美化",
+      "description": "给截图加上渐变背景、圆角阴影和浏览器窗框，支持拖入或粘贴，导出高清 PNG。",
+      "category": "creator-tools",
+      "tags": ["截图", "美化", "封面"]
+    }
+  ]
+}

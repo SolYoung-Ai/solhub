@@ -8,6 +8,10 @@ export interface HostedTool {
   category: string;
   tags: string[];
   createdAt: string;
+  /** 官方工具署名（普通用户提交为空） */
+  author?: string;
+  /** 图标地址（走 /hosted/logo/<id>），没有图标时为空 */
+  logoUrl?: string;
 }
 
 interface HostedListResponse {

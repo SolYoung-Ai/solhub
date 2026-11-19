@@ -327,9 +327,18 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
                     ) : (
                       <span className="w-7 shrink-0" aria-hidden="true" />
                     )}
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-border bg-secondary text-foreground/60" aria-hidden="true">
-                      <AppWindow className="h-4 w-4" />
-                    </span>
+                    {t.logoUrl ? (
+                      <img
+                        src={t.logoUrl}
+                        alt=""
+                        loading="lazy"
+                        className="h-10 w-10 shrink-0 rounded-[8px] border border-border object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-border bg-secondary text-foreground/60" aria-hidden="true">
+                        <AppWindow className="h-4 w-4" />
+                      </span>
+                    )}
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="font-display text-[15px] font-bold text-foreground group-hover:text-accent">{t.name}</span>

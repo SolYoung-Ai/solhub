@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>配色与对比度 · SolHub</title>
+<style>
+  :root{
+    --bg:#f7f5f2; --card:#fff; --ink:#18181b; --muted:#71717a; --line:#e8e4de;
+    --soft:#f1ede8; --accent:#d96a24; --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);color-scheme:light;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1060px;margin:0 auto;padding:28px 20px 56px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .mark{width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgb(24 24 27/.06)}
+  h1{font-size:19px;line-height:1.2;margin:0;letter-spacing:-.01em}
+  header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .grid{display:grid;gap:18px;grid-template-columns:minmax(0,1fr) 320px}
+  @media (max-width:860px){ .grid{grid-template-columns:1fr} }
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+  .card + .card{margin-top:14px}
+  .lbl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-bottom:8px}
+
+  /* 主色 */
+  .hero{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .hero .chip{width:76px;height:76px;border-radius:16px;border:1px solid rgb(24 24 27/.1);
+    box-shadow:0 6px 18px -8px rgb(24 24 27/.35);flex:0 0 auto;cursor:pointer;position:relative;overflow:hidden}
+  .hero .chip input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+  .hexwrap{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;
+    padding:8px 10px;background:#fdfcfb;flex:1 1 180px;min-width:150px}
+  .hexwrap input{border:0;background:none;outline:none;font:14px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+    letter-spacing:.04em;width:100%;color:var(--ink);text-transform:lowercase}
+  .btn{font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:9px 13px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s}
+  .btn:hover{background:#faf8f6}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(.95)}
+
+  /* 色阶 */
+  .ramp{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:6px;margin-top:4px}
+  @media (max-width:700px){ .ramp{grid-template-columns:repeat(4,minmax(0,1fr))} }
+  .step{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;cursor:pointer;
+    padding:0;font:inherit;text-align:left;transition:.15s;position:relative}
+  .step:hover{transform:translateY(-1px);box-shadow:0 6px 16px -10px rgb(24 24 27/.5)}
+  .step .sw{height:54px;display:flex;align-items:flex-end;justify-content:flex-end;padding:5px}
+  .step .sw span{font-size:10px;padding:1px 4px;border-radius:4px;background:rgb(255 255 255/.72);color:#3f3f46}
+  .step .tx{padding:6px 7px 7px;line-height:1.25}
+  .step .tx b{display:block;font-size:10.5px;color:var(--muted);font-weight:600}
+  .step .tx code{display:block;font:10.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink)}
+  .step.is-base{outline:2px solid var(--ink);outline-offset:1px}
+
+  /* 对比度 */
+  .ratios{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:520px){ .ratios{grid-template-columns:1fr} }
+  .ratio{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;align-items:center;gap:14px}
+  .ratio .prev{width:56px;height:56px;border-radius:10px;border:1px solid var(--line);flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
+  .ratio .num{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1}
+  .ratio .num small{font-size:12px;font-weight:500;color:var(--muted);margin-left:3px}
+  .badges{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
+  .badge{font-size:10.5px;font-weight:600;padding:2px 6px;border-radius:5px;border:1px solid transparent;letter-spacing:.01em}
+  .badge.ok{background:#eaf7ee;border-color:#c7e9d0;color:#15803d}
+  .badge.mid{background:#fff5e6;border-color:#f5dfb8;color:#b45309}
+  .badge.no{background:#fdecec;border-color:#f6cfcf;color:#b91c1c}
+
+  /* 预览 */
+  .pv{border:1px solid var(--line);border-radius:12px;padding:16px;background:#fdfcfb}
+  .pv h3{margin:0 0 10px;font-size:13px;font-weight:600;color:var(--muted)}
+  .pv-btn{display:inline-block;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:600;border:0}
+  .pv-card{background:#fff;border:1px solid #ece7e1;border-radius:11px;padding:12px;margin-top:12px}
+  .pv-card h4{margin:0;font-size:13.5px}
+  .pv-card p{margin:4px 0 0;font-size:12px;color:#71717a}
+  .pv-tag{display:inline-block;font-size:11px;font-weight:600;border-radius:999px;padding:2px 9px;margin-top:9px}
+  .pv-input{margin-top:12px;width:100%;border:1px solid #e4ded7;border-radius:9px;padding:8px 10px;font:inherit;font-size:13px;background:#fff;color:#3f3f46}
+
+  /* 复制区 */
+  pre{margin:10px 0 0;background:#fdfcfb;border:1px solid var(--line);border-radius:10px;padding:12px;
+    font:11.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:#3f3f46;overflow:auto;max-height:190px;white-space:pre}
+  .copyrow{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .copyrow .btn{font-size:12px;padding:7px 11px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);background:#18181b;color:#fff;
+    font-size:12.5px;padding:8px 14px;border-radius:999px;opacity:0;pointer-events:none;transition:.22s;z-index:9}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.6}
+  footer{margin-top:26px;text-align:center;font-size:11.5px;color:#a1a1aa}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="mark" aria-hidden="true">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="1.9">
+        <circle cx="9.5" cy="12" r="6"/><circle cx="14.5" cy="12" r="6"/>
+      </svg>
+    </span>
+    <div>
+      <h1>配色与对比度</h1>
+      <p>选一个主色，生成整套色阶，并检查 WCAG 对比度是否达标</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <section class="card">
+        <div class="lbl">主色</div>
+        <div class="hero">
+          <div class="chip" id="chip" style="background:#d96a24">
+            <input type="color" id="pick" value="#d96a24" aria-label="选择主色">
+          </div>
+          <div class="hexwrap"><input id="hex" value="#d96a24" spellcheck="false" aria-label="十六进制色值"></div>
+          <button class="btn" id="rand" type="button">随机一个</button>
+        </div>
+        <div class="ramp" id="ramp" style="margin-top:16px"></div>
+        <p class="hint" id="rampHint">点任意色块复制色值；整套色阶按 OKLCH 明度均匀分布，不是简单加白加黑。</p>
+      </section>
+
+      <section class="card">
+        <div class="lbl">对比度检查</div>
+        <div class="ratios">
+          <div class="ratio">
+            <div class="prev" id="prevW" style="background:#fff;color:#d96a24">Aa</div>
+            <div>
+              <div class="num" id="ratioW">—<small>:1</small></div>
+              <div class="badges" id="badgeW"></div>
+            </div>
+          </div>
+          <div class="ratio">
+            <div class="prev" id="prevB" style="background:#18181b;color:#d96a24">Aa</div>
+            <div>
+              <div class="num" id="ratioB">—<small>:1</small></div>
+              <div class="badges" id="badgeB"></div>
+            </div>
+          </div>
+        </div>
+        <p class="hint" id="advice"></p>
+      </section>
+
+      <section class="card">
+        <div class="lbl">把色阶带走</div>
+        <pre id="out"></pre>
+        <div class="copyrow">
+          <button class="btn" data-copy="css" type="button">复制 CSS 变量</button>
+          <button class="btn" data-copy="tailwind" type="button">复制 Tailwind</button>
+          <button class="btn" data-copy="hex" type="button">复制当前色值</button>
+        </div>
+      </section>
+    </div>
+
+    <aside>
+      <section class="card">
+        <div class="lbl">实时预览</div>
+        <div class="pv">
+          <h3>按钮与卡片</h3>
+          <button class="pv-btn" id="pvBtn" type="button">主要按钮</button>
+          <div class="pv-card">
+            <h4>标题文字用色阶深处</h4>
+            <p>正文保持中性灰，只有强调元素用主色，视觉重心才稳。</p>
+            <span class="pv-tag" id="pvTag">推荐</span>
+          </div>
+          <input class="pv-input" placeholder="输入框边框用浅一级的色阶">
+        </div>
+      </section>
+      <section class="card">
+        <div class="lbl">怎么读这些数字</div>
+        <p class="hint" style="margin-top:0">
+          AA 正文要求 ≥ 4.5:1，大号文字 ≥ 3:1；AAA 更严格，正文需 ≥ 7:1。<br><br>
+          主色通常只做到「大号文字 / 图标 / 按钮底色」够用就行，正文别用太亮的色阶。
+        </p>
+      </section>
+    </aside>
+  </div>
+
+  <footer>SolHub 官方工具 · 全部计算在你本地完成</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------------- 颜色换算：sRGB ↔ OKLab / OKLCH ---------------- */
+  function hexToRgb(hex) {
+    var h = String(hex).replace("#", "").trim();
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+  function toHex(rgb) {
+    return "#" + rgb.map(function (v) {
+      var n = Math.max(0, Math.min(255, Math.round(v)));
+      return n.toString(16).padStart(2, "0");
+    }).join("");
+  }
+  function srgbToLin(c) { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+  function linToSrgb(c) { return 255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055); }
+
+  function rgbToOklab(rgb) {
+    var r = srgbToLin(rgb[0]), g = srgbToLin(rgb[1]), b = srgbToLin(rgb[2]);
+    var l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+    var m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+    var s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return [
+      0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+      1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+      0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
+    ];
+  }
+  function oklabToRgb(lab) {
+    var L = lab[0], a = lab[1], b = lab[2];
+    var l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    var m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    var s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+    var l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+    return [
+      linToSrgb(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+      linToSrgb(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+      linToSrgb(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s),
+    ];
+  }
+  function inGamut(rgb) {
+    return rgb.every(function (v) { return v >= -0.6 && v <= 255.6; });
+  }
+  /** OKLCH → hex，超出 sRGB 时逐步降彩度（保色相、保明度） */
+  function oklchToHex(L, C, H) {
+    var rad = (H * Math.PI) / 180;
+    for (var c = C; c >= 0; c -= 0.004) {
+      var rgb = oklabToRgb([L, c * Math.cos(rad), c * Math.sin(rad)]);
+      if (inGamut(rgb)) return toHex(rgb);
+    }
+    return toHex(oklabToRgb([L, 0, 0]));
+  }
+  function hexToOklch(hex) {
+    var lab = rgbToOklab(hexToRgb(hex));
+    var C = Math.sqrt(lab[1] * lab[1] + lab[2] * lab[2]);
+    var H = (Math.atan2(lab[2], lab[1]) * 180) / Math.PI;
+    if (H < 0) H += 360;
+    return { L: lab[0], C: C, H: H };
+  }
+
+  /* ---------------- 对比度 ---------------- */
+  function luminance(hex) {
+    var rgb = hexToRgb(hex);
+    return 0.2126 * srgbToLin(rgb[0]) + 0.7152 * srgbToLin(rgb[1]) + 0.0722 * srgbToLin(rgb[2]);
+  }
+  function contrast(a, b) {
+    var l1 = luminance(a), l2 = luminance(b);
+    var hi = Math.max(l1, l2), lo = Math.min(l1, l2);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  /* ---------------- 色阶 ---------------- */
+  var STEPS = [
+    { k: 50, L: 0.974, c: 0.10 },
+    { k: 100, L: 0.948, c: 0.20 },
+    { k: 200, L: 0.895, c: 0.40 },
+    { k: 300, L: 0.823, c: 0.62 },
+    { k: 400, L: 0.738, c: 0.82 },
+    { k: 500, L: 0.652, c: 0.94 },
+    { k: 600, L: 0.567, c: 1.00 },
+    { k: 700, L: 0.487, c: 0.95 },
+    { k: 800, L: 0.408, c: 0.85 },
+    { k: 900, L: 0.336, c: 0.72 },
+    { k: 950, L: 0.262, c: 0.60 },
+  ];
+
+  var state = { base: "#d96a24", ramp: [] };
+
+  function buildRamp(hex) {
+    var o = hexToOklch(hex);
+    /* 用户选的色如果很亮/很暗，整体把明度往中间拉一点，保证色阶有层次 */
+    var chromaScale = o.C < 0.02 ? 0 : Math.min(1.15, Math.max(0.55, o.C / 0.14));
+    return STEPS.map(function (s) {
+      return { k: s.k, hex: oklchToHex(s.L, Math.min(o.C * s.c, 0.34) * (chromaScale || 1), o.H) };
+    });
+  }
+
+  /** 正文 ≥4.5（AA）/ ≥7（AAA）；大字（18.66px 粗体或 24px 以上）≥3 / ≥4.5 */
+  function badges(ratio) {
+    var body = ratio >= 7 ? ["ok", "AAA 正文"] : ratio >= 4.5 ? ["ok", "AA 正文"] : ["no", "正文不达标"];
+    var big = ratio >= 4.5 ? ["ok", "AAA 大字"] : ratio >= 3 ? ["mid", "AA 大字"] : ["no", "大字不达标"];
+    return '<span class="badge ' + body[0] + '">' + body[1] + "</span>" +
+           '<span class="badge ' + big[0] + '">' + big[1] + "</span>";
+  }
+
+  function paint() {
+    var hex = state.base;
+    $("chip").style.background = hex;
+    $("pick").value = hex;
+    $("hex").value = hex;
+
+    state.ramp = buildRamp(hex);
+    var near = state.ramp.slice().sort(function (a, b) {
+      return Math.abs(a.k - 600) - Math.abs(b.k - 600);
+    })[0];
+
+    /* 色阶条 */
+    $("ramp").innerHTML = state.ramp.map(function (s) {
+      var isBase = s.hex.toLowerCase() === hex.toLowerCase();
+      return '<button class="step' + (isBase ? " is-base" : "") + '" type="button" data-hex="' + s.hex + '" title="点击复制 ' + s.hex + '">' +
+        '<span class="sw" style="background:' + s.hex + '"></span>' +
+        '<span class="tx"><b>' + s.k + "</b><code>" + s.hex.toUpperCase() + "</code></span></button>";
+    }).join("");
+
+    /* 对比度 */
+    var w = contrast(hex, "#ffffff"), b = contrast(hex, "#18181b");
+    $("prevW").style.color = hex;
+    $("prevB").style.color = hex;
+    $("ratioW").innerHTML = w.toFixed(2) + "<small>:1</small>";
+    $("ratioB").innerHTML = b.toFixed(2) + "<small>:1</small>";
+    $("badgeW").innerHTML = badges(w);
+    $("badgeB").innerHTML = badges(b);
+
+    var advice = "";
+    if (w < 4.5) {
+      var usable = state.ramp.filter(function (s) { return contrast(s.hex, "#ffffff") >= 4.5; });
+      var pick = usable.length ? usable[usable.length - 1] : near;
+      advice = "这个色在白底上做正文不够（" + w.toFixed(2) + ":1）。建议正文改用 " + pick.k + " 色阶 " + pick.hex.toUpperCase() + "，主色只用于按钮底或大号标题。";
+    } else if (w < 7) {
+      advice = "白底正文达到 AA（" + w.toFixed(2) + ":1），但未到 AAA；小字号长段落建议再深一档。";
+    } else {
+      advice = "白底正文已达 AAA（" + w.toFixed(2) + ":1），可以作为链接或正文强调色直接使用。";
+    }
+    $("advice").textContent = advice;
+
+    /* 预览用色 */
+    var mid = state.ramp.filter(function (s) { return s.k === 600; })[0] || near;
+    var deep = state.ramp.filter(function (s) { return s.k === 700; })[0] || mid;
+    var soft = state.ramp.filter(function (s) { return s.k === 100; })[0] || mid;
+    $("pvBtn").style.background = mid.hex;
+    $("pvBtn").style.color = contrast(mid.hex, "#ffffff") >= 4.5 ? "#fff" : "#18181b";
+    $("pvTag").style.background = soft.hex;
+    $("pvTag").style.color = deep.hex;
+    document.querySelector(".pv-card h4").style.color = deep.hex;
+
+    /* 输出片段 */
+    $("out").textContent = cssVars().trim();
+  }
+
+  function cssVars() {
+    var lines = state.ramp.map(function (s) { return "  --brand-" + s.k + ": " + s.hex + ";"; });
+    return ":root {\n" + lines.join("\n") + "\n}";
+  }
+  function tailwind() {
+    var body = state.ramp.map(function (s) { return "        " + s.k + ': "' + s.hex + '",'; }).join("\n");
+    return "// tailwind.config.js\ntheme: {\n  extend: {\n    colors: {\n      brand: {\n" + body + "\n      },\n    },\n  },\n}";
+  }
+
+  /* ---------------- 交互 ---------------- */
+  function setBase(hex) {
+    if (!hexToRgb(hex)) return;
+    state.base = hex.toLowerCase();
+    paint();
+  }
+
+  $("pick").addEventListener("input", function () { setBase(this.value); });
+  $("hex").addEventListener("input", function () {
+    var v = this.value.trim();
+    if (!v.startsWith("#")) v = "#" + v;
+    if (hexToRgb(v)) {
+      state.base = v.toLowerCase();
+      /* 只重画，不回写输入框，避免打断输入 */
+      var hexBackup = $("hex").value;
+      paint();
+      $("hex").value = hexBackup;
+    }
+  });
+  $("rand").addEventListener("click", function () {
+    var h = Math.floor(Math.random() * 360);
+    var l = 0.5 + Math.random() * 0.18;
+    var c = 0.08 + Math.random() * 0.12;
+    setBase(oklchToHex(l, c, h));
+  });
+  $("ramp").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-hex]");
+    if (!btn) return;
+    copy(btn.getAttribute("data-hex"));
+  });
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-copy]");
+    if (!btn) return;
+    var kind = btn.getAttribute("data-copy");
+    copy(kind === "css" ? cssVars() : kind === "tailwind" ? tailwind() : state.base);
+  });
+
+  var toastTimer = null;
+  function copy(text) {
+    var done = function () {
+      var t = $("toast");
+      t.textContent = "已复制 " + (text.length > 24 ? text.slice(0, 24) + "…" : text);
+      t.classList.add("on");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { t.classList.remove("on"); }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(text, done); });
+    } else {
+      fallback(text, done);
+    }
+  }
+  function fallback(text, done) {
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch (err) { /* 忽略 */ }
+    ta.remove();
+  }
+
+  paint();
+})();
+</script>
+</body>
+</html>
