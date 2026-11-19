@@ -18,8 +18,6 @@ interface Props {
   locale?: Locale;
 }
 
-const PAGE_SIZE = 8;
-
 interface CommunityItem {
   id: number;
   name: string;
@@ -79,7 +77,6 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
   const [category, setCategory] = useState<string>("all");
   const [sort, setSort] = useState<"ranked" | "newest">("ranked");
   const [query, setQuery] = useState("");
-  const [visible, setVisible] = useState(PAGE_SIZE);
   const urlSynced = useRef(false);
 
   /* 首页搜索条提交后带 ?q= 跳到这里：挂载后读一次，命中就把关键词填进搜索框。
@@ -87,10 +84,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const q = params.get("q");
-    if (q) {
-      setQuery(q);
-      setVisible(PAGE_SIZE);
-    }
+    if (q) setQuery(q);
   }, []);
 
   /* 关键词变化时写回地址栏，方便分享。首次渲染跳过，避免地址栏闪动。 */
@@ -162,7 +156,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     return [...prodRows, ...hostedRows];
   }, [filteredProducts, filteredHosted, sort, ranked]);
 
-  const shown = rows.slice(0, visible);
+  const shown = rows;
   const total = rows.length;
   const rankOf = (p: Product) => ranked.findIndex((r) => r.id === p.id) + 1;
 
@@ -178,10 +172,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
           </span>
           <button
             type="button"
-            onClick={() => {
-              setQuery("");
-              setVisible(PAGE_SIZE);
-            }}
+            onClick={() => setQuery("")}
             className="text-accent underline-offset-2 hover:underline"
           >
             {locale === "en" ? "Clear" : "清除关键词"}
@@ -241,10 +232,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
             <input
               type="search"
               value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setVisible(PAGE_SIZE);
-              }}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder={locale === "en" ? "Search by name, description or tag…" : "搜索名称、介绍或标签…"}
               className="input !pl-8"
               aria-label={locale === "en" ? "Search products" : "搜索产品"}
@@ -454,15 +442,6 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
           })}
         </ul>
       </div>
-
-      {/* 加载更多 */}
-      {visible < total && (
-        <div className="mt-6 text-center">
-          <button type="button" onClick={() => setVisible((v) => v + PAGE_SIZE)} className="btn btn-outline">
-            {locale === "en" ? `Load more (${total - visible})` : `加载更多（${total - visible}）`}
-          </button>
-        </div>
-      )}
 
       <p className="mt-4 text-center text-xs text-muted-foreground">
         {locale === "en"
