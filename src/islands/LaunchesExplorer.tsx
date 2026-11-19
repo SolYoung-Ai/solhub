@@ -473,9 +473,14 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
 
       <div className="mt-4 flex flex-col items-center gap-1.5">
         <p className="text-center text-xs text-muted-foreground">
-          {locale === "en"
-            ? `${total} listed · ${kindCounts.site} websites · ${kindCounts.tool} tools · verification reflects actual SolHub checks`
-            : `共 ${total} 个 · ${kindCounts.site} 个网站 · ${kindCounts.tool} 个工具 · 核验状态以 SolHub 实际核验为准`}
+          {/* 筛了某一类时先说当前结果，再给全站总数，避免「共 1 个 · 9 个网站」这种自相矛盾 */}
+          {kind === "all"
+            ? locale === "en"
+              ? `${total} listed · ${kindCounts.site} websites · ${kindCounts.tool} tools · verification reflects actual SolHub checks`
+              : `共 ${total} 个 · ${kindCounts.site} 个网站 · ${kindCounts.tool} 个工具 · 核验状态以 SolHub 实际核验为准`
+            : locale === "en"
+              ? `${total} ${kind === "site" ? "websites" : "tools"} · ${kindCounts.all} in total · verification reflects actual SolHub checks`
+              : `共 ${total} 个${kind === "site" ? "网站" : "工具"} · 全站共 ${kindCounts.all} 个 · 核验状态以 SolHub 实际核验为准`}
         </p>
         <a
           href={p("/submit/?type=hosted", locale)}
