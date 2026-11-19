@@ -1275,8 +1275,40 @@ function mergeProducts(communityProducts, claimedSlugs, index) {
   return out;
 }
 
-/** 认领列表（容错：非数组或脏值一律忽略） */
-function claimedSlugsOf(user) {
+/**
+ * 托管工具 → 主页作品卡。
+ * 上传即上线，所以也计入「作品」：href 是站内链接（前端按 locale 本地化），
+ * 不走 ensureHttps；网站类作品的 websiteUrl 仍是外链。
+ */
+function hostedCard(t, imgBase) {
+  const href = `/tools/?id=${t.id}`;
+  return {
+    slug: `tool-${t.id}`,
+    name: t.name,
+    shortDescription: t.description || "",
+    icon: t.hasLogo ? `${imgBase}/hosted/logo/${t.id}` : "",
+    websiteUrl: href,
+    href,
+    kind: "tool",
+    category: t.category || "productivity",
+    tags: Array.isArray(t.tags) ? t.tags.slice(0, 6) : [],
+    verificationStatus: "pending",
+    publishedAt: t.createdAt || "",
+  };
+}
+
+/**
+ * 某个 PID 名下的托管工具（按公开目录索引聚合，不额外读库）。
+ * 索引只带 ownerPid，没有邮箱，可以直接用于公开主页。
+ */
+function hostedCardsOf(index, pid, imgBase) {
+  if (!pid) return [];
+  return index
+    .filter((t) => t && t.id && !t.hidden && t.ownerPid && t.ownerPid === pid)
+    .map((t) => hostedCard(t, imgBase));
+}
+
+/** 认领列表（容错：非数组或脏值一律忽略） */function claimedSlugsOf(user) {
   if (!user || !Array.isArray(user.productSlugs)) return [];
   return user.productSlugs.filter((s) => typeof s === "string" && s.length < 80).slice(0, 50);
 }
@@ -1830,11 +1862,12 @@ async function readQuotes(env) {
 
 /** 全量构建一次名录（含封禁过滤）。只在缓存过期时执行。 */
 async function buildCreatorsList(env, imgBase) {
-  const [emailKeys, ghKeys, community, index] = await Promise.all([
+  const [emailKeys, ghKeys, community, index, hostedIndex] = await Promise.all([
     listKeys(env, "user:", CREATORS_SCAN),
     listKeys(env, "profile:", 500),
     readCommunity(env),
     readProductIndex(env),
+    hostedIndexRead(env),
   ]);
   const raws = await kvGetMany(env, [...emailKeys, ...ghKeys]);
   const all = [];
@@ -1852,6 +1885,8 @@ async function buildCreatorsList(env, imgBase) {
     seen.add(login);
     const name = u.displayName || login;
     const products = mergeProducts(productsOf(community, login), allClaimedSlugs(index, login, u), index);
+    /* 托管工具也算作品，否则官方号（只有工具）在名录里显示 0 件、沉到最底 */
+    const toolCount = hostedCardsOf(hostedIndex, login, imgBase).length;
     all.push({
       login,
       name,
@@ -1862,7 +1897,7 @@ async function buildCreatorsList(env, imgBase) {
       location: u.location || "",
       joinedAt: u.createdAt || "",
       verified: !!u.verified,
-      productCount: products.length,
+      productCount: products.length + toolCount,
     });
   });
 
@@ -1914,6 +1949,9 @@ function hostedMeta(rec) {
     /* 官方工具：署名 + 是否有图标（列表按需拼 /hosted/logo/<id>，不塞 base64） */
     author: rec.author || "",
     hasLogo: !!rec.logo,
+    /* 归属用 PID（公开标识）而不是 owner（邮箱登录名）：主页要按人聚合作品 */
+    ownerPid: rec.ownerPid || "",
+    ownerType: rec.ownerType || "user",
   };
 }
 
@@ -2719,6 +2757,9 @@ export default {
         tags,
         websiteUrl,
         owner: identity.login,
+        /* 公开归属标识：邮箱账号记 handle，GitHub 账号记用户名 —— 主页按它聚合作品，
+           因此索引里可以带 ownerPid，但绝不会带邮箱本身。 */
+        ownerPid: await pidOf(env, identity.login),
         ownerType: identity.type,
         createdAt: (prev && prev.createdAt) || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -2739,7 +2780,8 @@ export default {
       /* 公开目录索引：产品页「在线工具」直接读它，避免遍历 kv。
          只放元信息，且**不含 owner**（邮箱登录名不能出现在公开列表里）。 */
       await hostedIndexAdd(env, rec);
-      /* 通知管理员（尽力而为，失败不影响提交） */
+      /* 创作者名录 60 秒实例缓存里存着作品数，新工具上线要立刻反映 */
+      dropCreatorsCache();
       const notifyTo = admin ? "" : env.HOSTED_NOTIFY_EMAIL || "";
       if (notifyTo) {
         try {
@@ -2840,6 +2882,31 @@ export default {
       }
     }
 
+    /* 重建托管目录索引（管理员）：POST /admin/hosted/reindex
+       用途：早期索引条目没有 ownerPid（主页/名录按人聚合作品需要），这里按
+       hosted:tool:<id> 里的 owner 重新算一遍 PID 并整体重写索引。幂等，可反复跑。 */
+    if (url.pathname === "/admin/hosted/reindex" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      if (!adminKeyOk(request, env)) return json(request, { error: "需要管理口令", needKey: true }, 401);
+      const list = await hostedIndexRead(env);
+      const next = [];
+      let fixed = 0;
+      for (const t of list) {
+        if (!t || !t.id) continue;
+        const rec = await kvGetJSON(env, `hosted:tool:${t.id}`, null);
+        if (!rec) continue; /* 索引里残留但记录已删 → 顺手清掉 */
+        if (!rec.ownerPid && rec.owner) {
+          rec.ownerPid = await pidOf(env, rec.owner);
+          await kvPutJSON(env, `hosted:tool:${rec.id}`, rec);
+          fixed++;
+        }
+        next.push(hostedMeta(rec));
+      }
+      await kvPutJSON(env, HOSTED_INDEX_KEY, next.slice(0, HOSTED_INDEX_MAX));
+      dropCreatorsCache();
+      return json(request, { ok: true, total: next.length, fixed });
+    }
+
     /* 单个托管工具的元信息：GET /hosted/meta/<id>
        详情页 /tools/?id= 用。只回元信息，**不含 html 与邮箱登录名**：
        owner 只有在 GitHub 登录时（ownerType==="github"）才作为 handle 公开，
@@ -2907,6 +2974,7 @@ export default {
         const mine = ((await kvGetJSON(env, listKey, [])) || []).filter((t) => t.id !== m[1]);
         await kvPutJSON(env, listKey, mine);
         await hostedIndexRemove(env, m[1]);
+        dropCreatorsCache();
         return json(request, { ok: true });
       }
     }
@@ -3766,7 +3834,7 @@ export default {
       }
 
       if (action === "") {
-        const [followers, following, postIds, myFollowing, community, user, index, ban] = await Promise.all([
+        const [followers, following, postIds, myFollowing, community, user, index, ban, hostedIndex] = await Promise.all([
           kvGetJSON(env, `followers:${targetSid}`, []),
           kvGetJSON(env, `following:${targetSid}`, []),
           kvGetJSON(env, `feed:user:${targetSid}`, []),
@@ -3775,13 +3843,16 @@ export default {
           kvGetJSON(env, `user:${targetSid}`, null, true),
           readProductIndex(env),
           banOf(env, targetSid),
+          /* 有作品的人不多，索引只读一次；工具由 ownerPid 归户，和产品一起算「作品」 */
+          hostedIndexRead(env),
         ]);
         const author = await publicUser(env, targetPid);
         const page = await feedPage(env, postIds, viewer, 20, imgBase, 0);
         const posts = page.posts;
         const mine = mergeProducts(productsOf(community, targetPid), allClaimedSlugs(index, targetPid, user), index);
         const overrides = await readProductOverrides(env, mine.map((p) => p.slug));
-        const products = mine.map((p) => applyOverride(p, overrides));
+        /* 作品 = 收录/认领的产品 + 上传的托管工具（官网作品数也是这个口径） */
+        const products = [...mine.map((p) => applyOverride(p, overrides)), ...hostedCardsOf(hostedIndex, targetPid, imgBase)];
         return json(request, {
           user: {
             ...author,

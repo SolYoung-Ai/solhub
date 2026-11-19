@@ -23,13 +23,17 @@ export function isOfficial(login: string | undefined | null): boolean {
   return v === OFFICIAL_LOGIN || v === OFFICIAL_LEGACY;
 }
 
-/** 用户主页里展示的作品卡片（来自社区收录数据） */
+/** 用户主页里展示的作品卡片（社区收录产品 + 自己上传的托管工具） */
 export interface WorldProduct {
   slug: string;
   name: string;
   shortDescription: string;
   icon?: string;
   websiteUrl: string;
+  /** 站内链接（托管工具给 /tools/?id=），有值时优先，按 locale 本地化 */
+  href?: string;
+  /** tool = 站内托管工具，product 是收录的网站 */
+  kind?: "product" | "tool";
   category: string;
   tags: string[];
   verificationStatus: "verified" | "pending" | "unverified";

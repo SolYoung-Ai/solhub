@@ -492,35 +492,51 @@ export default function Creators({
                 <ul
                   className={`p-4 ${profile.products.length >= 3 ? "grid gap-3 @min-[600px]:grid-cols-2" : "space-y-3"}`}
                 >
-                  {profile.products.map((prod) => (
-                    <li key={prod.slug} className="min-w-0">
-                      <a
-                        href={ensureHttps(prod.websiteUrl)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex h-full min-w-0 items-start gap-3 rounded-[14px] border border-border bg-secondary/20 p-3.5 transition-colors hover:border-accent/40 hover:bg-secondary/35"
-                      >
-                        <ProductIcon name={prod.name} src={prod.icon} />
-                        <div className="min-w-0 flex-1">
-                          <p className="flex items-center gap-1.5 text-[14px] font-bold text-foreground">
-                            <span className="truncate">{prod.name}</span>
-                            {prod.verificationStatus === "verified" && (
-                              <VerifiedBadge label={en ? "Verified" : "已核验"} className="mt-0.5 shrink-0" />
-                            )}
-                          </p>
-                          <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-5 text-muted-foreground">
-                            {prod.shortDescription}
-                          </p>
-                          {prod.tags.length > 0 && (
-                            <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                              {prod.tags.map((t) => `#${t}`).join(" ")}
+                  {profile.products.map((prod) => {
+                    /* 托管工具是站内页面（/tools/?id=），其余是收录网站的外链：
+                       站内链要按 locale 本地化、同标签打开；外链仍走新窗口。 */
+                    const inner = prod.href ? p(prod.href, en ? "en" : "zh") : "";
+                    const href = inner || ensureHttps(prod.websiteUrl);
+                    return (
+                      <li key={prod.slug} className="min-w-0">
+                        <a
+                          href={href}
+                          {...(inner
+                            ? {}
+                            : { target: "_blank", rel: "noopener noreferrer" })}
+                          className="flex h-full min-w-0 items-start gap-3 rounded-[14px] border border-border bg-secondary/20 p-3.5 transition-colors hover:border-accent/40 hover:bg-secondary/35"
+                        >
+                          <ProductIcon name={prod.name} src={prod.icon} />
+                          <div className="min-w-0 flex-1">
+                            <p className="flex items-center gap-1.5 text-[14px] font-bold text-foreground">
+                              <span className="truncate">{prod.name}</span>
+                              {prod.kind === "tool" && (
+                                <span className="shrink-0 rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+                                  {en ? "Tool" : "工具"}
+                                </span>
+                              )}
+                              {prod.verificationStatus === "verified" && (
+                                <VerifiedBadge label={en ? "Verified" : "已核验"} className="mt-0.5 shrink-0" />
+                              )}
                             </p>
+                            <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-5 text-muted-foreground">
+                              {prod.shortDescription}
+                            </p>
+                            {prod.tags.length > 0 && (
+                              <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                                {prod.tags.map((t) => `#${t}`).join(" ")}
+                              </p>
+                            )}
+                          </div>
+                          {inner ? (
+                            <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-hidden="true" />
+                          ) : (
+                            <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-hidden="true" />
                           )}
-                        </div>
-                        <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-hidden="true" />
-                      </a>
-                    </li>
-                  ))}
+                        </a>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>
