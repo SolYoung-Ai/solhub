@@ -258,20 +258,30 @@
     }
   }
 
-  /* 还没选图时不要给一个大色块，看起来像已经生成了；改成浅灰形状 + 提示 */
+  /* 还没选图时不要先画一块底色（看着像已经生成了）；画浅灰形状 + 虚线边 + 提示 */
   function draw() {
+    if (!state.img) {
+      ctx.clearRect(0, 0, N, N);
+      ctx.save();
+      ctx.fillStyle = "#e9e4dd";
+      pathFor(ctx, state.shape, state.inset, N);
+      ctx.fill();
+      ctx.setLineDash([18, 14]);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#c9c1b6";
+      ctx.stroke();
+      ctx.restore();
+      ctx.save();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#8b8b93";
+      ctx.font = "500 44px -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("拖入图片", N / 2, N / 2);
+      ctx.restore();
+      return;
+    }
     render(N, ctx);
-    if (state.img) return;
-    ctx.save();
-    ctx.fillStyle = "rgba(24,24,27,.07)";
-    pathFor(ctx, state.shape, state.inset, N);
-    ctx.fill();
-    ctx.fillStyle = "#8b8b93";
-    ctx.font = "500 40px -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("拖入图片", N / 2, N / 2);
-    ctx.restore();
   }
 
   /* ---------- 控件 ---------- */
