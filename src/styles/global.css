@@ -140,6 +140,23 @@ html.dark {
   }
 }
 
+/* ---------- 全屏工具运行页（/tools/play/） ---------- */
+/* 布局带 bare：内容列不留页脚、不留底部呼吸位，运行区自己按视口算高度。
+   手机要扣掉 52px 顶栏与 82px 悬浮底栏，否则工具底部会被底栏盖住。 */
+.app-content-bare { padding-bottom: 0; }
+.tool-stage {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+@media (max-width: 1023px) {
+  .tool-stage {
+    height: calc(100dvh - 52px - 82px - env(safe-area-inset-bottom, 0px));
+    flex: 0 0 auto;
+  }
+}
+
 /* 搜索浮层挂在 fixed 容器里、按视口定位，吃不到 body 的水平安全区 padding，
    所以左右内边距要自己把刘海让开（竖屏 env() 为 0，等价于原来的 px-4）。 */
 .app-search-layer {

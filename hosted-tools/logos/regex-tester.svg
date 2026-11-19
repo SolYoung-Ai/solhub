@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="正则测试器">
+  <rect width="512" height="512" rx="112" fill="#fbf7f2"/>
+  <rect x="1" y="1" width="510" height="510" rx="111" fill="none" stroke="#e8e4de" stroke-width="2"/>
+  <g fill="none" stroke="#18181b" stroke-width="22" stroke-linecap="round">
+    <path d="M188 176l-52 80 52 80"/>
+    <path d="M324 176l52 80-52 80"/>
+  </g>
+  <circle cx="256" cy="186" r="14" fill="#d96a24"/>
+  <rect x="212" y="292" width="88" height="16" rx="8" fill="#d96a24"/>
+</svg>

@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>编解码工具箱 · SolHub</title>
+<style>
+  :root{
+    --bg:#f7f5f2; --card:#fff; --ink:#18181b; --muted:#71717a; --line:#e8e4de;
+    --soft:#f1ede8; --accent:#d96a24; --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);color-scheme:light;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 56px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .mark{width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgb(24 24 27/.06)}
+  h1{font-size:19px;line-height:1.2;margin:0;letter-spacing:-.01em}
+  header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+  .card + .card{margin-top:14px}
+  .lbl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-bottom:8px}
+  .tabs{display:flex;gap:4px;background:var(--soft);border-radius:11px;padding:4px;flex-wrap:wrap}
+  .tabs button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);
+    padding:7px 12px;border-radius:8px;cursor:pointer;transition:.15s}
+  .tabs button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgb(24 24 27/.1)}
+  .panel{display:none}
+  .panel.on{display:block}
+  .btn{font:inherit;font-size:12.5px;font-weight:600;border-radius:9px;padding:7px 11px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s}
+  .btn:hover{background:#faf8f6}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(.95)}
+  .btn.mini{font-size:11.5px;padding:4px 8px}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+  textarea{width:100%;resize:vertical;border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;background:#fdfcfb;color:var(--ink);outline:none;
+    font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;height:140px}
+  textarea:focus{border-color:#d3cbc1;background:#fff}
+  .out{white-space:pre-wrap;word-break:break-all;border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;background:#fdfcfb;font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    min-height:140px;max-height:260px;overflow:auto;color:#3f3f46}
+  .err{border-color:#f0b4b4;background:#fffafa !important;color:#b91c1c}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:760px){ .two{grid-template-columns:1fr} }
+  .hash{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #f0ece7}
+  .hash:last-child{border-bottom:0}
+  .hash .k{font-size:11.5px;font-weight:700;color:var(--muted);width:58px;flex:0 0 auto;padding-top:2px}
+  .hash .v{flex:1 1 auto;min-width:0;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
+    color:#3f3f46;word-break:break-all}
+  .jwtpart{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:#fdfcfb}
+  .jwtpart h4{margin:0 0 6px;font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.03em}
+  .jwtpart pre{margin:0;font:12px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;
+    word-break:break-all;color:#3f3f46}
+  .claim{display:flex;gap:8px;font-size:11.5px;color:var(--muted);padding:2px 0}
+  .claim b{color:#b45309;font-weight:600;min-width:36px}
+  .warn{font-size:12px;color:#b45309;background:#fff7ed;border:1px solid #f5dfb8;border-radius:8px;
+    padding:8px 10px;margin-top:10px;line-height:1.6}
+  .note{font-size:11.5px;color:#a1a1aa;line-height:1.6;margin:8px 0 0}
+  footer{margin-top:26px;text-align:center;font-size:11.5px;color:#a1a1aa}
+  @media (max-width:520px){ .wrap{padding:20px 14px 48px} .card{padding:13px} textarea{height:120px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 7H7a5 5 0 0 0 0 10h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><path d="M8.5 12h7"/>
+      </svg>
+    </div>
+    <div>
+      <h1>编解码工具箱</h1>
+      <p>Base64、URL 编解码、SHA 哈希与 JWT 解码，四个常用操作放在一页，纯本地计算。</p>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="tabs" id="tabs">
+      <button type="button" data-v="b64" class="on">Base64</button>
+      <button type="button" data-v="url">URL 编码</button>
+      <button type="button" data-v="hash">SHA 哈希</button>
+      <button type="button" data-v="jwt">JWT 解码</button>
+    </div>
+  </div>
+
+  <!-- Base64 -->
+  <section class="card panel on" id="p-b64">
+    <div class="row">
+      <button class="btn primary" data-act="b64-enc" type="button">编码 →</button>
+      <button class="btn" data-act="b64-dec" type="button">← 解码</button>
+      <span style="flex:1"></span>
+      <button class="btn mini" data-copy="#b64out" type="button">复制结果</button>
+    </div>
+    <div class="two">
+      <div>
+        <div class="lbl">原文（支持中文 / Emoji）</div>
+        <textarea id="b64in" spellcheck="false" placeholder="输入要编码的文字"></textarea>
+      </div>
+      <div>
+        <div class="lbl">结果</div>
+        <div class="out" id="b64out"></div>
+      </div>
+    </div>
+    <p class="note">解码时自动去掉换行与空格；标准与 URL-safe（-_）两种字母表都能识别。</p>
+  </section>
+
+  <!-- URL -->
+  <section class="card panel" id="p-url">
+    <div class="row">
+      <button class="btn primary" data-act="url-enc" type="button">编码 →</button>
+      <button class="btn" data-act="url-dec" type="button">← 解码</button>
+      <span style="flex:1"></span>
+      <button class="btn mini" data-copy="#urlout" type="button">复制结果</button>
+    </div>
+    <div class="two">
+      <div>
+        <div class="lbl">原文 / 编码串</div>
+        <textarea id="urlin" spellcheck="false" placeholder="例如 https://solhub.solyoung.top/?q=在线工具"></textarea>
+      </div>
+      <div>
+        <div class="lbl">结果</div>
+        <div class="out" id="urlout"></div>
+      </div>
+    </div>
+    <p class="note">使用 encodeURIComponent 语义：适合处理查询参数值，不会破坏 <code>? &amp; =</code> 的结构。</p>
+  </section>
+
+  <!-- Hash -->
+  <section class="card panel" id="p-hash">
+    <div class="lbl">要计算的内容</div>
+    <textarea id="hashin" spellcheck="false" placeholder="输入文本，实时计算四种哈希">SolHub</textarea>
+    <div style="margin-top:12px" id="hashOut"></div>
+    <p class="note">基于浏览器内置 WebCrypto，输入内容不会离开本机。哈希不可逆，不能用来「解密」。</p>
+  </section>
+
+  <!-- JWT -->
+  <section class="card panel" id="p-jwt">
+    <div class="lbl">粘贴 JWT（三段用点分隔）</div>
+    <textarea id="jwtin" spellcheck="false" style="height:100px" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xxxxx.yyyyy"></textarea>
+    <div style="margin-top:12px" id="jwtOut"></div>
+    <div class="warn">这里只做本地解码，不验证签名 —— 打印出来的内容不代表令牌可信。不要把生产环境的 Token 贴到不可信的网站。</div>
+  </section>
+
+  <footer>SolHub 官方工具 · 所有处理都在你的浏览器内完成</footer>
+</div>
+
+<script>
+(function () {
+  /* ---------- tab 切换 ---------- */
+  document.getElementById("tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    this.querySelectorAll("button").forEach(function (x) { x.classList.remove("on"); });
+    b.classList.add("on");
+    document.querySelectorAll(".panel").forEach(function (p) {
+      p.classList.toggle("on", p.id === "p-" + b.dataset.v);
+    });
+  });
+
+  function copyFrom(sel) {
+    var text = (document.querySelector(sel) || {}).textContent || "";
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+  }
+
+  document.addEventListener("click", function (e) {
+    var c = e.target.closest("[data-copy]");
+    if (!c) return;
+    copyFrom(c.dataset.copy);
+    var old = c.textContent;
+    c.textContent = "已复制";
+    setTimeout(function () { c.textContent = old; }, 1200);
+  });
+
+  /* ---------- Base64 ---------- */
+  var b64in = document.getElementById("b64in");
+  var b64out = document.getElementById("b64out");
+
+  function b64encode(str) {
+    var bytes = new TextEncoder().encode(str);
+    var bin = "";
+    bytes.forEach(function (b) { bin += String.fromCharCode(b); });
+    return btoa(bin);
+  }
+  function b64decode(str) {
+    var clean = str.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+    while (clean.length % 4) clean += "=";
+    var bin = atob(clean);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  }
+
+  b64in.addEventListener("input", function () { b64out.classList.remove("err"); });
+  b64out.classList.remove("err");
+
+  /* ---------- URL ---------- */
+  var urlin = document.getElementById("urlin");
+  var urlout = document.getElementById("urlout");
+
+  /* ---------- 动作分发 ---------- */
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-act]");
+    if (!b) return;
+    var act = b.dataset.act;
+    try {
+      if (act === "b64-enc") { b64out.classList.remove("err"); b64out.textContent = b64encode(b64in.value); }
+      if (act === "b64-dec") { b64out.classList.remove("err"); b64out.textContent = b64decode(b64in.value); }
+      if (act === "url-enc") { urlout.classList.remove("err"); urlout.textContent = encodeURIComponent(urlin.value); }
+      if (act === "url-dec") { urlout.classList.remove("err"); urlout.textContent = decodeURIComponent(urlin.value); }
+    } catch (err) {
+      var target = act.indexOf("b64") === 0 ? b64out : urlout;
+      target.classList.add("err");
+      target.textContent = "无法处理：" + err.message;
+    }
+  });
+
+  /* ---------- 哈希 ---------- */
+  var hashin = document.getElementById("hashin");
+  var hashOut = document.getElementById("hashOut");
+  var ALGS = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
+  var lastHash = 0;
+
+  async function computeHashes() {
+    var stamp = ++lastHash;
+    var text = hashin.value;
+    var bytes = new TextEncoder().encode(text);
+    var rows = [];
+    for (var i = 0; i < ALGS.length; i++) {
+      try {
+        var buf = await crypto.subtle.digest(ALGS[i], bytes);
+        var hex = Array.prototype.map.call(new Uint8Array(buf), function (b) {
+          return b.toString(16).padStart(2, "0");
+        }).join("");
+        rows.push({ k: ALGS[i], v: hex });
+      } catch (e) {
+        rows.push({ k: ALGS[i], v: "当前环境不支持（需要 HTTPS）" });
+      }
+    }
+    if (stamp !== lastHash) return;
+    hashOut.innerHTML = rows.map(function (r) {
+      return '<div class="hash"><span class="k">' + r.k + '</span><span class="v">' + r.v + '</span></div>';
+    }).join("");
+  }
+
+  var ht = null;
+  hashin.addEventListener("input", function () {
+    clearTimeout(ht);
+    ht = setTimeout(computeHashes, 180);
+  });
+  computeHashes();
+
+  /* ---------- JWT ---------- */
+  var jwtin = document.getElementById("jwtin");
+  var jwtOut = document.getElementById("jwtOut");
+
+  function b64urlDecode(s) {
+    var clean = s.replace(/-/g, "+").replace(/_/g, "/");
+    while (clean.length % 4) clean += "=";
+    var bin = atob(clean);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  }
+
+  function fmtTime(sec) {
+    var d = new Date(sec * 1000);
+    return d.toLocaleString("zh-CN", { hour12: false }) + "（" + rel(sec * 1000) + "）";
+  }
+  function rel(ms) {
+    var diff = Date.now() - ms;
+    var abs = Math.abs(diff);
+    var units = [[31536000000, "年"], [2592000000, "个月"], [86400000, "天"], [3600000, "小时"], [60000, "分钟"]];
+    for (var i = 0; i < units.length; i++) {
+      if (abs >= units[i][0]) {
+        var n = Math.floor(abs / units[i][0]);
+        return diff >= 0 ? n + " " + units[i][1] + "前" : n + " " + units[i][1] + "后";
+      }
+    }
+    return diff >= 0 ? "刚刚" : "即将";
+  }
+
+  function decodeJwt() {
+    var raw = jwtin.value.trim();
+    jwtOut.innerHTML = "";
+    if (!raw) return;
+    var parts = raw.split(".");
+    if (parts.length < 2) {
+      jwtOut.innerHTML = '<p class="note" style="color:#b91c1c">不是有效的 JWT：至少需要两段（header.payload）。</p>';
+      return;
+    }
+    var header, payload;
+    try {
+      header = JSON.parse(b64urlDecode(parts[0]));
+    } catch (e) {
+      jwtOut.innerHTML = '<p class="note" style="color:#b91c1c">Header 解码失败：' + e.message + "</p>";
+      return;
+    }
+    try {
+      payload = JSON.parse(b64urlDecode(parts[1]));
+    } catch (e2) {
+      payload = null;
+    }
+
+    var html = '<div class="jwtpart"><h4>HEADER</h4><pre>' + esc(JSON.stringify(header, null, 2)) + "</pre></div>";
+
+    if (payload) {
+      html += '<div class="jwtpart"><h4>PAYLOAD</h4><pre>' + esc(JSON.stringify(payload, null, 2)) + "</pre>";
+      var claims = [];
+      if (payload.exp) claims.push('<div class="claim"><b>exp</b>' + fmtTime(payload.exp) +
+        (payload.exp * 1000 < Date.now() ? " · <span style='color:#b91c1c'>已过期</span>" : "") + "</div>");
+      if (payload.iat) claims.push('<div class="claim"><b>iat</b>' + fmtTime(payload.iat) + "</div>");
+      if (payload.nbf) claims.push('<div class="claim"><b>nbf</b>' + fmtTime(payload.nbf) + "</div>");
+      if (claims.length) html += claims.join("");
+      html += "</div>";
+    } else {
+      html += '<div class="jwtpart"><h4>PAYLOAD</h4><pre>无法解析为 JSON</pre></div>';
+    }
+
+    html += '<div class="jwtpart"><h4>SIGNATURE</h4><pre>' + esc(parts[2] || "(无)") +
+      "\n\n" + (header.alg || "?") + " · 本工具不验证签名</pre></div>";
+    jwtOut.innerHTML = html;
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  var jt = null;
+  jwtin.addEventListener("input", function () {
+    clearTimeout(jt);
+    jt = setTimeout(decodeJwt, 200);
+  });
+})();
+</script>
+</body>
+</html>

@@ -24,6 +24,8 @@ interface Props {
    *  不输出 hreflang=en、隐藏语言切换、且语言偏好跳转时跳过它，
    *  否则英文用户会被送去一个 404 地址。 */
   noEn?: boolean;
+  /** 满屏工具容器（/tools/play/）：不要页脚、不留底部空白，内容区自己撑满视口 */
+  bare?: boolean;
 }
 
 const {
@@ -34,6 +36,7 @@ const {
   noIndex = false,
   locale = "zh",
   noEn = false,
+  bare = false,
 } = Astro.props;
 
 const dict = getDict(locale);
@@ -202,12 +205,12 @@ const orgJsonLd = {
         若整体一直是 flex，移动顶栏会成为第一个 flex item 而被挤成窄条。 */}
     <div class="app-shell">
       <HeaderApp client:load currentRoute={currentRoute} searchIndex={searchIndex} locale={locale} noEn={noEn} />
-      <div class="app-content">
-        <main class="flex-1">
+      <div class={bare ? "app-content app-content-bare" : "app-content"}>
+        <main class={bare ? "flex min-h-0 flex-1 flex-col" : "flex-1"}>
           <slot />
         </main>
         {/* Footer 收进内容列：否则会横跨到侧栏下方，和内容列错位 */}
-        <Footer locale={locale} />
+        {!bare && <Footer locale={locale} />}
       </div>
     </div>
   </body>

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>文本工具箱 · SolHub</title>
+<style>
+  :root{
+    --bg:#f7f5f2; --card:#fff; --ink:#18181b; --muted:#71717a; --line:#e8e4de;
+    --soft:#f1ede8; --accent:#d96a24; --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);color-scheme:light;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 20px 56px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .mark{width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgb(24 24 27/.06)}
+  h1{font-size:19px;line-height:1.2;margin:0;letter-spacing:-.01em}
+  header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+  .card + .card{margin-top:14px}
+  .lbl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-bottom:8px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px}
+  .stat{background:#fdfcfb;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .stat b{display:block;font:600 17px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.01em}
+  .stat span{font-size:11px;color:var(--muted)}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:820px){ .cols{grid-template-columns:1fr} }
+  textarea{width:100%;height:300px;resize:vertical;border:1px solid var(--line);border-radius:10px;
+    padding:11px 12px;background:#fdfcfb;color:var(--ink);outline:none;
+    font:13px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  textarea:focus{border-color:#d3cbc1;background:#fff}
+  .btn{font:inherit;font-size:12px;font-weight:600;border-radius:8px;padding:6px 10px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s}
+  .btn:hover{background:#faf8f6;border-color:#d8d2ca}
+  .btn.mini{font-size:11.5px;padding:4px 8px}
+  .groups{display:flex;flex-direction:column;gap:10px}
+  .group{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .group .gt{font-size:11px;font-weight:700;color:#a1a1aa;letter-spacing:.04em;
+    min-width:56px;text-transform:uppercase}
+  .note{font-size:11.5px;color:#a1a1aa;line-height:1.6;margin:8px 0 0}
+  footer{margin-top:26px;text-align:center;font-size:11.5px;color:#a1a1aa}
+  @media (max-width:520px){ .wrap{padding:20px 14px 48px} .card{padding:13px} textarea{height:200px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="1.7" stroke-linecap="round">
+        <path d="M5 6h14"/><path d="M5 12h9"/><path d="M5 18h5"/>
+        <circle cx="18" cy="17" r="2.4" stroke="#d96a24"/>
+      </svg>
+    </div>
+    <div>
+      <h1>文本工具箱</h1>
+      <p>字数统计、命名风格转换、去重排序去空行，一次性处理。适合改文案、整理名单、批量命名。</p>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="stats">
+      <div class="stat"><b id="s-char">0</b><span>字符（含空格）</span></div>
+      <div class="stat"><b id="s-nospace">0</b><span>字符（不含空格）</span></div>
+      <div class="stat"><b id="s-cn">0</b><span>中文字数</span></div>
+      <div class="stat"><b id="s-word">0</b><span>英文单词</span></div>
+      <div class="stat"><b id="s-line">0</b><span>行数</span></div>
+      <div class="stat"><b id="s-byte">0</b><span>字节（UTF-8）</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="cols">
+      <div>
+        <div class="lbl" style="display:flex;justify-content:space-between">
+          <span>输入</span>
+          <button class="btn mini" id="clear" type="button">清空</button>
+        </div>
+        <textarea id="input" spellcheck="false" placeholder="粘贴文本…"></textarea>
+      </div>
+      <div>
+        <div class="lbl" style="display:flex;justify-content:space-between">
+          <span>结果</span>
+          <span style="display:flex;gap:6px">
+            <button class="btn mini" id="useIt" type="button">回填到输入</button>
+            <button class="btn mini" id="copy" type="button">复制</button>
+          </span>
+        </div>
+        <textarea id="output" spellcheck="false" readonly placeholder="点上面的按钮生成结果"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="groups">
+      <div class="group">
+        <span class="gt">大小写</span>
+        <button class="btn" data-act="upper" type="button">全部大写</button>
+        <button class="btn" data-act="lower" type="button">全部小写</button>
+        <button class="btn" data-act="title" type="button">首字母大写</button>
+        <button class="btn" data-act="sentence" type="button">句首大写</button>
+      </div>
+      <div class="group">
+        <span class="gt">命名</span>
+        <button class="btn" data-act="camel" type="button">camelCase</button>
+        <button class="btn" data-act="pascal" type="button">PascalCase</button>
+        <button class="btn" data-act="snake" type="button">snake_case</button>
+        <button class="btn" data-act="kebab" type="button">kebab-case</button>
+        <button class="btn" data-act="constant" type="button">CONSTANT_CASE</button>
+      </div>
+      <div class="group">
+        <span class="gt">行处理</span>
+        <button class="btn" data-act="trim" type="button">去首尾空格</button>
+        <button class="btn" data-act="noblank" type="button">去空行</button>
+        <button class="btn" data-act="dedupe" type="button">去重（保序）</button>
+        <button class="btn" data-act="sort" type="button">升序排列</button>
+        <button class="btn" data-act="sortdesc" type="button">降序排列</button>
+        <button class="btn" data-act="reverse" type="button">反转行序</button>
+        <button class="btn" data-act="number" type="button">加行号</button>
+      </div>
+      <div class="group">
+        <span class="gt">整理</span>
+        <button class="btn" data-act="join" type="button">合并为一行</button>
+        <button class="btn" data-act="split" type="button">按标点断行</button>
+        <button class="btn" data-act="strip" type="button">去多余空格</button>
+      </div>
+    </div>
+    <p class="note">命名风格会把中文原样保留（只处理 ASCII 与分隔符）；「按标点断行」在句号、问号、感叹号、分号后换行。</p>
+  </div>
+
+  <footer>SolHub 官方工具 · 所有处理都在你的浏览器内完成</footer>
+</div>
+
+<script>
+(function () {
+  var input = document.getElementById("input");
+  var output = document.getElementById("output");
+
+  function stats() {
+    var t = input.value;
+    document.getElementById("s-char").textContent = t.length;
+    document.getElementById("s-nospace").textContent = t.replace(/\s/g, "").length;
+    var cn = (t.match(/[\u4e00-\u9fa5]/g) || []).length;
+    document.getElementById("s-cn").textContent = cn;
+    var words = (t.match(/[A-Za-z][A-Za-z'-]*/g) || []).length;
+    document.getElementById("s-word").textContent = words;
+    document.getElementById("s-line").textContent = t ? t.split(/\r?\n/).length : 0;
+    document.getElementById("s-byte").textContent = new Blob([t]).size;
+  }
+
+  function words(s) {
+    /* 先按分隔符与驼峰切开，保证 "userName" → ["user","Name"] */
+    return s
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .split(/[\s_\-.]+/)
+      .filter(Boolean);
+  }
+
+  function lowerFirst(s) { return s.charAt(0).toLowerCase() + s.slice(1); }
+  function upperFirst(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  var ACTS = {
+    upper: function (t) { return t.toUpperCase(); },
+    lower: function (t) { return t.toLowerCase(); },
+    title: function (t) { return t.replace(/\b([a-z])([a-z']*)/gi, function (m, a, b) { return a.toUpperCase() + b; }); },
+    sentence: function (t) {
+      return t.replace(/(^\s*|[。！？!?；;]\s*|\n\s*)([a-z])/g, function (m, pre, ch) { return pre + ch.toUpperCase(); });
+    },
+    camel: function (t) {
+      return words(t).map(function (w, i) {
+        var lw = w.toLowerCase();
+        return i === 0 ? lw : lw.charAt(0).toUpperCase() + lw.slice(1);
+      }).join("");
+    },
+    pascal: function (t) {
+      return words(t).map(function (w) {
+        var lw = w.toLowerCase();
+        return lw.charAt(0).toUpperCase() + lw.slice(1);
+      }).join("");
+    },
+    snake: function (t) {
+      return words(t).map(function (w) { return w.toLowerCase(); }).join("_");
+    },
+    kebab: function (t) {
+      return words(t).map(function (w) { return w.toLowerCase(); }).join("-");
+    },
+    constant: function (t) {
+      return words(t).map(function (w) { return w.toUpperCase(); }).join("_");
+    },
+    trim: function (t) { return t.split(/\r?\n/).map(function (l) { return l.trim(); }).join("\n"); },
+    noblank: function (t) { return t.split(/\r?\n/).filter(function (l) { return l.trim() !== ""; }).join("\n"); },
+    dedupe: function (t) {
+      var seen = {};
+      return t.split(/\r?\n/).filter(function (l) {
+        var k = l.trim();
+        if (!k) return true;
+        if (seen[k]) return false;
+        seen[k] = 1;
+        return true;
+      }).join("\n");
+    },
+    sort: function (t) {
+      return t.split(/\r?\n/).sort(function (a, b) { return a.localeCompare(b, "zh-Hans-CN"); }).join("\n");
+    },
+    sortdesc: function (t) {
+      return t.split(/\r?\n/).sort(function (a, b) { return b.localeCompare(a, "zh-Hans-CN"); }).join("\n");
+    },
+    reverse: function (t) { return t.split(/\r?\n/).reverse().join("\n"); },
+    number: function (t) {
+      var n = 0;
+      return t.split(/\r?\n/).map(function (l) {
+        if (!l.trim()) return l;
+        n++;
+        return n + ". " + l;
+      }).join("\n");
+    },
+    join: function (t) {
+      return t.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean).join(" ");
+    },
+    split: function (t) {
+      return t.replace(/([。！？!?；;])\s*/g, "$1\n").replace(/\n{2,}/g, "\n").trim();
+    },
+    strip: function (t) { return t.replace(/[ \t]{2,}/g, " ").replace(/\u3000/g, " ").trim(); }
+  };
+
+  function apply(act) {
+    var fn = ACTS[act];
+    if (!fn) return;
+    var src = input.value;
+    if (!src.trim()) { output.value = ""; return; }
+    try {
+      output.value = fn(src);
+    } catch (e) {
+      output.value = "处理失败：" + e.message;
+    }
+  }
+
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-act]");
+    if (!b) return;
+    apply(b.dataset.act);
+  });
+
+  document.getElementById("useIt").addEventListener("click", function () {
+    if (!output.value) return;
+    input.value = output.value;
+    stats();
+  });
+
+  document.getElementById("copy").addEventListener("click", function () {
+    var btn = this;
+    var text = output.value;
+    if (!text) return;
+    var done = function () {
+      btn.textContent = "已复制";
+      setTimeout(function () { btn.textContent = "复制"; }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done);
+    else { output.select(); document.execCommand("copy"); done(); }
+  });
+
+  document.getElementById("clear").addEventListener("click", function () {
+    input.value = "";
+    output.value = "";
+    stats();
+    input.focus();
+  });
+
+  input.addEventListener("input", stats);
+
+  input.value = "SolHub 是一个产品目录\n收录 网站 与 在线工具\n所有工具都在沙箱内运行\n\nSolHub 是一个产品目录";
+  stats();
+})();
+</script>
+</body>
+</html>

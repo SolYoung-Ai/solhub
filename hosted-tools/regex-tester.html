@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>正则测试器 · SolHub</title>
+<style>
+  :root{
+    --bg:#f7f5f2; --card:#fff; --ink:#18181b; --muted:#71717a; --line:#e8e4de;
+    --soft:#f1ede8; --accent:#d96a24; --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);color-scheme:light;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:28px 20px 56px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .mark{width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgb(24 24 27/.06)}
+  h1{font-size:19px;line-height:1.2;margin:0;letter-spacing:-.01em}
+  header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+  .card + .card{margin-top:14px}
+  .lbl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-bottom:8px}
+  .btn{font:inherit;font-size:12.5px;font-weight:600;border-radius:9px;padding:6px 10px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s}
+  .btn:hover{background:#faf8f6}
+  .btn.mini{font-size:11.5px;padding:4px 8px}
+  /* 正则输入条 */
+  .pattern{display:flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:10px;
+    background:#fdfcfb;padding:6px 8px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+  .pattern span.slash{color:#a1a1aa;user-select:none}
+  .pattern input{flex:1 1 auto;min-width:0;border:0;background:none;outline:none;
+    font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink)}
+  .pattern.bad{border-color:#f0b4b4;background:#fffafa}
+  .flags{display:flex;gap:4px;flex-wrap:wrap;margin-top:10px}
+  .flag{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;border:1px solid var(--line);background:#fff;
+    border-radius:7px;padding:3px 8px;cursor:pointer;color:var(--muted)}
+  .flag.on{background:var(--ink);border-color:var(--ink);color:#fff}
+  .cols{display:grid;grid-template-columns:1fr 340px;gap:14px}
+  @media (max-width:900px){ .cols{grid-template-columns:1fr} }
+  textarea{width:100%;height:150px;resize:vertical;border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;background:#fdfcfb;color:var(--ink);outline:none;
+    font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  textarea:focus{border-color:#d3cbc1;background:#fff}
+  .hl{white-space:pre-wrap;word-break:break-word;min-height:110px;max-height:260px;overflow:auto;
+    border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fdfcfb;
+    font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#3f3f46}
+  .hl mark{background:#ffe4c7;color:#7c2d12;border-radius:3px;padding:0 1px;box-shadow:inset 0 -1px 0 #f0a868}
+  .hl .empty{color:#a1a1aa}
+  .stat{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .dot{width:6px;height:6px;border-radius:50%;background:#a1a1aa}
+  .dot.ok{background:#16a34a} .dot.bad{background:#dc2626}
+  .err{margin-top:8px;font-size:12px;color:#b91c1c;background:#fdeeee;border:1px solid #f6d3d3;
+    border-radius:8px;padding:8px 10px;display:none;white-space:pre-wrap}
+  .err.show{display:block}
+  .matches{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:#fdfcfb}
+  .m{padding:7px 10px;border-bottom:1px solid #f0ece7;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+  .m:last-child{border-bottom:0}
+  .m b{color:#c2410c;font-weight:600}
+  .m .idx{color:#a1a1aa;margin-right:6px}
+  .m .g{display:block;color:#52525b;font-size:11.5px;margin-top:2px}
+  .m .g em{font-style:normal;color:#a1a1aa;margin-right:4px}
+  .tpl{display:flex;flex-wrap:wrap;gap:6px}
+  .note{font-size:11.5px;color:#a1a1aa;margin-top:8px;line-height:1.6}
+  footer{margin-top:26px;text-align:center;font-size:11.5px;color:#a1a1aa}
+  @media (max-width:520px){ .wrap{padding:20px 14px 48px} .card{padding:13px} textarea{height:120px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="1.7" stroke-linecap="round">
+        <path d="M4 5h3l4 7-4 7H4"/><path d="M20 5h-3l-4 7 4 7h3"/>
+        <circle cx="12" cy="12" r="1.6" fill="#d96a24" stroke="none"/>
+      </svg>
+    </div>
+    <div>
+      <h1>正则测试器</h1>
+      <p>实时高亮匹配、列出捕获组、预览替换结果。全部在本地执行，不会把文本发到任何服务器。</p>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="lbl">表达式</div>
+    <div class="pattern" id="patternBox">
+      <span class="slash">/</span>
+      <input id="pattern" spellcheck="false" placeholder="例如 \b\w+@\w+\.\w{2,}" value="">
+      <span class="slash">/</span>
+      <span class="slash" id="flagText">g</span>
+    </div>
+    <div class="flags" id="flags"></div>
+    <div class="err" id="err"></div>
+    <div class="stat">
+      <span class="dot" id="dot"></span>
+      <span id="stat">输入表达式与文本后自动匹配</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="cols">
+      <div>
+        <div class="lbl">测试文本</div>
+        <textarea id="text" spellcheck="false" placeholder="把要测试的文本粘贴到这里"></textarea>
+        <div class="lbl" style="margin-top:14px">匹配结果（高亮）</div>
+        <div class="hl" id="highlight"><span class="empty">暂无匹配</span></div>
+      </div>
+      <div>
+        <div class="lbl" style="display:flex;align-items:center;justify-content:space-between">
+          <span>匹配明细</span>
+          <span id="count" style="font-weight:500;color:#a1a1aa"></span>
+        </div>
+        <div class="matches" id="matches"></div>
+
+        <div class="lbl" style="margin-top:14px">替换为</div>
+        <textarea id="repl" spellcheck="false" style="height:64px" placeholder="留空则不替换；可用 $1 $2 或 $&amp;"></textarea>
+        <div class="lbl" style="margin-top:10px;display:flex;justify-content:space-between;align-items:center">
+          <span>替换结果</span>
+          <button class="btn mini" id="copyRepl" type="button">复制</button>
+        </div>
+        <div class="hl" id="replaced" style="min-height:70px;max-height:150px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">常用模板</div>
+    <div class="tpl" id="tpl"></div>
+    <p class="note">模板只填表达式与测试文本，flags 会重置为 <code>g</code>（需要 i / m 时手动勾）。</p>
+  </div>
+
+  <footer>SolHub 官方工具 · 所有处理都在你的浏览器内完成</footer>
+</div>
+
+<script>
+(function () {
+  var patternEl = document.getElementById("pattern");
+  var textEl = document.getElementById("text");
+  var replEl = document.getElementById("repl");
+  var hlEl = document.getElementById("highlight");
+  var replacedEl = document.getElementById("replaced");
+  var matchesEl = document.getElementById("matches");
+  var countEl = document.getElementById("count");
+  var statEl = document.getElementById("stat");
+  var dotEl = document.getElementById("dot");
+  var errEl = document.getElementById("err");
+  var boxEl = document.getElementById("patternBox");
+  var flagText = document.getElementById("flagText");
+
+  var FLAGS = ["g", "i", "m", "s", "u", "y"];
+  var active = { g: true, i: false, m: false, s: false, u: false, y: false };
+
+  var flagsBox = document.getElementById("flags");
+  FLAGS.forEach(function (f) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "flag" + (active[f] ? " on" : "");
+    b.textContent = f;
+    b.dataset.f = f;
+    b.title = {
+      g: "全局匹配", i: "忽略大小写", m: "多行模式", s: "点号匹配换行", u: "Unicode 模式", y: "粘连匹配"
+    }[f];
+    flagsBox.appendChild(b);
+  });
+  flagsBox.addEventListener("click", function (e) {
+    var b = e.target.closest(".flag");
+    if (!b) return;
+    active[b.dataset.f] = !active[b.dataset.f];
+    b.classList.toggle("on", active[b.dataset.f]);
+    updateFlagText();
+    run();
+  });
+
+  function updateFlagText() {
+    flagText.textContent = FLAGS.filter(function (f) { return active[f]; }).join("");
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  var TPLS = [
+    { name: "邮箱", p: "[\\w.+-]+@[\\w-]+\\.[\\w.-]+", g: "g",
+      t: "联系 hi@solyoung.top 或 support@solhub.solyoung.top 都可以。" },
+    { name: "网址", p: "https?://[^\\s\"'<>]+", g: "g",
+      t: "首页 https://solhub.solyoung.top ，仓库 https://github.com/SolYoung-Ai/Solhub 。" },
+    { name: "手机号", p: "1[3-9]\\d{9}", g: "g",
+      t: "13812345678、15900001111，座机 010-12345678 不匹配。" },
+    { name: "中文字符", p: "[\\u4e00-\\u9fa5]+", g: "g",
+      t: "SolHub 是一个中文产品目录，收录网站与在线工具。" },
+    { name: "HTML 标签", p: "<\\/?([a-z][a-z0-9]*)\\b[^>]*>", g: "gi",
+      t: '<div class="card"><p>你好</p><br/></div>' },
+    { name: "日期 YYYY-MM-DD", p: "(\\d{4})-(\\d{2})-(\\d{2})", g: "g",
+      t: "上线日期 2026-11-20，下一次发布 2026-12-01。" },
+    { name: "重复单词", p: "\\b(\\w+)\\s+\\1\\b", g: "gi",
+      t: "This is is a a test of of duplicates." },
+    { name: "连续空行", p: "\\n{2,}", g: "g", t: "第一行\n\n第三行\n\n\n第六行" }
+  ];
+
+  var tplBox = document.getElementById("tpl");
+  TPLS.forEach(function (t) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn mini";
+    b.textContent = t.name;
+    b.addEventListener("click", function () {
+      patternEl.value = t.p;
+      textEl.value = t.t;
+      FLAGS.forEach(function (f) { active[f] = t.g.indexOf(f) !== -1; });
+      flagsBox.querySelectorAll(".flag").forEach(function (x) { x.classList.toggle("on", active[x.dataset.f]); });
+      updateFlagText();
+      run();
+    });
+    tplBox.appendChild(b);
+  });
+
+  function run() {
+    var src = patternEl.value;
+    var text = textEl.value;
+    errEl.classList.remove("show");
+    boxEl.classList.remove("bad");
+
+    if (!src) {
+      hlEl.innerHTML = '<span class="empty">暂无匹配</span>';
+      matchesEl.innerHTML = "";
+      replacedEl.textContent = replEl.value ? text : "";
+      countEl.textContent = "";
+      statEl.textContent = "输入表达式与文本后自动匹配";
+      dotEl.className = "dot";
+      return;
+    }
+
+    var flags = FLAGS.filter(function (f) { return active[f]; }).join("");
+    var re;
+    try {
+      re = new RegExp(src, flags);
+    } catch (e) {
+      boxEl.classList.add("bad");
+      errEl.classList.add("show");
+      errEl.textContent = "表达式无效：" + e.message;
+      hlEl.innerHTML = '<span class="empty">—</span>';
+      matchesEl.innerHTML = "";
+      countEl.textContent = "";
+      statEl.textContent = "表达式有语法错误";
+      dotEl.className = "dot bad";
+      return;
+    }
+
+    var out = "";
+    var last = 0;
+    var list = [];
+    var guard = 0;
+    var m;
+    /* 非全局时只取第一个；零宽匹配要手动推进，否则死循环 */
+    while ((m = re.exec(text)) !== null) {
+      if (m[0] === "") {
+        re.lastIndex += 1;
+        if (re.lastIndex > text.length) break;
+        continue;
+      }
+      list.push({ text: m[0], index: m.index, groups: m.slice(1) });
+      out += escapeHtml(text.slice(last, m.index)) + "<mark>" + escapeHtml(m[0]) + "</mark>";
+      last = m.index + m[0].length;
+      if (!re.global) break;
+      if (++guard > 4000) break;
+    }
+    out += escapeHtml(text.slice(last));
+    hlEl.innerHTML = list.length ? out : '<span class="empty">暂无匹配</span>';
+
+    matchesEl.innerHTML = list.slice(0, 200).map(function (it, i) {
+      var g = it.groups.length
+        ? '<span class="g">' + it.groups.map(function (v, gi) {
+            return "<em>$" + (gi + 1) + "</em>" + escapeHtml(v === undefined ? "(未匹配)" : v);
+          }).join("  ") + "</span>"
+        : "";
+      return '<div class="m"><span class="idx">#' + (i + 1) + '</span><b>' + escapeHtml(it.text) + "</b>" +
+        '<span class="g"><em>位置</em>' + it.index + "</span>" + g + "</div>";
+    }).join("");
+
+    var total = list.length + (m === null ? 0 : 1);
+    countEl.textContent = list.length + " 处";
+    statEl.textContent = list.length
+      ? "匹配 " + list.length + " 处" + (list.length >= 200 ? "（明细只列前 200 条）" : "")
+      : "没有匹配到内容";
+    dotEl.className = "dot " + (list.length ? "ok" : "bad");
+
+    /* 替换预览：只在有替换内容时算，避免误以为文本被改了 */
+    if (replEl.value) {
+      try {
+        var re2 = new RegExp(src, flags.indexOf("g") === -1 ? flags + "g" : flags);
+        replacedEl.textContent = text.replace(re2, replEl.value);
+      } catch (e2) {
+        replacedEl.textContent = "替换失败：" + e2.message;
+      }
+    } else {
+      replacedEl.textContent = text;
+    }
+  }
+
+  var timer = null;
+  function debounce() {
+    clearTimeout(timer);
+    timer = setTimeout(run, 120);
+  }
+  patternEl.addEventListener("input", debounce);
+  textEl.addEventListener("input", debounce);
+  replEl.addEventListener("input", debounce);
+
+  document.getElementById("copyRepl").addEventListener("click", function () {
+    var btn = this;
+    var text = replacedEl.textContent;
+    var done = function () {
+      btn.textContent = "已复制";
+      setTimeout(function () { btn.textContent = "复制"; }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done);
+    else {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      done();
+    }
+  });
+
+  /* 开场：填好邮箱模板，页面一进来就有东西看 */
+  updateFlagText();
+  tplBox.querySelector("button").click();
+})();
+</script>
+</body>
+</html>

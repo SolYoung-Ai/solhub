@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>时间戳转换 · SolHub</title>
+<style>
+  :root{
+    --bg:#f7f5f2; --card:#fff; --ink:#18181b; --muted:#71717a; --line:#e8e4de;
+    --soft:#f1ede8; --accent:#d96a24; --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);color-scheme:light;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 56px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .mark{width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgb(24 24 27/.06)}
+  h1{font-size:19px;line-height:1.2;margin:0;letter-spacing:-.01em}
+  header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+  .card + .card{margin-top:14px}
+  .lbl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-bottom:8px}
+  .btn{font:inherit;font-size:12.5px;font-weight:600;border-radius:9px;padding:7px 11px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s}
+  .btn:hover{background:#faf8f6}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(.95)}
+  .btn.mini{font-size:11.5px;padding:4px 8px;border-radius:7px}
+  .seg{display:inline-flex;background:var(--soft);border-radius:9px;padding:3px;gap:2px}
+  .seg button{border:0;background:none;font:inherit;font-size:12px;font-weight:600;color:var(--muted);
+    padding:5px 10px;border-radius:7px;cursor:pointer}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgb(24 24 27/.08)}
+
+  /* 当前时间 */
+  .now{display:flex;flex-wrap:wrap;align-items:flex-end;gap:18px}
+  .clock{font:600 34px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.02em}
+  .clock small{font-size:14px;font-weight:500;color:var(--muted);margin-left:6px;letter-spacing:0}
+  .now .date{font-size:13px;color:var(--muted);margin-top:6px}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:760px){ .grid2{grid-template-columns:1fr} }
+  .field{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:10px;background:#fdfcfb;overflow:hidden}
+  .field input{flex:1 1 auto;min-width:0;border:0;background:none;outline:none;padding:9px 11px;
+    font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink)}
+  .field input[type=datetime-local]{font-family:inherit;font-size:13px}
+  .field .btn{border:0;border-left:1px solid var(--line);border-radius:0;padding:9px 11px;font-size:11.5px;background:#fff}
+  .kv{display:flex;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px solid #f0ece7}
+  .kv:last-child{border-bottom:0}
+  .kv .k{font-size:11.5px;font-weight:700;color:var(--muted);width:92px;flex:0 0 auto}
+  .kv .v{flex:1 1 auto;min-width:0;font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
+    color:#3f3f46;word-break:break-all}
+  .kv .v em{font-style:normal;color:#a1a1aa;font-size:11.5px;margin-left:6px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:7px 6px;border-bottom:1px solid #f0ece7}
+  th{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.03em}
+  td:last-child,th:last-child{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  tr:last-child td{border-bottom:0}
+  td.z{color:#52525b}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .chip{font-size:11.5px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 9px;
+    cursor:pointer;color:var(--muted)}
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+  .note{font-size:11.5px;color:#a1a1aa;line-height:1.6;margin:8px 0 0}
+  .err{color:#b91c1c !important}
+  footer{margin-top:26px;text-align:center;font-size:11.5px;color:#a1a1aa}
+  @media (max-width:520px){ .wrap{padding:20px 14px 48px} .card{padding:13px} .clock{font-size:26px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="1.7" stroke-linecap="round">
+        <circle cx="12" cy="12" r="8.2"/><path d="M12 7.6V12l3.2 2"/>
+      </svg>
+    </div>
+    <div>
+      <h1>时间戳转换</h1>
+      <p>时间戳与日期互转、多时区对照、相对时间。按你所在时区显示，不联网。</p>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="lbl">现在</div>
+    <div class="now">
+      <div>
+        <div class="clock"><span id="clk">--:--:--</span><small id="clkms"></small></div>
+        <div class="date" id="clkdate">—</div>
+      </div>
+      <div style="flex:1 1 220px;min-width:200px">
+        <div class="kv"><span class="k">秒级</span><span class="v" id="nowSec">—</span></div>
+        <div class="kv"><span class="k">毫秒</span><span class="v" id="nowMs">—</span></div>
+        <div class="kv"><span class="k">ISO 8601</span><span class="v" id="nowIso">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">互转</div>
+    <div class="grid2">
+      <div>
+        <div class="lbl" style="margin-bottom:6px">时间戳 → 日期</div>
+        <div class="field">
+          <input id="tsIn" inputmode="numeric" placeholder="例如 1763596800 或 1763596800000">
+          <button class="btn" id="tsNow" type="button">用现在</button>
+        </div>
+        <div style="margin-top:10px" id="tsOut">
+          <div class="kv"><span class="k">本地时间</span><span class="v" id="o-local">—</span></div>
+          <div class="kv"><span class="k">UTC</span><span class="v" id="o-utc">—</span></div>
+          <div class="kv"><span class="k">ISO 8601</span><span class="v" id="o-iso">—</span></div>
+          <div class="kv"><span class="k">相对现在</span><span class="v" id="o-rel">—</span></div>
+        </div>
+        <div class="chips">
+          <span class="chip" data-ts="-3600">1 小时前</span>
+          <span class="chip" data-ts="0">现在</span>
+          <span class="chip" data-ts="86400">明天</span>
+          <span class="chip" data-ts="604800">一周后</span>
+        </div>
+      </div>
+      <div>
+        <div class="lbl" style="margin-bottom:6px">日期 → 时间戳</div>
+        <div class="field">
+          <input type="datetime-local" id="dtIn" step="1">
+          <button class="btn" id="dtNow" type="button">用现在</button>
+        </div>
+        <div style="margin-top:10px">
+          <div class="kv"><span class="k">秒级</span><span class="v" id="d-sec">—</span></div>
+          <div class="kv"><span class="k">毫秒</span><span class="v" id="d-ms">—</span></div>
+          <div class="kv"><span class="k">ISO 8601</span><span class="v" id="d-iso">—</span></div>
+        </div>
+        <p class="note">日期输入按本机时区解释（<span id="tzname">—</span>）。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">时区对照 <span style="font-weight:500;color:#a1a1aa" id="tzRef"></span></div>
+    <table>
+      <thead><tr><th>城市 / 时区</th><th>时间</th><th>UTC 偏移</th></tr></thead>
+      <tbody id="tzBody"></tbody>
+    </table>
+    <p class="note">按 IANA 时区名换算，自动处理夏令时。找不到城市可参考 UTC 那一行。</p>
+  </div>
+
+  <footer>SolHub 官方工具 · 所有处理都在你的浏览器内完成</footer>
+</div>
+
+<script>
+(function () {
+  var ZONES = [
+    ["北京", "Asia/Shanghai"],
+    ["东京", "Asia/Tokyo"],
+    ["新加坡", "Asia/Singapore"],
+    ["伦敦", "Europe/London"],
+    ["巴黎", "Europe/Paris"],
+    ["纽约", "America/New_York"],
+    ["洛杉矶", "America/Los_Angeles"],
+    ["UTC", "UTC"]
+  ];
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+
+  function localParts(d) {
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+      " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+  }
+
+  function relText(ms) {
+    var diff = Date.now() - ms;
+    var abs = Math.abs(diff);
+    var fut = diff < 0;
+    var units = [
+      [31536000000, "年"], [2592000000, "个月"], [86400000, "天"],
+      [3600000, "小时"], [60000, "分钟"], [1000, "秒"]
+    ];
+    for (var i = 0; i < units.length; i++) {
+      if (abs >= units[i][0]) {
+        var n = Math.floor(abs / units[i][0]);
+        return n + " " + units[i][1] + (fut ? "后" : "前");
+      }
+    }
+    return "现在";
+  }
+
+  /* ---------- 时钟 ---------- */
+  function tick() {
+    var d = new Date();
+    document.getElementById("clk").textContent = pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+    document.getElementById("clkms").textContent = "." + String(d.getMilliseconds()).padStart(3, "0");
+    document.getElementById("clkdate").textContent =
+      d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日 · " +
+      ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][d.getDay()];
+    document.getElementById("nowSec").textContent = Math.floor(d.getTime() / 1000);
+    document.getElementById("nowMs").textContent = d.getTime();
+    document.getElementById("nowIso").textContent = d.toISOString();
+    updateZones(d);
+  }
+
+  /* ---------- 时间戳 → 日期 ---------- */
+  var tsIn = document.getElementById("tsIn");
+
+  function fromTs() {
+    var raw = tsIn.value.trim();
+    var out = { local: document.getElementById("o-local"), utc: document.getElementById("o-utc"),
+      iso: document.getElementById("o-iso"), rel: document.getElementById("o-rel") };
+    if (!raw) {
+      Object.keys(out).forEach(function (k) { out[k].textContent = "—"; out[k].classList.remove("err"); });
+      return;
+    }
+    var num = Number(raw.replace(/[,\s]/g, ""));
+    if (!isFinite(num)) {
+      Object.keys(out).forEach(function (k) { out[k].textContent = "—"; });
+      out.local.textContent = "不是有效数字";
+      out.local.classList.add("err");
+      return;
+    }
+    /* 10 位按秒，13 位按毫秒；更短的按秒、更长的按毫秒 */
+    var ms = raw.replace(/[^\d]/g, "").length <= 10 ? num * 1000 : num;
+    var d = new Date(ms);
+    if (isNaN(d.getTime())) {
+      out.local.textContent = "超出可表示范围";
+      out.local.classList.add("err");
+      return;
+    }
+    Object.keys(out).forEach(function (k) { out[k].classList.remove("err"); });
+    out.local.textContent = localParts(d);
+    out.utc.textContent = d.toISOString().slice(0, 19).replace("T", " ") + " UTC";
+    out.iso.textContent = d.toISOString();
+    out.rel.textContent = relText(ms);
+  }
+  tsIn.addEventListener("input", fromTs);
+
+  document.getElementById("tsNow").addEventListener("click", function () {
+    tsIn.value = String(Math.floor(Date.now() / 1000));
+    fromTs();
+  });
+
+  document.querySelectorAll(".chip").forEach(function (c) {
+    c.addEventListener("click", function () {
+      tsIn.value = String(Math.floor(Date.now() / 1000) + Number(c.dataset.ts));
+      fromTs();
+    });
+  });
+
+  /* ---------- 日期 → 时间戳 ---------- */
+  var dtIn = document.getElementById("dtIn");
+
+  function toLocalInput(d) {
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+      "T" + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+  }
+
+  function fromDate() {
+    var v = dtIn.value;
+    var secEl = document.getElementById("d-sec");
+    var msEl = document.getElementById("d-ms");
+    var isoEl = document.getElementById("d-iso");
+    if (!v) {
+      secEl.textContent = msEl.textContent = isoEl.textContent = "—";
+      return;
+    }
+    var d = new Date(v);
+    if (isNaN(d.getTime())) {
+      secEl.textContent = "无效日期";
+      secEl.classList.add("err");
+      return;
+    }
+    secEl.classList.remove("err");
+    secEl.textContent = String(Math.floor(d.getTime() / 1000));
+    msEl.textContent = String(d.getTime());
+    isoEl.textContent = d.toISOString();
+  }
+  dtIn.addEventListener("input", function () { fromDate(); updateZones(new Date(dtIn.value)); });
+  document.getElementById("dtNow").addEventListener("click", function () {
+    dtIn.value = toLocalInput(new Date());
+    fromDate();
+    updateZones(new Date());
+  });
+
+  /* ---------- 时区表 ---------- */
+  function updateZones(d) {
+    if (!d || isNaN(d.getTime())) return;
+    var body = document.getElementById("tzBody");
+    var html = ZONES.map(function (z) {
+      var t;
+      try {
+        t = new Intl.DateTimeFormat("zh-CN", {
+          timeZone: z[1], hour12: false,
+          year: "numeric", month: "2-digit", day: "2-digit",
+          hour: "2-digit", minute: "2-digit", second: "2-digit"
+        }).format(d);
+      } catch (e) {
+        t = "—";
+      }
+      var offset = "—";
+      try {
+        var parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: z[1], timeZoneName: "shortOffset", hour: "2-digit"
+        }).formatToParts(d);
+        var tzName = parts.filter(function (p) { return p.type === "timeZoneName"; })[0];
+        offset = tzName ? tzName.value.replace("GMT", "UTC") : "—";
+      } catch (e2) { /* 旧浏览器没有 shortOffset */ }
+      return "<tr><td>" + z[0] + '</td><td class="z">' + t + "</td><td>" + offset + "</td></tr>";
+    }).join("");
+    body.innerHTML = html;
+    document.getElementById("tzRef").textContent = "（基准：" + localParts(d) + " 本地）";
+  }
+
+  /* ---------- 初始化 ---------- */
+  try {
+    document.getElementById("tzname").textContent =
+      Intl.DateTimeFormat().resolvedOptions().timeZone || "本机时区";
+  } catch (e) { /* ignore */ }
+
+  dtIn.value = toLocalInput(new Date());
+  fromDate();
+  tsIn.value = String(Math.floor(Date.now() / 1000));
+  fromTs();
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from "react";
-import { AppWindow, ArrowRight, Filter, Globe, Search, ShieldCheck } from "lucide-react";
+import { AppWindow, ArrowRight, Filter, Globe, LayoutGrid, Search, ShieldCheck, X } from "lucide-react";
 import type { Product } from "@/data/types";
 import { rankProducts } from "@/lib/ranking";
 import { productCategories, productCategoryName } from "@/data/product-categories";
@@ -174,7 +174,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
   const rankOf = (p: Product) => ranked.findIndex((r) => r.id === p.id) + 1;
 
   const kindTabs: { key: KindFilter; label: string; count: number; icon: typeof Globe }[] = [
-    { key: "all", label: locale === "en" ? "All" : "全部", count: kindCounts.all, icon: Filter },
+    { key: "all", label: locale === "en" ? "All" : "全部", count: kindCounts.all, icon: LayoutGrid },
     { key: "site", label: locale === "en" ? "Websites" : "网站", count: kindCounts.site, icon: Globe },
     { key: "tool", label: locale === "en" ? "Tools" : "工具", count: kindCounts.tool, icon: AppWindow },
   ];
@@ -228,23 +228,15 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
             <Filter className="h-3.5 w-3.5" aria-hidden="true" />
             {locale === "en" ? "Category" : "分类"}
           </span>
-          <button
-            type="button"
-            onClick={() => setCategory("all")}
-            className={cx(
-              "rounded-[6px] border px-2.5 py-1 text-xs font-medium transition-colors",
-              category === "all"
-                ? "border-foreground bg-foreground text-background"
-                : "border-border bg-card text-foreground/70 hover:border-foreground/40",
-            )}
-          >
-            {locale === "en" ? "All" : "全部"}
-          </button>
+          {/* 二级筛选只放分类本身：不再有「全部」chip —— 上面一级筛选已经有一档「全部」，
+              同一个词出现两次会让人分不清哪一层在生效。清空方式：再点一次当前分类。 */}
           {categoryChips.map((c) => (
             <button
               key={c}
               type="button"
-              onClick={() => setCategory(c)}
+              onClick={() => setCategory(category === c ? "all" : c)}
+              aria-pressed={category === c}
+              title={category === c ? (locale === "en" ? "Click again to clear" : "再点一次取消筛选") : undefined}
               className={cx(
                 "rounded-[6px] border px-2.5 py-1 text-xs font-medium transition-colors",
                 category === c
@@ -255,6 +247,16 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
               {productCategoryNameLocalized(c, productCategoryName(c), locale)}
             </button>
           ))}
+          {category !== "all" && (
+            <button
+              type="button"
+              onClick={() => setCategory("all")}
+              className="inline-flex items-center gap-1 rounded-[6px] px-1.5 py-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-accent hover:underline"
+            >
+              <X className="h-3 w-3" aria-hidden="true" />
+              {locale === "en" ? "Clear" : "清除"}
+            </button>
+          )}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">

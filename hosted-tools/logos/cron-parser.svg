@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Cron 表达式解析">
+  <rect width="512" height="512" rx="112" fill="#fbf7f2"/>
+  <rect x="1" y="1" width="510" height="510" rx="111" fill="none" stroke="#e8e4de" stroke-width="2"/>
+  <circle cx="256" cy="264" r="124" fill="none" stroke="#18181b" stroke-width="20"/>
+  <g stroke="#18181b" stroke-width="16" stroke-linecap="round">
+    <path d="M256 176v22"/><path d="M256 330v22"/><path d="M168 264h22"/><path d="M322 264h22"/>
+  </g>
+  <path d="M256 264l52-34" fill="none" stroke="#18181b" stroke-width="18" stroke-linecap="round"/>
+  <path d="M290 100c40-8 74 4 92 26" fill="none" stroke="#d96a24" stroke-width="18" stroke-linecap="round"/>
+</svg>

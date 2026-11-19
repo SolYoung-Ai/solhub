@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="文本工具箱">
+  <rect width="512" height="512" rx="112" fill="#fbf7f2"/>
+  <rect x="1" y="1" width="510" height="510" rx="111" fill="none" stroke="#e8e4de" stroke-width="2"/>
+  <rect x="104" y="112" width="304" height="288" rx="40" fill="none" stroke="#18181b" stroke-width="18"/>
+  <g stroke="#18181b" stroke-width="18" stroke-linecap="round">
+    <path d="M152 184h208"/><path d="M152 248h128"/><path d="M152 312h160"/>
+  </g>
+  <circle cx="336" cy="248" r="20" fill="#d96a24"/>
+</svg>

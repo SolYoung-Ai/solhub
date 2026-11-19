@@ -43,6 +43,8 @@ const copy = {
     ? "Uploaded as a single self-contained HTML file. Everything runs inside the tool's own sandboxed frame on SolHub — the tool can't read SolHub cookies, localStorage or your account data."
     : "以单个自包含 HTML 文件上传。工具在 SolHub 的独立沙箱 iframe 内运行，读不到 SolHub 的 Cookie、localStorage 与你的账号数据。",
   visit: en ? "Open tool" : "访问工具",
+  /* 全屏运行页（左侧留导航、右侧整块跑工具） */
+  playBase: p("/tools/play/", locale),
   collapse: en ? "Close tool" : "收起工具",
   running: en ? "Running in sandbox" : "沙箱内运行中",
   verification: en ? "Verification status" : "核验状态",
@@ -133,21 +135,27 @@ const copy = {
         <div id="tool-tags" class="mt-8 flex flex-wrap gap-2"></div>
 
         <div class="mt-8 grid gap-4 sm:grid-cols-2">
-          <button id="tool-run" type="button" class="btn btn-primary !h-11 w-full" aria-expanded="false" aria-controls="tool-runner">
-            <span id="tool-run-label">{copy.visit}</span>
-          </button>
+          {/* 主按钮直接进「全屏使用」页（左侧仍有站点导航，右侧整块是工具） */}
+          <a id="tool-full" href="#" class="btn btn-primary !h-11 w-full">
+            {en ? "Use full screen" : "全屏使用"}
+          </a>
           <a href={p("/submit/?type=hosted", locale)} class="btn btn-outline !h-11 w-full">
             {en ? "Upload your own" : "上传我的工具"}
           </a>
         </div>
 
-        <!-- 工具本体：点了「访问工具」才加载，避免详情页一进来就拉 1MB HTML -->
-        <section id="tool-runner" class="mt-8 hidden">
+        <!-- 工具本体：进页面就自动在沙箱里跑，不用再点一次 -->
+        <section id="tool-runner" class="mt-8">
           <div class="mb-3 flex items-center justify-between gap-3">
             <h2 class="font-display text-lg font-bold text-foreground">{copy.running}</h2>
-            <a id="tool-direct" href="#" target="_blank" rel="noopener noreferrer" class="text-[12px] text-muted-foreground underline-offset-2 hover:text-accent hover:underline">
-              {en ? "Open in a new tab" : "新标签页打开"}
-            </a>
+            <span class="flex items-center gap-3 text-[12px] text-muted-foreground">
+              <a id="tool-direct" href="#" target="_blank" rel="noopener noreferrer" class="underline-offset-2 hover:text-accent hover:underline">
+                {en ? "Open full screen" : "全屏打开"}
+              </a>
+              <button id="tool-collapse" type="button" class="underline-offset-2 hover:text-accent hover:underline">
+                {copy.collapse}
+              </button>
+            </span>
           </div>
           <div class="relative overflow-hidden rounded-[10px] border border-border bg-white">
             <div id="tool-status" class="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
@@ -232,8 +240,7 @@ const copy = {
     var statusBox = el("tool-status");
     var statusText = el("tool-status-text");
     var spinner = el("tool-spinner");
-    var runBtn = el("tool-run");
-    var runLabel = el("tool-run-label");
+    var collapseBtn = el("tool-collapse");
     var loaded = false;
 
     function fail(msg) {
@@ -255,14 +262,10 @@ const copy = {
     var metaUrl = base + "/hosted/meta/" + id;
     var htmlUrl = base + "/hosted/" + id;
 
-    /* 工具本体：首次点击才拉。CloudBase 网关对 text/html 强制
+    /* 工具本体：进页面就自动拉一次。CloudBase 网关对 text/html 强制
        content-disposition: attachment，iframe 导航会变下载，所以 fetch 取文本塞 srcdoc。 */
     function loadTool() {
-      if (loaded) {
-        runner.classList.remove("hidden");
-        return;
-      }
-      runner.classList.remove("hidden");
+      if (loaded) return;
       fetch(htmlUrl, { credentials: "omit" }).then(function (res) {
         if (!res.ok) throw new Error(String(res.status));
         return res.text();
@@ -281,23 +284,11 @@ const copy = {
       });
     }
 
-    function setRunning(on) {
-      runBtn.setAttribute("aria-expanded", on ? "true" : "false");
-      runLabel.textContent = on ? copy.collapse : copy.visit;
-    }
-
-    runBtn.addEventListener("click", function () {
-      var open = runBtn.getAttribute("aria-expanded") === "true";
-      if (open) {
-        runner.classList.add("hidden");
-        setRunning(false);
-        return;
-      }
-      setRunning(true);
-      loadTool();
-      setTimeout(function () {
-        runner.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 30);
+    /* 收起 / 展开：只是把运行区折叠起来方便读上面的介绍，工具本身不卸载 */
+    collapseBtn.addEventListener("click", function () {
+      var hidden = runner.classList.toggle("hidden");
+      collapseBtn.textContent = hidden ? copy.visit : copy.collapse;
+      if (!hidden) runner.scrollIntoView({ behavior: "smooth", block: "start" });
     });
 
     fetch(metaUrl, { credentials: "omit" }).then(function (res) {
@@ -358,15 +349,14 @@ const copy = {
         tagsEl.appendChild(span);
       });
 
-      /* 独立运行链接：指向本页带 run=1，新标签打开即自动展开沙箱运行（
-         不能直指 /hosted/<id> —— 网关会强制下载 HTML 而不是渲染） */
-      var direct = el("tool-direct");
-      direct.href = location.pathname + "?id=" + encodeURIComponent(id) + "&run=1";
+      /* 全屏使用：/tools/play/?id=xxx —— 左侧保留站点导航，右侧整块都是工具。
+         不能直指 /hosted/<id>（网关会强制下载 HTML 而不是渲染）。 */
+      var playUrl = copy.playBase + "?id=" + encodeURIComponent(id);
+      el("tool-full").href = playUrl;
+      el("tool-direct").href = playUrl;
 
-      if (params.get("run") === "1") {
-        setRunning(true);
-        loadTool();
-      }
+      /* 进页面直接在沙箱里跑，不用再点一次 */
+      loadTool();
     }).catch(function (err) {
       fail(err && err.message === "404" ? copy.missing : copy.loadFail);
     });

@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>随机抽签与分组 · SolHub</title>
+<style>
+  :root{
+    --bg:#f7f5f2; --card:#fff; --ink:#18181b; --muted:#71717a; --line:#e8e4de;
+    --soft:#f1ede8; --accent:#d96a24; --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);color-scheme:light;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 56px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .mark{width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgb(24 24 27/.06)}
+  h1{font-size:19px;line-height:1.2;margin:0;letter-spacing:-.01em}
+  header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+  .card + .card{margin-top:14px}
+  .lbl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-bottom:8px}
+  .seg{display:inline-flex;background:var(--soft);border-radius:9px;padding:3px;gap:2px;flex-wrap:wrap}
+  .seg button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);
+    padding:6px 11px;border-radius:7px;cursor:pointer;transition:.15s}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgb(24 24 27/.08)}
+  .btn{font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:9px 14px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s}
+  .btn:hover{background:#faf8f6}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;min-width:132px}
+  .btn.primary:hover{filter:brightness(.95)}
+  .btn.primary:disabled{opacity:.6;cursor:default}
+  .btn.mini{font-size:11.5px;padding:4px 8px;border-radius:7px}
+  .cols{display:grid;grid-template-columns:1fr 340px;gap:14px}
+  @media (max-width:860px){ .cols{grid-template-columns:1fr} }
+  textarea{width:100%;height:260px;resize:vertical;border:1px solid var(--line);border-radius:10px;
+    padding:11px 12px;background:#fdfcfb;color:var(--ink);outline:none;
+    font:13px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  textarea:focus{border-color:#d3cbc1;background:#fff}
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .row + .row{margin-top:10px}
+  .row .lbl{margin:0;min-width:56px}
+  input[type=number]{width:72px;border:1px solid var(--line);border-radius:9px;padding:7px 9px;
+    font:13px ui-monospace,SFMono-Regular,Menlo,monospace;background:#fdfcfb;outline:none;color:var(--ink)}
+  input[type=number]:focus{border-color:#d3cbc1;background:#fff}
+  .check{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer}
+  .check input{accent-color:var(--accent)}
+  /* 结果 */
+  .result{min-height:180px;display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}
+  .winner{display:inline-flex;align-items:center;gap:7px;border:1px solid #f2e2d2;background:#fdf7f1;
+    color:#7c2d12;border-radius:10px;padding:8px 12px;font-size:14px;font-weight:600;
+    animation:pop .32s ease both}
+  .winner small{font:600 10px/1 ui-monospace,monospace;color:#c2410c;opacity:.7}
+  @keyframes pop{ from{transform:scale(.86);opacity:0} to{transform:scale(1);opacity:1} }
+  .roll{font:600 26px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.01em;
+    color:var(--ink);min-height:38px}
+  .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;width:100%}
+  .grp{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#fdfcfb;
+    animation:pop .3s ease both}
+  .grp h4{margin:0;padding:7px 10px;font-size:11.5px;font-weight:700;letter-spacing:.03em;
+    color:var(--muted);background:#f6f2ec;border-bottom:1px solid var(--line)}
+  .grp ol{margin:0;padding:8px 10px 9px 26px;font-size:13px;color:#3f3f46}
+  .grp li{padding:1px 0}
+  .empty{font-size:12.5px;color:#a1a1aa;line-height:1.7}
+  .note{font-size:11.5px;color:#a1a1aa;line-height:1.6;margin:10px 0 0}
+  footer{margin-top:26px;text-align:center;font-size:11.5px;color:#a1a1aa}
+  @media (max-width:520px){ .wrap{padding:20px 14px 48px} .card{padding:13px} textarea{height:190px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="1.7" stroke-linejoin="round">
+        <rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4"/>
+        <circle cx="8.6" cy="8.6" r="1.3" fill="#18181b" stroke="none"/>
+        <circle cx="15.4" cy="15.4" r="1.3" fill="#18181b" stroke="none"/>
+        <circle cx="15.4" cy="8.6" r="1.3" fill="#d96a24" stroke="none"/>
+        <circle cx="8.6" cy="15.4" r="1.3" fill="#18181b" stroke="none"/>
+      </svg>
+    </div>
+    <div>
+      <h1>随机抽签与分组</h1>
+      <p>抽奖、随机点名、按组数或人数均分。用系统加密随机数洗牌，比 Math.random 更均匀。</p>
+    </div>
+  </header>
+
+  <div class="cols">
+    <div>
+      <div class="card">
+        <div class="lbl" style="display:flex;justify-content:space-between">
+          <span>名单（一行一个）</span>
+          <span style="font-weight:500;color:#a1a1aa" id="count">0 人</span>
+        </div>
+        <textarea id="names" spellcheck="false" placeholder="张三&#10;李四&#10;王五"></textarea>
+      </div>
+
+      <div class="card">
+        <div class="card" style="border:0;padding:0">
+          <div class="row">
+            <span class="lbl">模式</span>
+            <div class="seg" id="mode">
+              <button type="button" data-v="draw" class="on">抽奖</button>
+              <button type="button" data-v="group">分组</button>
+            </div>
+          </div>
+          <div class="row" id="drawOpts">
+            <span class="lbl">抽出</span>
+            <input type="number" id="pick" value="1" min="1" step="1">
+            <span style="font-size:12.5px;color:var(--muted)">人</span>
+            <span style="flex:1"></span>
+            <label class="check"><input type="checkbox" id="unique" checked>同一个人不重复中奖</label>
+          </div>
+          <div class="row hidden" id="groupOpts" style="display:none">
+            <span class="lbl">按</span>
+            <div class="seg" id="gmode">
+              <button type="button" data-v="count" class="on">组数</button>
+              <button type="button" data-v="size">每组人数</button>
+            </div>
+            <input type="number" id="gval" value="4" min="1" step="1">
+            <span style="font-size:12.5px;color:var(--muted)" id="gvalUnit">组</span>
+          </div>
+          <div class="row" style="margin-top:14px">
+            <button class="btn primary" id="go" type="button">开始</button>
+            <button class="btn" id="shuffleList" type="button">打乱名单顺序</button>
+            <button class="btn" id="reset" type="button">清空结果</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside>
+      <div class="card">
+        <div class="lbl" style="display:flex;justify-content:space-between">
+          <span>结果</span>
+          <button class="btn mini" id="copy" type="button">复制</button>
+        </div>
+        <div class="result" id="result">
+          <span class="empty">名单填好后点「开始」。<br>抽奖会先滚动再定格，分组直接出结果。</span>
+        </div>
+        <p class="note" id="hint"></p>
+      </div>
+
+      <div class="card">
+        <div class="lbl">小提示</div>
+        <p class="note" style="margin:0">
+          名单支持用逗号或空格分隔在同一行。「同一个人不重复中奖」勾上后，抽多人不会出现重复；
+          取消勾选就是每次独立抽取（可能重复）。
+        </p>
+      </div>
+    </aside>
+  </div>
+
+  <footer>SolHub 官方工具 · 所有处理都在你的浏览器内完成</footer>
+</div>
+
+<script>
+(function () {
+  var namesEl = document.getElementById("names");
+  var countEl = document.getElementById("count");
+  var resultEl = document.getElementById("result");
+  var hintEl = document.getElementById("hint");
+  var goBtn = document.getElementById("go");
+  var pickEl = document.getElementById("pick");
+  var uniqueEl = document.getElementById("unique");
+  var gvalEl = document.getElementById("gval");
+  var mode = "draw";
+  var gmode = "count";
+
+  namesEl.value = "张三\n李四\n王五\n赵六\n钱七\n孙八\n周九\n吴十";
+
+  function list() {
+    var raw = namesEl.value.replace(/[,，、;；\t]/g, "\n");
+    var arr = raw.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+    return arr;
+  }
+
+  function refreshCount() {
+    countEl.textContent = list().length + " 人";
+  }
+  namesEl.addEventListener("input", refreshCount);
+  refreshCount();
+
+  /* 加密随机：优先 crypto.getRandomValues，退回 Math.random */
+  function randInt(max) {
+    if (max <= 0) return 0;
+    if (window.crypto && window.crypto.getRandomValues) {
+      var buf = new Uint32Array(1);
+      var limit = Math.floor(4294967296 / max) * max;
+      do { window.crypto.getRandomValues(buf); } while (buf[0] >= limit);
+      return buf[0] % max;
+    }
+    return Math.floor(Math.random() * max);
+  }
+
+  function shuffle(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = randInt(i + 1);
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  document.getElementById("mode").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    this.querySelectorAll("button").forEach(function (x) { x.classList.remove("on"); });
+    b.classList.add("on");
+    mode = b.dataset.v;
+    document.getElementById("drawOpts").style.display = mode === "draw" ? "flex" : "none";
+    document.getElementById("groupOpts").style.display = mode === "group" ? "flex" : "none";
+    goBtn.textContent = mode === "draw" ? "开始抽签" : "开始分组";
+    clearResult();
+  });
+
+  document.getElementById("gmode").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    this.querySelectorAll("button").forEach(function (x) { x.classList.remove("on"); });
+    b.classList.add("on");
+    gmode = b.dataset.v;
+    document.getElementById("gvalUnit").textContent = gmode === "count" ? "组" : "人";
+    gvalEl.value = gmode === "count" ? "4" : "4";
+  });
+
+  function clearResult() {
+    resultEl.innerHTML = '<span class="empty">名单填好后点「开始」。</span>';
+    hintEl.textContent = "";
+  }
+
+  document.getElementById("reset").addEventListener("click", clearResult);
+
+  document.getElementById("shuffleList").addEventListener("click", function () {
+    var arr = shuffle(list());
+    namesEl.value = arr.join("\n");
+    refreshCount();
+    hintEl.textContent = "已打乱名单顺序，可以再核对一遍。";
+  });
+
+  /* ---------- 抽奖 ---------- */
+  function draw() {
+    var pool = list();
+    var n = Math.max(1, Math.min(Number(pickEl.value) || 1, pool.length));
+    if (!pool.length) {
+      resultEl.innerHTML = '<span class="empty">名单是空的，先填几个人。</span>';
+      return;
+    }
+    goBtn.disabled = true;
+    resultEl.innerHTML = '<div class="roll" id="roll">—</div>';
+    var rollEl = document.getElementById("roll");
+
+    /* 滚动阶段：随机闪名字，纯视觉 */
+    var t0 = Date.now();
+    var timer = setInterval(function () {
+      rollEl.textContent = pool[randInt(pool.length)];
+      if (Date.now() - t0 > 900) {
+        clearInterval(timer);
+        finish();
+      }
+    }, 55);
+
+    function finish() {
+      var winners = uniqueEl.checked ? shuffle(pool).slice(0, n) : (function () {
+        var out = [];
+        for (var i = 0; i < n; i++) out.push(pool[randInt(pool.length)]);
+        return out;
+      })();
+      resultEl.innerHTML = winners.map(function (w, i) {
+        return '<span class="winner" style="animation-delay:' + (i * 45) + 'ms">' +
+          (n > 1 ? "<small>" + (i + 1) + "</small>" : "") + esc(w) + "</span>";
+      }).join("");
+      hintEl.textContent = "从 " + pool.length + " 人中抽出 " + winners.length + " 人" +
+        (uniqueEl.checked ? "，不重复。" : "，可重复。");
+      goBtn.disabled = false;
+    }
+  }
+
+  /* ---------- 分组 ---------- */
+  function group() {
+    var pool = list();
+    if (!pool.length) {
+      resultEl.innerHTML = '<span class="empty">名单是空的，先填几个人。</span>';
+      return;
+    }
+    var v = Math.max(1, Number(gvalEl.value) || 1);
+    var groups = [];
+    var shuffled = shuffle(pool);
+
+    if (gmode === "count") {
+      var n = Math.min(v, shuffled.length);
+      for (var i = 0; i < n; i++) groups.push([]);
+      shuffled.forEach(function (name, idx) { groups[idx % n].push(name); });
+    } else {
+      for (var j = 0; j < shuffled.length; j += v) groups.push(shuffled.slice(j, j + v));
+    }
+
+    resultEl.innerHTML = '<div class="groups">' + groups.map(function (g, i) {
+      return '<div class="grp" style="animation-delay:' + (i * 35) + 'ms"><h4>第 ' + (i + 1) +
+        " 组 · " + g.length + ' 人</h4><ol>' +
+        g.map(function (n2) { return "<li>" + esc(n2) + "</li>"; }).join("") + "</ol></div>";
+    }).join("") + "</div>";
+    hintEl.textContent = pool.length + " 人分成 " + groups.length + " 组，人数最多差 1 人。";
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  goBtn.addEventListener("click", function () {
+    if (mode === "draw") draw();
+    else group();
+  });
+
+  document.getElementById("copy").addEventListener("click", function () {
+    var btn = this;
+    var text = resultEl.innerText.trim();
+    if (!text || /名单填好后点/.test(text)) return;
+    var done = function () {
+      btn.textContent = "已复制";
+      setTimeout(function () { btn.textContent = "复制"; }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done);
+    else {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      done();
+    }
+  });
+
+  goBtn.textContent = "开始抽签";
+})();
+</script>
+</body>
+</html>

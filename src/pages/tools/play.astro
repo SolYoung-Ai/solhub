@@ -1,0 +1,138 @@
+---
+/**
+ * 全屏使用托管工具（/tools/play/?id=xxxx）
+ * =====================================
+ *
+ * 详情页（/tools/?id=）回答「这是什么」，这一页只负责「把工具铺满」：
+ * 左侧保留站点导航（HeaderApp），右侧整块是沙箱 iframe，顶部一条 44px 窄栏
+ * 放返回详情 + 工具名。手机上扣掉顶栏与悬浮底栏。
+ *
+ * 为什么还要 fetch 再写 srcdoc：CloudBase 网关对 text/html 强制
+ * content-disposition: attachment，iframe 直接导航会变成下载文件。
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { p } from "@/lib/paths";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+
+const copy = {
+  back: en ? "Back to details" : "返回详情",
+  products: en ? "Products" : "产品",
+  sandbox: en ? "Sandboxed" : "沙箱运行",
+  loading: en ? "Loading tool…" : "正在加载工具…",
+  missing: en ? "This tool doesn't exist or has been removed." : "工具不存在或已被删除。",
+  invalid: en ? "Invalid tool link." : "工具链接无效。",
+  loadFail: en ? "Failed to load. Please retry." : "加载失败，请稍后重试。",
+  loadingName: en ? "Loading…" : "加载中…",
+  detailBase: p("/tools/", locale),
+};
+---
+
+<BaseLayout
+  title={en ? "Hosted tool" : "托管工具"}
+  description={en ? "A community-built tool running in a sandbox on SolHub." : "社区上传的工具，在 SolHub 沙箱内运行。"}
+  route="/tools/"
+  locale={locale}
+  bare
+>
+  <div class="tool-stage">
+    <!-- 窄栏：返回详情 / 工具名 / 沙箱标记 -->
+    <div class="flex h-11 shrink-0 items-center gap-3 border-b border-border px-4">
+      <a id="play-back" href={copy.detailBase} class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6"></path>
+        </svg>
+        {copy.back}
+      </a>
+      <span class="h-3.5 w-px bg-border" aria-hidden="true"></span>
+      <img id="play-logo" alt="" class="hidden h-5 w-5 shrink-0 rounded-[5px] border border-border object-cover" />
+      <span id="play-name" class="truncate text-[13px] font-semibold text-foreground">{copy.loadingName}</span>
+      <span class="badge ml-auto hidden shrink-0 border-border-strong bg-secondary/60 text-muted-foreground sm:inline-flex">{copy.sandbox}</span>
+    </div>
+
+    <!-- 运行区 -->
+    <div class="relative flex-1 overflow-hidden bg-white">
+      <div id="play-status" class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center">
+        <div id="play-spinner" class="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent" role="status" aria-label={en ? "Loading" : "加载中"}></div>
+        <p id="play-status-text" class="text-[13px] text-muted-foreground">{copy.loading}</p>
+      </div>
+      <iframe
+        id="play-frame"
+        class="hidden h-full w-full border-0 bg-white"
+        title={en ? "Hosted tool" : "托管工具"}
+        referrerpolicy="no-referrer"
+      ></iframe>
+    </div>
+  </div>
+</BaseLayout>
+
+<script type="application/json" id="play-labels" set:html={JSON.stringify({ copy })}></script>
+<script is:inline>
+  (function () {
+    var labelsEl = document.getElementById("play-labels");
+    var labels = labelsEl && labelsEl.textContent ? JSON.parse(labelsEl.textContent) : {};
+    var copy = labels.copy || {};
+    var el = function (s) { return document.getElementById(s); };
+    var params = new URLSearchParams(location.search);
+    var id = (params.get("id") || "").trim();
+    var frame = el("play-frame");
+    var statusBox = el("play-status");
+    var statusText = el("play-status-text");
+    var spinner = el("play-spinner");
+    var nameEl = el("play-name");
+    var backEl = el("play-back");
+
+    function fail(msg) {
+      statusText.textContent = msg || copy.missing;
+      if (spinner) spinner.classList.add("hidden");
+      nameEl.textContent = "—";
+    }
+
+    if (!/^[a-z0-9]{4,16}$/.test(id)) {
+      fail(copy.invalid);
+      return;
+    }
+
+    var detailUrl = (copy.detailBase || "/tools/") + "?id=" + encodeURIComponent(id);
+    backEl.href = detailUrl;
+
+    var baseEl = document.querySelector('meta[name="solhub-api-base"]');
+    var base = ((baseEl && baseEl.content) ||
+      "https://solyoung-d4gpp1f7s4e075f6d-1499756427.ap-shanghai.app.tcloudbase.com/api").replace(/\/$/, "");
+
+    fetch(base + "/hosted/meta/" + id, { credentials: "omit" }).then(function (res) {
+      if (!res.ok) throw new Error(String(res.status));
+      return res.json();
+    }).then(function (data) {
+      var t = data && data.tool;
+      if (!t || !t.name) throw new Error("empty");
+      document.title = t.name + " · SolHub";
+      nameEl.textContent = t.name;
+      if (t.logoUrl) {
+        var logo = el("play-logo");
+        logo.src = t.logoUrl;
+        logo.classList.remove("hidden");
+      }
+      return fetch(base + "/hosted/" + id, { credentials: "omit" });
+    }).then(function (res) {
+      if (!res.ok) throw new Error(String(res.status));
+      return res.text();
+    }).then(function (html) {
+      if (!/<[a-z]/i.test(html)) throw new Error("empty");
+      frame.setAttribute("sandbox", "allow-scripts allow-forms allow-popups allow-modals");
+      frame.srcdoc = html;
+      frame.addEventListener("load", function () {
+        statusBox.classList.add("hidden");
+        frame.classList.remove("hidden");
+      });
+    }).catch(function (err) {
+      fail(err && err.message === "404" ? copy.missing : copy.loadFail);
+    });
+  })();
+</script>

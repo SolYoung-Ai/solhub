@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cron 表达式解析 · SolHub</title>
+<style>
+  :root{
+    --bg:#f7f5f2; --card:#fff; --ink:#18181b; --muted:#71717a; --line:#e8e4de;
+    --soft:#f1ede8; --accent:#d96a24; --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);color-scheme:light;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 56px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .mark{width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgb(24 24 27/.06)}
+  h1{font-size:19px;line-height:1.2;margin:0;letter-spacing:-.01em}
+  header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+  .card + .card{margin-top:14px}
+  .lbl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-bottom:8px}
+  .btn{font:inherit;font-size:12.5px;font-weight:600;border-radius:9px;padding:7px 11px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s}
+  .btn:hover{background:#faf8f6}
+  .btn.mini{font-size:11.5px;padding:4px 8px;border-radius:7px}
+  .input{display:flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:10px;
+    background:#fdfcfb;padding:9px 12px;font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
+  .input input{flex:1 1 auto;min-width:0;border:0;background:none;outline:none;
+    font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;color:var(--ink)}
+  .input.bad{border-color:#f0b4b4;background:#fffafa}
+  .legend{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px;font-size:10.5px;
+    color:#a1a1aa;text-align:center;letter-spacing:.02em}
+  .legend span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hl{font-size:13.5px;line-height:1.75;margin-top:14px;padding:11px 13px;border-radius:10px;
+    background:#fdf7f1;border:1px solid #f2e2d2;color:#7c2d12;min-height:44px}
+  .hl b{font-weight:600}
+  .err{margin-top:10px;font-size:12px;color:#b91c1c;background:#fdeeee;border:1px solid #f6d3d3;
+    border-radius:8px;padding:8px 10px;display:none}
+  .err.show{display:block}
+  .runs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin-top:4px}
+  .run{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fdfcfb;
+    font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#3f3f46}
+  .run em{font-style:normal;display:block;font-size:10.5px;color:#a1a1aa;font-family:-apple-system,sans-serif;
+    letter-spacing:.02em;margin-bottom:1px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .chip{font-size:11.5px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 10px;
+    cursor:pointer;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+  .note{font-size:11.5px;color:#a1a1aa;line-height:1.6;margin:10px 0 0}
+  code{font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace;background:#f1ede8;border-radius:4px;padding:1px 4px}
+  footer{margin-top:26px;text-align:center;font-size:11.5px;color:#a1a1aa}
+  @media (max-width:520px){ .wrap{padding:20px 14px 48px} .card{padding:13px} .legend{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="1.7" stroke-linecap="round">
+        <circle cx="12" cy="12" r="8.2"/><path d="M12 12l3.4-2.2"/><path d="M12 3.8v1.4M20.2 12h-1.4M12 20.2v-1.4M3.8 12h1.4"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Cron 表达式解析</h1>
+      <p>写清楚「这句话是什么意思」，并列出接下来 8 次执行时间。支持 5 段标准格式与带秒的 6 段格式。</p>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="lbl">表达式</div>
+    <div class="input" id="box">
+      <input id="cron" spellcheck="false" value="0 9 * * 1-5" placeholder="* * * * *">
+    </div>
+    <div class="legend">
+      <span>分钟 0-59</span><span>小时 0-23</span><span>日 1-31</span><span>月 1-12</span><span>星期 0-6</span>
+    </div>
+    <div class="hl" id="desc">—</div>
+    <div class="err" id="err"></div>
+    <div class="chips" id="presets"></div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">接下来 8 次执行</div>
+    <div class="runs" id="runs"></div>
+    <p class="note">按你本机时区计算。若表达式在一年内不会触发（如 <code>0 0 30 2 *</code>），这里会是空的。</p>
+  </div>
+
+  <div class="card">
+    <div class="lbl">字段写法</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <tbody>
+        <tr><td style="width:110px;padding:5px 0"><code>*</code></td><td style="padding:5px 0;color:#52525b">每一个取值</td></tr>
+        <tr><td style="padding:5px 0"><code>5</code></td><td style="padding:5px 0;color:#52525b">固定为 5</td></tr>
+        <tr><td style="padding:5px 0"><code>1-5</code></td><td style="padding:5px 0;color:#52525b">从 1 到 5</td></tr>
+        <tr><td style="padding:5px 0"><code>*/15</code></td><td style="padding:5px 0;color:#52525b">每 15 个单位（0、15、30、45）</td></tr>
+        <tr><td style="padding:5px 0"><code>1,15,30</code></td><td style="padding:5px 0;color:#52525b">只在这些点</td></tr>
+        <tr><td style="padding:5px 0"><code>MON-FRI</code></td><td style="padding:5px 0;color:#52525b">星期也能写英文缩写</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>SolHub 官方工具 · 所有处理都在你的浏览器内完成</footer>
+</div>
+
+<script>
+(function () {
+  var NAMES = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+  var MONTHS = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
+  var DOW_CN = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+
+  var FIELDS = [
+    { key: "min", min: 0, max: 59, name: "分钟" },
+    { key: "hour", min: 0, max: 23, name: "小时" },
+    { key: "dom", min: 1, max: 31, name: "日" },
+    { key: "mon", min: 1, max: 12, name: "月" },
+    { key: "dow", min: 0, max: 7, name: "星期" }
+  ];
+  var SEC_FIELD = { key: "sec", min: 0, max: 59, name: "秒" };
+
+  function parseValue(token, field) {
+    var t = token.toUpperCase();
+    if (NAMES[t] !== undefined && field.key === "dow") return NAMES[t];
+    if (MONTHS[t] !== undefined && field.key === "mon") return MONTHS[t];
+    var n = Number(t);
+    if (!isFinite(n) || n % 1 !== 0) throw new Error(field.name + "字段里的「" + token + "」不是有效数字");
+    return n;
+  }
+
+  /* 把单个字段解析成 { values:Set, wildcard:boolean } */
+  function parseField(raw, field) {
+    var text = raw.trim();
+    if (!text) throw new Error(field.name + "字段为空");
+    var values = new Set();
+    var wildcard = text === "*" || text === "?";
+    text.split(",").forEach(function (part) {
+      part = part.trim();
+      if (!part) throw new Error(field.name + "字段里有空项（多余的逗号）");
+      var step = 1;
+      var range = part;
+      var slash = part.indexOf("/");
+      if (slash !== -1) {
+        range = part.slice(0, slash);
+        step = Number(part.slice(slash + 1));
+        if (!isFinite(step) || step < 1) throw new Error(field.name + "字段里的步长「" + part + "」无效");
+      }
+      var lo, hi;
+      if (range === "*" || range === "?") {
+        lo = field.min;
+        hi = field.max;
+      } else if (range.indexOf("-") !== -1) {
+        var bits = range.split("-");
+        lo = parseValue(bits[0], field);
+        hi = parseValue(bits[1], field);
+      } else {
+        lo = parseValue(range, field);
+        hi = slash === -1 ? lo : field.max;
+      }
+      if (lo > hi) throw new Error(field.name + "字段的范围「" + part + "」起点大于终点");
+      if (lo < field.min || hi > field.max) {
+        throw new Error(field.name + "字段应在 " + field.min + "–" + field.max + " 之间");
+      }
+      for (var v = lo; v <= hi; v += step) values.add(v);
+    });
+    /* 星期里的 7 等价于 0（周日） */
+    if (field.key === "dow" && values.has(7)) { values.delete(7); values.add(0); }
+    return { values: values, wildcard: wildcard, raw: text };
+  }
+
+  function sorted(set) { return Array.from(set).sort(function (a, b) { return a - b; }); }
+
+  /* ---------- 人话 ---------- */
+  function describeField(f, field) {
+    var vals = sorted(f.values);
+    var total = field.max - field.min + 1;
+    if (f.raw === "*" || f.raw === "?") {
+      if (field.key === "min") return "每分钟";
+      if (field.key === "hour") return "每小时";
+      if (field.key === "dom") return "每天";
+      if (field.key === "mon") return "每月";
+      return "不限星期";
+    }
+    if (vals.length === total) return "每" + field.name;
+    if (field.key === "dow") {
+      if (/^1-5$/.test(f.raw)) return "工作日（周一至周五）";
+      if (/^0,6$|^6,0$/.test(f.raw)) return "周末";
+      return vals.map(function (v) { return DOW_CN[v]; }).join("、");
+    }
+    if (field.key === "mon") {
+      return vals.map(function (v) { return v + " 月"; }).join("、");
+    }
+    if (field.key === "dom") {
+      return vals.map(function (v) { return v + " 日"; }).join("、");
+    }
+    /* 步长写法优先说成「每 N 分钟 / 小时」 */
+    var step = vals.length > 1 ? vals[1] - vals[0] : 0;
+    var evenStep = vals.length > 1 && vals.every(function (v, i) { return i === 0 || v - vals[i - 1] === step; });
+    if (evenStep && step > 1) {
+      return "每 " + step + " " + (field.key === "min" ? "分钟" : "小时") +
+        (vals[0] === field.min ? "" : "（从 " + vals[0] + " 开始）");
+    }
+    if (vals.length > 3) return vals.join("、") + " " + field.name;
+    return vals.map(function (v) {
+      return field.key === "hour" ? v + " 点" : String(v);
+    }).join("、");
+  }
+
+  /* 注意：这里必须传「字段描述对象」而不是 parse 出来的结果，
+     两者都有 key 叫 dow / dom，混用会得到 undefined。 */
+  var FIELD_BY_KEY = {};
+  FIELDS.forEach(function (f) { FIELD_BY_KEY[f.key] = f; });
+
+  function isContiguous(vals) {
+    for (var i = 1; i < vals.length; i++) if (vals[i] - vals[i - 1] !== 1) return false;
+    return true;
+  }
+  function steppedBy(vals) {
+    if (vals.length < 2) return 0;
+    var step = vals[1] - vals[0];
+    if (step <= 1) return 0;
+    for (var i = 2; i < vals.length; i++) if (vals[i] - vals[i - 1] !== step) return 0;
+    return step;
+  }
+  function hourText(h) {
+    var vals = sorted(h.values);
+    if (h.wildcard || vals.length === 24) return "每小时";
+    if (vals.length === 1) return vals[0] + " 点";
+    if (isContiguous(vals)) return vals[0] + " 点到 " + vals[vals.length - 1] + " 点";
+    var st = steppedBy(vals);
+    if (st) return "每 " + st + " 小时（从 " + vals[0] + " 点起）";
+    return vals.join("、") + " 点";
+  }
+  function minText(m) {
+    var vals = sorted(m.values);
+    if (m.wildcard || vals.length === 60) return "每分钟";
+    if (vals.length === 1) return "第 " + vals[0] + " 分";
+    var st = steppedBy(vals);
+    if (st) return "每 " + st + " 分钟";
+    return "第 " + vals.join("、") + " 分";
+  }
+
+  function describe(parsed) {
+    var parts = [];
+    var hour = parsed.hour, min = parsed.min, dom = parsed.dom, mon = parsed.mon, dow = parsed.dow;
+
+    var timeText;
+    if (hour.wildcard && min.wildcard) {
+      timeText = parsed.sec
+        ? "每分钟的第 " + sorted(parsed.sec.values).join("、") + " 秒"
+        : "每分钟";
+    } else if (!hour.wildcard && !min.wildcard && hour.values.size * min.values.size <= 4) {
+      var list = [];
+      sorted(hour.values).forEach(function (h) {
+        sorted(min.values).forEach(function (m) { list.push(pad(h) + ":" + pad(m)); });
+      });
+      timeText = list.join("、");
+    } else {
+      timeText = hourText(hour) + "，" + minText(min);
+    }
+    parts.push(timeText);
+
+    if (parsed.sec && !(hour.wildcard && min.wildcard)) {
+      parts.push("秒：" + sorted(parsed.sec.values).join("、"));
+    }
+
+    var dayText = [];
+    if (dom.wildcard && dow.wildcard) {
+      dayText.push("每天");
+    } else if (dom.wildcard) {
+      dayText.push(describeField(dow, FIELD_BY_KEY.dow));
+    } else if (dow.wildcard) {
+      dayText.push(describeField(dom, FIELD_BY_KEY.dom));
+    } else {
+      dayText.push(describeField(dom, FIELD_BY_KEY.dom) + " 或 " + describeField(dow, FIELD_BY_KEY.dow) + "（满足其一即可）");
+    }
+    if (!mon.wildcard) dayText.push("，仅 " + describeField(mon, FIELD_BY_KEY.mon));
+    parts.push(dayText.join(""));
+
+    return parts.join("，");
+  }
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+
+  /* ---------- 下次执行 ---------- */
+  function nextRuns(parsed, count) {
+    var out = [];
+    var now = new Date();
+    var startMs = now.getTime() + 500;
+    var hours = sorted(parsed.hour.values);
+    var mins = sorted(parsed.min.values);
+    var secs = parsed.sec ? sorted(parsed.sec.values) : [0];
+    var base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    for (var dayOffset = 0; dayOffset <= 800 && out.length < count; dayOffset++) {
+      var day = new Date(base.getFullYear(), base.getMonth(), base.getDate() + dayOffset);
+      var monthOk = parsed.mon.values.has(day.getMonth() + 1);
+      var domOk = parsed.dom.values.has(day.getDate());
+      var dowOk = parsed.dow.values.has(day.getDay());
+      var dayOk = parsed.dom.wildcard && parsed.dow.wildcard
+        ? true
+        : parsed.dom.wildcard ? dowOk
+        : parsed.dow.wildcard ? domOk
+        : (domOk || dowOk);
+      if (!monthOk || !dayOk) continue;
+
+      for (var hi = 0; hi < hours.length; hi++) {
+        for (var mi = 0; mi < mins.length; mi++) {
+          for (var si = 0; si < secs.length; si++) {
+            var d = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hours[hi], mins[mi], secs[si]);
+            if (d.getTime() < startMs) continue;
+            out.push(d);
+            if (out.length >= count) return out;
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  function fmt(d) {
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " +
+      pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+  }
+
+  function rel(d) {
+    var diff = d.getTime() - Date.now();
+    var mins = Math.round(diff / 60000);
+    if (mins < 1) return "马上";
+    if (mins < 60) return mins + " 分钟后";
+    var hours = Math.round(mins / 60);
+    if (hours < 24) return hours + " 小时后";
+    return Math.round(hours / 24) + " 天后";
+  }
+
+  /* ---------- 主流程 ---------- */
+  var input = document.getElementById("cron");
+  var descEl = document.getElementById("desc");
+  var errEl = document.getElementById("err");
+  var boxEl = document.getElementById("box");
+  var runsEl = document.getElementById("runs");
+
+  function run() {
+    var raw = input.value.trim().replace(/\s+/g, " ");
+    errEl.classList.remove("show");
+    boxEl.classList.remove("bad");
+    if (!raw) {
+      descEl.textContent = "—";
+      runsEl.innerHTML = "";
+      return;
+    }
+    var parts = raw.split(" ");
+    var parsed = {};
+    try {
+      if (parts.length === 6) {
+        parsed.sec = parseField(parts[0], SEC_FIELD);
+        parts = parts.slice(1);
+      } else if (parts.length !== 5) {
+        throw new Error("需要 5 段（分 时 日 月 周）或 6 段（秒 分 时 日 月 周），当前是 " + parts.length + " 段");
+      }
+      FIELDS.forEach(function (f, i) { parsed[f.key] = parseField(parts[i], f); });
+    } catch (e) {
+      boxEl.classList.add("bad");
+      errEl.classList.add("show");
+      errEl.textContent = e.message;
+      descEl.textContent = "—";
+      runsEl.innerHTML = "";
+      return;
+    }
+
+    descEl.innerHTML = "<b>" + describe(parsed) + "</b>";
+
+    var list = nextRuns(parsed, 8);
+    runsEl.innerHTML = list.length
+      ? list.map(function (d) {
+          return '<div class="run"><em>' + rel(d) + "</em>" + fmt(d) + "</div>";
+        }).join("")
+      : '<p class="note">一年内没有匹配的执行时间，检查「日」和「月」是否冲突（比如 2 月 30 日）。</p>';
+  }
+
+  var timer = null;
+  input.addEventListener("input", function () {
+    clearTimeout(timer);
+    timer = setTimeout(run, 150);
+  });
+
+  /* ---------- 预设 ---------- */
+  var PRESETS = [
+    ["每分钟", "* * * * *"],
+    ["每 5 分钟", "*/5 * * * *"],
+    ["每天 9 点", "0 9 * * *"],
+    ["工作日 9:30", "30 9 * * 1-5"],
+    ["每周一 0 点", "0 0 * * 1"],
+    ["每月 1 号 0 点", "0 0 1 * *"],
+    ["每 15 分钟（9-18 点）", "*/15 9-18 * * *"],
+    ["每小时整点", "0 * * * *"]
+  ];
+  var pbox = document.getElementById("presets");
+  PRESETS.forEach(function (p) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = p[0];
+    b.addEventListener("click", function () {
+      input.value = p[1];
+      run();
+    });
+    pbox.appendChild(b);
+  });
+
+  run();
+  setInterval(run, 30000); /* 相对时间会过期，半分钟重算一次 */
+})();
+</script>
+</body>
+</html>

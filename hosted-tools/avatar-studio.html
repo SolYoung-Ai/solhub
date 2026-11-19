@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>头像工坊 · SolHub</title>
+<style>
+  :root{
+    --bg:#f7f5f2; --card:#fff; --ink:#18181b; --muted:#71717a; --line:#e8e4de;
+    --soft:#f1ede8; --accent:#d96a24; --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);color-scheme:light;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1060px;margin:0 auto;padding:28px 20px 56px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .mark{width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgb(24 24 27/.06)}
+  h1{font-size:19px;line-height:1.2;margin:0;letter-spacing:-.01em}
+  header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .grid{display:grid;gap:18px;grid-template-columns:minmax(0,1fr) 320px}
+  @media (max-width:860px){ .grid{grid-template-columns:1fr} }
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+  .card + .card{margin-top:14px}
+  .lbl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-bottom:8px}
+  .btn{font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:9px 13px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s}
+  .btn:hover{background:#faf8f6}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(.95)}
+  .btn.block{width:100%;display:block;text-align:center}
+  .seg{display:inline-flex;background:var(--soft);border-radius:9px;padding:3px;gap:2px;flex-wrap:wrap}
+  .seg button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);
+    padding:5px 10px;border-radius:7px;cursor:pointer;transition:.15s}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgb(24 24 27/.08)}
+
+  /* 预览 */
+  .stage{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .frame{position:relative;width:100%;max-width:340px;aspect-ratio:1;border-radius:16px;overflow:hidden;
+    background:
+      linear-gradient(45deg,#f0ece7 25%,transparent 25%,transparent 75%,#f0ece7 75%),
+      linear-gradient(45deg,#f0ece7 25%,#fff 25%,#fff 75%,#f0ece7 75%);
+    background-size:18px 18px;background-position:0 0,9px 9px;
+    border:1px solid var(--line);box-shadow:0 10px 30px -18px rgb(24 24 27/.45);touch-action:none}
+  .frame canvas{display:block;width:100%;height:100%;cursor:grab}
+  .frame canvas.dragging{cursor:grabbing}
+  .drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    width:100%;max-width:340px;border:1px dashed #d8d2ca;border-radius:12px;padding:18px;color:var(--muted);
+    font-size:12.5px;text-align:center;cursor:pointer;background:#fdfcfb}
+  .drop:hover{border-color:var(--accent);color:var(--accent)}
+  .drop b{font-size:13px;color:var(--ink);font-weight:600}
+
+  /* 控件 */
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .row + .row{margin-top:10px}
+  .row .lbl{margin:0;min-width:52px}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;background:#e6e0d8;
+    flex:1 1 120px;min-width:100px;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+    background:#fff;border:1px solid #cfc8bf;box-shadow:0 1px 3px rgb(24 24 27/.25);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:#fff;
+    border:1px solid #cfc8bf;box-shadow:0 1px 3px rgb(24 24 27/.25);cursor:pointer}
+  .val{font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);min-width:42px;text-align:right}
+  .swatches{display:flex;gap:6px;flex-wrap:wrap}
+  .sw{width:24px;height:24px;border-radius:7px;border:1px solid rgb(24 24 27/.12);cursor:pointer;padding:0}
+  .sw.on{outline:2px solid var(--ink);outline-offset:1px}
+  .picker{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:9px;
+    padding:3px 9px 3px 4px;background:#fdfcfb}
+  .picker input[type=color]{width:24px;height:24px;border:0;background:none;padding:0;cursor:pointer;border-radius:6px}
+  .picker code{font:11.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);min-width:56px}
+  .note{font-size:12px;color:var(--muted);line-height:1.6}
+  .sizes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
+  .sizes .btn{font-size:12px;padding:8px 0}
+  .hidden{display:none !important}
+  footer{margin-top:26px;text-align:center;font-size:11.5px;color:#a1a1aa}
+  @media (max-width:520px){ .wrap{padding:20px 14px 48px} .card{padding:14px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="9" r="3.4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>
+      </svg>
+    </div>
+    <div>
+      <h1>头像工坊</h1>
+      <p>拖入图片，选形状与底色，导出 256 / 512 / 1024 PNG。全程本地处理，图片不会上传。</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <div class="stage">
+          <div class="frame" id="frame">
+            <canvas id="cv" width="1024" height="1024"></canvas>
+          </div>
+          <label class="drop" id="drop" for="file">
+            <b>拖入图片 / 点击选择 / ⌘V 粘贴</b>
+            <span>支持 JPG、PNG、WebP；建议正方形原图</span>
+            <input type="file" id="file" accept="image/*" class="hidden">
+          </label>
+          <div class="sizes" style="width:100%;max-width:340px">
+            <button class="btn" data-size="256" type="button">导出 256</button>
+            <button class="btn" data-size="512" type="button">导出 512</button>
+            <button class="btn primary" data-size="1024" type="button">导出 1024</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <span class="lbl">形状</span>
+          <div class="seg" id="shape">
+            <button type="button" data-v="circle" class="on">圆形</button>
+            <button type="button" data-v="squircle">超椭圆</button>
+            <button type="button" data-v="rounded">圆角方</button>
+            <button type="button" data-v="square">方形</button>
+          </div>
+        </div>
+        <div class="row">
+          <span class="lbl">位置</span>
+          <input type="range" id="zoom" min="100" max="320" value="100" step="1" aria-label="缩放">
+          <span class="val" id="zoomv">100%</span>
+        </div>
+        <div class="row">
+          <span class="lbl">边距</span>
+          <input type="range" id="inset" min="0" max="18" value="0" step="1" aria-label="边距">
+          <span class="val" id="insetv">0%</span>
+        </div>
+        <p class="note" style="margin:10px 0 0">在预览里拖动可以调整图片位置；双指/滚轮暂不支持，用上面的缩放条。</p>
+      </div>
+    </div>
+
+    <aside>
+      <div class="card">
+        <div class="lbl">底色</div>
+        <div class="seg" id="bgmode" style="margin-bottom:10px">
+          <button type="button" data-v="solid" class="on">纯色</button>
+          <button type="button" data-v="gradient">渐变</button>
+          <button type="button" data-v="none">透明</button>
+        </div>
+        <div class="swatches" id="swatches"></div>
+        <div class="row" style="margin-top:12px" id="custom-row">
+          <span class="lbl">自定义</span>
+          <span class="picker"><input type="color" id="c1" value="#d96a24"><code id="c1v">#d96a24</code></span>
+          <span class="picker" id="c2wrap"><input type="color" id="c2" value="#7c3aed"><code id="c2v">#7c3aed</code></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="lbl">导出说明</div>
+        <p class="note" style="margin:0">
+          导出为正方形 PNG。选「透明」时形状以外是透明的，适合贴在深色背景上；
+          圆形头像在多数平台会被自动裁圆，选「超椭圆」或「圆角方」观感更稳。
+        </p>
+      </div>
+
+      <div class="card">
+        <button class="btn block" id="reset" type="button">重置为默认</button>
+      </div>
+    </aside>
+  </div>
+
+  <footer>SolHub 官方工具 · 所有处理都在你的浏览器内完成</footer>
+</div>
+
+<script>
+(function () {
+  var cv = document.getElementById("cv");
+  var ctx = cv.getContext("2d");
+  var N = 1024;
+
+  var state = {
+    img: null,
+    shape: "circle",
+    bgmode: "solid",
+    c1: "#d96a24",
+    c2: "#7c3aed",
+    zoom: 1,
+    inset: 0,
+    ox: 0,
+    oy: 0
+  };
+
+  var PRESETS = ["#d96a24", "#18181b", "#ffffff", "#f1ede8", "#0ea5e9", "#16a34a", "#e11d48", "#7c3aed"];
+
+  /* ---------- 画形状路径（坐标基于 size 的正方形） ---------- */
+  function pathFor(c, shape, inset, size) {
+    var pad = size * inset;
+    var w = size - pad * 2;
+    c.beginPath();
+    if (shape === "circle") {
+      c.arc(size / 2, size / 2, w / 2, 0, Math.PI * 2);
+    } else if (shape === "square") {
+      c.rect(pad, pad, w, w);
+    } else if (shape === "rounded") {
+      roundRect(c, pad, pad, w, w, w * 0.2);
+    } else {
+      roundRect(c, pad, pad, w, w, w * 0.42);
+    }
+    c.closePath();
+  }
+
+  function roundRect(c, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+  }
+
+  function imageBox(size) {
+    var pad = size * state.inset;
+    var box = size - pad * 2;
+    var img = state.img;
+    if (!img) return { x: pad, y: pad, w: box, h: box };
+    var scale = Math.max(box / img.width, box / img.height) * state.zoom;
+    var w = img.width * scale;
+    var h = img.height * scale;
+    var x = pad + (box - w) / 2 + state.ox * size;
+    var y = pad + (box - h) / 2 + state.oy * size;
+    return { x: x, y: y, w: w, h: h };
+  }
+
+  function render(size, target) {
+    var c = target || ctx;
+    var s = size / N; /* 归一化：所有尺寸基于 1024 设计稿 */
+    c.clearRect(0, 0, size, size);
+
+    if (state.bgmode !== "none") {
+      c.save();
+      if (state.bgmode === "gradient") {
+        var g = c.createLinearGradient(0, 0, size, size);
+        g.addColorStop(0, state.c1);
+        g.addColorStop(1, state.c2);
+        c.fillStyle = g;
+      } else {
+        c.fillStyle = state.c1;
+      }
+      pathFor(c, state.shape, state.inset, size);
+      c.fill();
+      c.restore();
+    }
+
+    if (state.img) {
+      c.save();
+      pathFor(c, state.shape, state.inset, size);
+      c.clip();
+      var b = imageBox(size);
+      c.drawImage(state.img, b.x, b.y, b.w, b.h);
+      c.restore();
+    }
+  }
+
+  /* 还没选图时不要给一个大色块，看起来像已经生成了；改成浅灰形状 + 提示 */
+  function draw() {
+    render(N, ctx);
+    if (state.img) return;
+    ctx.save();
+    ctx.fillStyle = "rgba(24,24,27,.07)";
+    pathFor(ctx, state.shape, state.inset, N);
+    ctx.fill();
+    ctx.fillStyle = "#8b8b93";
+    ctx.font = "500 40px -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("拖入图片", N / 2, N / 2);
+    ctx.restore();
+  }
+
+  /* ---------- 控件 ---------- */
+  function seg(id, onChange) {
+    var box = document.getElementById(id);
+    box.addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      box.querySelectorAll("button").forEach(function (x) { x.classList.remove("on"); });
+      b.classList.add("on");
+      onChange(b.dataset.v);
+    });
+  }
+
+  seg("shape", function (v) { state.shape = v; draw(); });
+  seg("bgmode", function (v) {
+    state.bgmode = v;
+    document.getElementById("swatches").style.display = v === "none" ? "none" : "flex";
+    document.getElementById("custom-row").style.display = v === "none" ? "none" : "flex";
+    document.getElementById("c2wrap").style.display = v === "gradient" ? "inline-flex" : "none";
+    draw();
+  });
+
+  var sw = document.getElementById("swatches");
+  PRESETS.forEach(function (hex) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "sw" + (hex === state.c1 ? " on" : "");
+    b.style.background = hex;
+    b.dataset.hex = hex;
+    b.title = hex;
+    sw.appendChild(b);
+  });
+  sw.addEventListener("click", function (e) {
+    var b = e.target.closest(".sw");
+    if (!b) return;
+    sw.querySelectorAll(".sw").forEach(function (x) { x.classList.remove("on"); });
+    b.classList.add("on");
+    state.c1 = b.dataset.hex;
+    document.getElementById("c1").value = state.c1;
+    document.getElementById("c1v").textContent = state.c1;
+    draw();
+  });
+
+  function bindColor(id, key) {
+    var input = document.getElementById(id);
+    var out = document.getElementById(id + "v");
+    input.addEventListener("input", function () {
+      state[key] = input.value;
+      out.textContent = input.value;
+      sw.querySelectorAll(".sw").forEach(function (x) {
+        x.classList.toggle("on", key === "c1" && x.dataset.hex === input.value);
+      });
+      draw();
+    });
+  }
+  bindColor("c1", "c1");
+  bindColor("c2", "c2");
+
+  var zoom = document.getElementById("zoom");
+  zoom.addEventListener("input", function () {
+    state.zoom = Number(zoom.value) / 100;
+    document.getElementById("zoomv").textContent = zoom.value + "%";
+    draw();
+  });
+
+  var inset = document.getElementById("inset");
+  inset.addEventListener("input", function () {
+    state.inset = Number(inset.value) / 100;
+    document.getElementById("insetv").textContent = inset.value + "%";
+    draw();
+  });
+
+  /* ---------- 拖拽定位 ---------- */
+  var drag = null;
+  cv.addEventListener("pointerdown", function (e) {
+    if (!state.img) return;
+    drag = { x: e.clientX, y: e.clientY, ox: state.ox, oy: state.oy };
+    cv.classList.add("dragging");
+    cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener("pointermove", function (e) {
+    if (!drag) return;
+    var rect = cv.getBoundingClientRect();
+    state.ox = drag.ox + (e.clientX - drag.x) / rect.width;
+    state.oy = drag.oy + (e.clientY - drag.y) / rect.height;
+    draw();
+  });
+  cv.addEventListener("pointerup", function () {
+    drag = null;
+    cv.classList.remove("dragging");
+  });
+  cv.addEventListener("pointercancel", function () {
+    drag = null;
+    cv.classList.remove("dragging");
+  });
+
+  /* ---------- 载入图片 ---------- */
+  function loadFile(file) {
+    if (!file || !/^image\//.test(file.type)) return;
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      state.img = img;
+      state.ox = 0;
+      state.oy = 0;
+      draw();
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  }
+
+  document.getElementById("file").addEventListener("change", function (e) {
+    loadFile(e.target.files && e.target.files[0]);
+  });
+
+  document.addEventListener("paste", function (e) {
+    var items = (e.clipboardData || {}).items || [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf("image/") === 0) {
+        loadFile(items[i].getAsFile());
+        break;
+      }
+    }
+  });
+
+  ["dragover", "drop"].forEach(function (ev) {
+    document.addEventListener(ev, function (e) { e.preventDefault(); });
+  });
+  document.addEventListener("drop", function (e) {
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    loadFile(f);
+  });
+
+  /* ---------- 导出 ---------- */
+  document.querySelectorAll("[data-size]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var size = Number(btn.dataset.size);
+      var out = document.createElement("canvas");
+      out.width = size;
+      out.height = size;
+      render(size, out.getContext("2d"));
+      out.toBlob(function (blob) {
+        if (!blob) return;
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "avatar-" + size + ".png";
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      }, "image/png");
+    });
+  });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    state.shape = "circle";
+    state.bgmode = "solid";
+    state.c1 = "#d96a24";
+    state.c2 = "#7c3aed";
+    state.zoom = 1;
+    state.inset = 0;
+    state.ox = 0;
+    state.oy = 0;
+    zoom.value = 100;
+    inset.value = 0;
+    document.getElementById("zoomv").textContent = "100%";
+    document.getElementById("insetv").textContent = "0%";
+    document.getElementById("c1").value = state.c1;
+    document.getElementById("c1v").textContent = state.c1;
+    document.getElementById("c2").value = state.c2;
+    document.getElementById("c2v").textContent = state.c2;
+    document.querySelectorAll("#shape button").forEach(function (b) { b.classList.toggle("on", b.dataset.v === "circle"); });
+    document.querySelectorAll("#bgmode button").forEach(function (b) { b.classList.toggle("on", b.dataset.v === "solid"); });
+    sw.querySelectorAll(".sw").forEach(function (x) { x.classList.toggle("on", x.dataset.hex === state.c1); });
+    document.getElementById("c2wrap").style.display = "none";
+    draw();
+  });
+
+  /* 开场先画一版底色，避免空白 */
+  document.getElementById("c2wrap").style.display = "none";
+  draw();
+})();
+</script>
+</body>
+</html>

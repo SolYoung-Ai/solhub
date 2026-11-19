@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>渐变与噪点 · SolHub</title>
+<style>
+  :root{
+    --bg:#f7f5f2; --card:#fff; --ink:#18181b; --muted:#71717a; --line:#e8e4de;
+    --soft:#f1ede8; --accent:#d96a24; --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);color-scheme:light;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1060px;margin:0 auto;padding:28px 20px 56px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .mark{width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgb(24 24 27/.06)}
+  h1{font-size:19px;line-height:1.2;margin:0;letter-spacing:-.01em}
+  header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .grid{display:grid;gap:18px;grid-template-columns:minmax(0,1fr) 320px}
+  @media (max-width:860px){ .grid{grid-template-columns:1fr} }
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+  .card + .card{margin-top:14px}
+  .lbl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-bottom:8px}
+  .btn{font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:9px 13px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s}
+  .btn:hover{background:#faf8f6}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(.95)}
+  .btn.block{width:100%;display:block;text-align:center}
+  .btn.mini{font-size:11.5px;padding:5px 9px;border-radius:8px}
+  .seg{display:inline-flex;background:var(--soft);border-radius:9px;padding:3px;gap:2px;flex-wrap:wrap}
+  .seg button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);
+    padding:5px 10px;border-radius:7px;cursor:pointer;transition:.15s}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgb(24 24 27/.08)}
+
+  .pv{position:relative;width:100%;aspect-ratio:16/10;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+  .pv canvas{display:block;width:100%;height:100%}
+  .pv .tagline{position:absolute;left:18px;bottom:16px;color:#fff;font-size:13px;font-weight:600;
+    letter-spacing:.02em;text-shadow:0 1px 8px rgb(0 0 0/.35);pointer-events:none}
+
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .row + .row{margin-top:10px}
+  .row .lbl{margin:0;min-width:52px}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;background:#e6e0d8;
+    flex:1 1 120px;min-width:100px;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+    background:#fff;border:1px solid #cfc8bf;box-shadow:0 1px 3px rgb(24 24 27/.25);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:#fff;
+    border:1px solid #cfc8bf;box-shadow:0 1px 3px rgb(24 24 27/.25);cursor:pointer}
+  .val{font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);min-width:46px;text-align:right}
+  .picker{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:9px;
+    padding:3px 9px 3px 4px;background:#fdfcfb}
+  .picker input[type=color]{width:24px;height:24px;border:0;background:none;padding:0;cursor:pointer;border-radius:6px}
+  .picker code{font:11.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);min-width:56px}
+  .presets{display:flex;gap:8px;flex-wrap:wrap}
+  .preset{width:52px;height:32px;border-radius:8px;border:1px solid rgb(24 24 27/.12);cursor:pointer;padding:0}
+  .preset.on{outline:2px solid var(--ink);outline-offset:1px}
+  pre{background:#1b1b1f;color:#e9e4dc;border-radius:10px;padding:12px 13px;overflow:auto;margin:0;
+    font:11.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;max-height:220px;white-space:pre-wrap;word-break:break-all}
+  .codehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .tabs{display:flex;gap:2px;background:var(--soft);border-radius:9px;padding:3px}
+  .tabs button{border:0;background:none;font:inherit;font-size:12px;font-weight:600;color:var(--muted);
+    padding:5px 9px;border-radius:7px;cursor:pointer}
+  .tabs button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgb(24 24 27/.08)}
+  .note{font-size:12px;color:var(--muted);line-height:1.6}
+  .copied{color:#15803d !important}
+  footer{margin-top:26px;text-align:center;font-size:11.5px;color:#a1a1aa}
+  @media (max-width:520px){ .wrap{padding:20px 14px 48px} .card{padding:14px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="1.7">
+        <rect x="3" y="3" width="18" height="18" rx="4"/><path d="M3 15l6-6 9 9" stroke-linecap="round"/>
+        <circle cx="15.5" cy="8.5" r="1.6" fill="#d96a24" stroke="none"/>
+      </svg>
+    </div>
+    <div>
+      <h1>渐变与噪点</h1>
+      <p>两块颜色配一张有颗粒感的背景，导出 SVG / CSS / PNG。适合做封面、分区背景与空状态插图底。</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <div class="pv">
+          <canvas id="cv" width="1280" height="800"></canvas>
+          <span class="tagline" id="tagline"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="lbl">预设</div>
+        <div class="presets" id="presets"></div>
+        <div class="row" style="margin-top:14px">
+          <span class="lbl">起色</span>
+          <span class="picker"><input type="color" id="c1" value="#d96a24"><code id="c1v">#d96a24</code></span>
+          <span class="lbl" style="min-width:auto;margin-left:8px">止色</span>
+          <span class="picker"><input type="color" id="c2" value="#7c3aed"><code id="c2v">#7c3aed</code></span>
+        </div>
+        <div class="row">
+          <span class="lbl">类型</span>
+          <div class="seg" id="type">
+            <button type="button" data-v="linear" class="on">线性</button>
+            <button type="button" data-v="radial">径向</button>
+          </div>
+          <span class="lbl" style="min-width:auto;margin-left:8px">角度</span>
+          <input type="range" id="angle" min="0" max="360" value="135">
+          <span class="val" id="anglev">135°</span>
+        </div>
+        <div class="row">
+          <span class="lbl">噪点</span>
+          <input type="range" id="noise" min="0" max="60" value="18">
+          <span class="val" id="noisev">18</span>
+        </div>
+        <div class="row">
+          <span class="lbl">颗粒</span>
+          <input type="range" id="grain" min="1" max="4" value="2" step="0.5">
+          <span class="val" id="grainv">2×</span>
+        </div>
+      </div>
+    </div>
+
+    <aside>
+      <div class="card">
+        <div class="codehead">
+          <div class="tabs" id="tabs">
+            <button type="button" data-v="svg" class="on">SVG</button>
+            <button type="button" data-v="css">CSS</button>
+          </div>
+          <button class="btn mini" id="copy" type="button">复制</button>
+        </div>
+        <pre id="code"></pre>
+      </div>
+
+      <div class="card">
+        <button class="btn primary block" id="png" type="button">下载 PNG（1600×1000）</button>
+        <p class="note" style="margin:10px 0 0">导出的 SVG 用 <code>feTurbulence</code> 做颗粒，任意放大都不会糊；PNG 是画布直接渲染的结果。</p>
+      </div>
+
+      <div class="card">
+        <div class="lbl">用法提示</div>
+        <p class="note" style="margin:0">
+          封面用 16:10、移动端卡片用 4:5、全屏背景用径向。噪点值 12–22 最自然，超过 40 会显脏。
+        </p>
+      </div>
+    </aside>
+  </div>
+
+  <footer>SolHub 官方工具 · 所有处理都在你的浏览器内完成</footer>
+</div>
+
+<script>
+(function () {
+  var cv = document.getElementById("cv");
+  var ctx = cv.getContext("2d");
+  var W = cv.width, H = cv.height;
+
+  var state = { c1: "#d96a24", c2: "#7c3aed", type: "linear", angle: 135, noise: 18, grain: 2 };
+
+  var PRESETS = [
+    ["#d96a24", "#7c3aed", "linear", 135],
+    ["#0ea5e9", "#16a34a", "linear", 120],
+    ["#f43f5e", "#f59e0b", "linear", 160],
+    ["#18181b", "#3f3f46", "radial", 0],
+    ["#f1ede8", "#d6cec4", "linear", 135],
+    ["#6366f1", "#ec4899", "radial", 0]
+  ];
+
+  /* 预生成噪点贴图，避免每帧都随机（会闪） */
+  var noiseTile = null;
+  function buildNoiseTile() {
+    var s = 128;
+    var t = document.createElement("canvas");
+    t.width = s; t.height = s;
+    var tc = t.getContext("2d");
+    var img = tc.createImageData(s, s);
+    for (var i = 0; i < img.data.length; i += 4) {
+      var v = 128 + (Math.random() - 0.5) * 255;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+    tc.putImageData(img, 0, 0);
+    noiseTile = t;
+  }
+
+  function gradient(size) {
+    var a = state.angle * Math.PI / 180;
+    var cx = W / 2, cy = H / 2;
+    var g;
+    if (state.type === "radial") {
+      g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.62);
+    } else {
+      var r = Math.max(W, H) * 0.75;
+      g = ctx.createLinearGradient(
+        cx - Math.cos(a) * r, cy - Math.sin(a) * r,
+        cx + Math.cos(a) * r, cy + Math.sin(a) * r
+      );
+    }
+    g.addColorStop(0, state.c1);
+    g.addColorStop(1, state.c2);
+    return g;
+  }
+
+  function render(w, h) {
+    var cw = w || W, ch = h || H;
+    cv.width = cw; cv.height = ch;
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.fillStyle = gradient();
+    ctx.fillRect(0, 0, cw, ch);
+
+    if (state.noise > 0) {
+      var pattern = ctx.createPattern(noiseTile, "repeat");
+      var scale = state.grain;
+      if (pattern.setTransform) {
+        pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, 0, 0]));
+      }
+      ctx.save();
+      ctx.globalCompositeOperation = "overlay";
+      ctx.globalAlpha = state.noise / 100;
+      ctx.fillStyle = pattern;
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.restore();
+    }
+  }
+
+  function cssCode() {
+    return state.type === "radial"
+      ? "background: radial-gradient(circle at 50% 50%, " + state.c1 + " 0%, " + state.c2 + " 100%);"
+      : "background: linear-gradient(" + state.angle + "deg, " + state.c1 + " 0%, " + state.c2 + " 100%);";
+  }
+
+  function svgCode() {
+    var grad = state.type === "radial"
+      ? '<radialGradient id="g" cx="50%" cy="50%" r="62%"><stop offset="0" stop-color="' + state.c1 + '"/><stop offset="1" stop-color="' + state.c2 + '"/></radialGradient>'
+      : '<linearGradient id="g" x1="0" y1="0" x2="1" y2="1" gradientTransform="rotate(' +
+        (state.angle - 135) + ' 0.5 0.5)"><stop offset="0" stop-color="' + state.c1 + '"/><stop offset="1" stop-color="' + state.c2 + '"/></linearGradient>';
+    var alpha = (state.noise / 100 * 0.9).toFixed(2);
+    return [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">',
+      '  <defs>',
+      '    ' + grad,
+      '    <filter id="n" x="0" y="0" width="100%" height="100%">',
+      '      <feTurbulence type="fractalNoise" baseFrequency="' + (0.55 / state.grain).toFixed(2) + '" numOctaves="3" stitchTiles="stitch"/>',
+      '      <feColorMatrix type="saturate" values="0"/>',
+      '    </filter>',
+      '  </defs>',
+      '  <rect width="1600" height="1000" fill="url(#g)"/>',
+      '  <rect width="1600" height="1000" filter="url(#n)" opacity="' + alpha + '" style="mix-blend-mode:overlay"/>',
+      '</svg>'
+    ].join("\n");
+  }
+
+  var codeTab = "svg";
+  function refreshCode() {
+    document.getElementById("code").textContent = codeTab === "svg" ? svgCode() : cssCode();
+  }
+
+  function draw() {
+    render();
+    refreshCode();
+  }
+
+  /* ---------- 预设 ---------- */
+  var pbox = document.getElementById("presets");
+  PRESETS.forEach(function (p, i) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "preset" + (i === 0 ? " on" : "");
+    b.style.background = "linear-gradient(" + (p[3] || 135) + "deg," + p[0] + "," + p[1] + ")";
+    b.dataset.i = String(i);
+    b.title = p[0] + " → " + p[1];
+    pbox.appendChild(b);
+  });
+  pbox.addEventListener("click", function (e) {
+    var b = e.target.closest(".preset");
+    if (!b) return;
+    pbox.querySelectorAll(".preset").forEach(function (x) { x.classList.remove("on"); });
+    b.classList.add("on");
+    var p = PRESETS[Number(b.dataset.i)];
+    state.c1 = p[0]; state.c2 = p[1]; state.type = p[2]; state.angle = p[3];
+    document.getElementById("c1").value = p[0];
+    document.getElementById("c1v").textContent = p[0];
+    document.getElementById("c2").value = p[1];
+    document.getElementById("c2v").textContent = p[1];
+    document.getElementById("angle").value = String(p[3]);
+    document.getElementById("anglev").textContent = p[3] + "°";
+    document.querySelectorAll("#type button").forEach(function (x) { x.classList.toggle("on", x.dataset.v === p[2]); });
+    draw();
+  });
+
+  /* ---------- 控件 ---------- */
+  function bindColor(id, key) {
+    var input = document.getElementById(id);
+    var out = document.getElementById(id + "v");
+    input.addEventListener("input", function () {
+      state[key] = input.value;
+      out.textContent = input.value;
+      pbox.querySelectorAll(".preset").forEach(function (x) { x.classList.remove("on"); });
+      draw();
+    });
+  }
+  bindColor("c1", "c1");
+  bindColor("c2", "c2");
+
+  document.getElementById("type").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    this.querySelectorAll("button").forEach(function (x) { x.classList.remove("on"); });
+    b.classList.add("on");
+    state.type = b.dataset.v;
+    draw();
+  });
+
+  [["angle", "angle", "°"], ["noise", "noise", ""], ["grain", "grain", "×"]].forEach(function (t) {
+    var input = document.getElementById(t[0]);
+    var out = document.getElementById(t[0] + "v");
+    input.addEventListener("input", function () {
+      state[t[1]] = Number(input.value);
+      out.textContent = input.value + t[2];
+      if (t[0] === "grain") draw();
+      else draw();
+    });
+  });
+
+  document.getElementById("tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    this.querySelectorAll("button").forEach(function (x) { x.classList.remove("on"); });
+    b.classList.add("on");
+    codeTab = b.dataset.v;
+    refreshCode();
+  });
+
+  var copyBtn = document.getElementById("copy");
+  copyBtn.addEventListener("click", function () {
+    var text = document.getElementById("code").textContent;
+    var done = function () {
+      copyBtn.textContent = "已复制";
+      copyBtn.classList.add("copied");
+      setTimeout(function () { copyBtn.textContent = "复制"; copyBtn.classList.remove("copied"); }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, done);
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      done();
+    }
+  });
+
+  document.getElementById("png").addEventListener("click", function () {
+    var w = 1600, h = 1000;
+    var keep = [cv.width, cv.height];
+    render(w, h);
+    cv.toBlob(function (blob) {
+      cv.width = keep[0]; cv.height = keep[1];
+      draw();
+      if (!blob) return;
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "gradient-noise.png";
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+    }, "image/png");
+  });
+
+  buildNoiseTile();
+  draw();
+})();
+</script>
+</body>
+</html>
