@@ -1214,24 +1214,60 @@ async function readProductIndex(env) {
 }
 
 /** 把仓库里的社区数据推回 GitHub（尽力而为：无 PAT 或失败都不抛错）。 */
-async function syncCommunityToRepo(env, community, message) {
-  if (!env.GITHUB_PAT) return false;
+/**
+ * 把社区数据写回仓库，并带上失败原因。
+ * 静态站的产品列表是构建期从 src/data/community.json 烘进去的，仓库没写成功
+ * 就等于「用户在站内删了，产品页还在」——所以这里必须能说清为什么失败。
+ */
+async function pushCommunityToRepo(env, community, message) {
+  if (!env.GITHUB_PAT) return { ok: false, error: "未配置 GITHUB_PAT" };
   try {
     const cur = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json?ref=main`, {
       headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
     });
+    if (cur.status === 401) return { ok: false, error: "GITHUB_PAT 无效或已过期（401）" };
+    if (cur.status === 403) return { ok: false, error: "GITHUB_PAT 权限不足（403）" };
+    if (!cur.ok) return { ok: false, error: `读取仓库文件失败（${cur.status}）` };
     const curData = await cur.json();
-    if (!curData.sha) return false;
+    if (!curData.sha) return { ok: false, error: "仓库文件缺少 sha" };
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(community, null, 2))));
     const writeRes = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub", "Content-Type": "application/json" },
       body: JSON.stringify({ message, content, sha: curData.sha }),
     });
-    const writeData = await writeRes.json();
-    return !!writeData.commit;
-  } catch {
-    return false;
+    const writeData = await writeRes.json().catch(() => ({}));
+    if (!writeData.commit) {
+      return { ok: false, error: writeData.message || `写入仓库失败（${writeRes.status}）` };
+    }
+    return { ok: true, commit: String(writeData.commit.sha || "").slice(0, 7) };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
+}
+
+async function syncCommunityToRepo(env, community, message) {
+  return (await pushCommunityToRepo(env, community, message)).ok;
+}
+
+/** 只读探测：用 GITHUB_PAT 能不能读到仓库的 community.json（运维自检用） */
+async function probeCommunityRepo(env) {
+  if (!env.GITHUB_PAT) return { ok: false, error: "未配置 GITHUB_PAT" };
+  try {
+    const res = await fetch(`${API}/repos/${REPO}/contents/src/data/community.json?ref=main`, {
+      headers: { Authorization: `Bearer ${env.GITHUB_PAT}`, "User-Agent": "SolHub" },
+    });
+    if (!res.ok) return { ok: false, status: res.status, error: `读取仓库文件失败（${res.status}）` };
+    const data = await res.json();
+    if (!data.content) return { ok: false, error: "仓库文件没有内容" };
+    const arr = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g, "")))));
+    return {
+      ok: true,
+      count: Array.isArray(arr) ? arr.length : 0,
+      slugs: (Array.isArray(arr) ? arr : []).map((p) => p && p.slug).filter(Boolean),
+    };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
   }
 }
 
@@ -2796,6 +2832,42 @@ export default {
       return json(request, { ok: true, id, path: `/tools/?id=${id}` });
     }
 
+    /* 公开社区目录：GET /community —— 返回完整的社区产品对象。
+       产品列表页是构建期烘死的（src/data/community.json），仓库同步一旦失败，
+       站内删掉的产品还会挂在列表里、新提交的又上不了线。前端挂载后用这份
+       实时数据整体替掉「社区那部分」，删除/新增都立刻生效。 */
+    if (url.pathname === "/community" && request.method === "GET") {
+      const community = await readCommunity(env);
+      const products = community
+        .filter((p) => p && p.slug && !p.hidden)
+        .map((p) => ({
+          id: p.id || p.slug,
+          slug: p.slug,
+          name: p.name || p.slug,
+          icon: p.icon || "",
+          shortDescription: p.shortDescription || "",
+          description: p.description || "",
+          shortDescriptionEn: p.shortDescriptionEn || "",
+          descriptionEn: p.descriptionEn || "",
+          websiteUrl: p.websiteUrl || "",
+          category: p.category || "other",
+          tags: Array.isArray(p.tags) ? p.tags : [],
+          developerName: p.developerName || "SolHub",
+          developerLogin: p.developerLogin || p.submittedBy || "",
+          publishedAt: p.publishedAt || "",
+          launchBatch: p.launchBatch || "Community",
+          verificationStatus: p.verificationStatus || "pending",
+          verificationMethod: p.verificationMethod || "",
+          verifiedAt: p.verifiedAt || "",
+          ...(typeof p.rankPosition === "number" ? { rankPosition: p.rankPosition } : {}),
+          ...(p.kind === "site" || p.kind === "tool" ? { kind: p.kind } : {}),
+          isDemo: !!p.isDemo,
+          /* 提交者用 handle/PID（公开标识），和主页、详情页用的是同一个值 */
+          submittedBy: p.submittedBy || "",
+        }));
+      return json(request, { ok: true, products });
+    }
+
     /* 公开托管工具目录：GET /hosted/list?category=&limit=&offset=
        产品页「在线工具」用，无需登录。只返回元信息，不含 html / owner。 */
     if (url.pathname === "/hosted/list" && request.method === "GET") {
@@ -2880,6 +2952,33 @@ export default {
         await hostedIndexAdd(env, rec);
         return json(request, { ok: true, id: rec.id });
       }
+    }
+
+    /* 社区数据 ↔ 仓库 同步自检：GET /admin/sync-status
+       返回 PAT 是否配置、能否读到仓库文件、KV 与仓库的条目差异。 */
+    if (url.pathname === "/admin/sync-status" && request.method === "GET") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      if (!adminKeyOk(request, env)) return json(request, { error: "需要管理口令", needKey: true }, 401);
+      const kvCommunity = await kvGetJSON(env, KV_COMMUNITY, []);
+      const probe = await probeCommunityRepo(env);
+      return json(request, {
+        ok: true,
+        hasPat: !!env.GITHUB_PAT,
+        repo: REPO,
+        kvCount: Array.isArray(kvCommunity) ? kvCommunity.length : 0,
+        kvSlugs: (Array.isArray(kvCommunity) ? kvCommunity : []).map((p) => p && p.slug).filter(Boolean),
+        repoRead: probe,
+      });
+    }
+
+    /* 强推一次社区数据到仓库：POST /admin/sync-community
+       用于「站内已删但静态页还挂着」的事后修复，不需要重新登录或等别人触发。 */
+    if (url.pathname === "/admin/sync-community" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      if (!adminKeyOk(request, env)) return json(request, { error: "需要管理口令", needKey: true }, 401);
+      const community = await readCommunity(env);
+      const res = await pushCommunityToRepo(env, community, "chore: 同步社区产品目录（运维手动触发）");
+      return json(request, { ...res, count: community.length });
     }
 
     /* 重建托管目录索引（管理员）：POST /admin/hosted/reindex
@@ -3184,12 +3283,13 @@ export default {
       /* 主存储：写回 KV（保证个人主页 / 我的收录立即可见） */
       await kvPutJSON(env, KV_COMMUNITY, community);
       /* 尽力同步到仓库（供静态站构建期目录；PAT 缺失或失败不影响结果） */
-      const synced = await syncCommunityToRepo(
+      const synced = await pushCommunityToRepo(
         env,
         community,
         `${request.method === "DELETE" ? "remove" : "update"} community product ${slug} by @${myPid}`,
       );
-      return json(request, { ok: true, synced });
+      dropCreatorsCache();
+      return json(request, { ok: true, synced: synced.ok, syncError: synced.error || "" });
     }
 
     /* ================= 管理后台 ================= */

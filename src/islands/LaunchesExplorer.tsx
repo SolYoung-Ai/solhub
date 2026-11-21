@@ -8,6 +8,7 @@ import { p } from "@/lib/paths";
 import { buildSearchIndex, searchIndex } from "@/lib/search";
 import { cx, getLocale } from "@/lib/utils";
 import { fetchHostedTools, type HostedTool } from "@/lib/hosted";
+import { fetchLiveCommunity } from "@/lib/community";
 import type { Locale } from "@/i18n";
 import { getDict, translate } from "@/i18n";
 import { productCategoryNameLocalized, productShortDescription } from "@/i18n/data";
@@ -19,15 +20,6 @@ interface Props {
 
 /** 一级筛选：网站 / 工具（工具 = 目录里的在线工具 + 站内托管的 HTML 工具） */
 type KindFilter = "all" | "site" | "tool";
-
-interface CommunityItem {
-  id: number;
-  name: string;
-  url: string;
-  icon?: string;
-  description: string;
-  createdAt: string;
-}
 
 function VerificationBadge({ status, isDemo, locale }: { status: Product["verificationStatus"]; isDemo: boolean; locale: Locale }) {
   const cfg = {
@@ -56,13 +48,32 @@ function VerificationBadge({ status, isDemo, locale }: { status: Product["verifi
 
 export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
   const dict = getDict(locale);
-  const ranked = useMemo(() => rankProducts(products), [products]);
-  const categories = useMemo(() => {
-    const set = new Set(products.map((p) => p.category));
-    return Array.from(set);
+
+  /* 社区那部分产品以云端实时数据为准：静态构建里的 community.json 可能是旧的
+     （用户删了但仓库没同步成功 → 列表还挂着已删除的产品）。接口失败就退回构建期数据。 */
+  const [liveCommunity, setLiveCommunity] = useState<Product[] | null>(null);
+  useEffect(() => {
+    if (!products.some((p) => p.submittedBy)) return;
+    let alive = true;
+    fetchLiveCommunity().then((list) => {
+      if (alive && list) setLiveCommunity(list);
+    });
+    return () => {
+      alive = false;
+    };
   }, [products]);
 
-  const [community] = useState<CommunityItem[]>([]);
+  const catalog = useMemo(() => {
+    if (!liveCommunity) return products;
+    /* 目录收录的（无 submittedBy）留在构建期数据里，社区条目整体换成实时的 */
+    return [...products.filter((p) => !p.submittedBy), ...liveCommunity];
+  }, [products, liveCommunity]);
+
+  const ranked = useMemo(() => rankProducts(catalog), [catalog]);
+  const categories = useMemo(() => {
+    const set = new Set(catalog.map((p) => p.category));
+    return Array.from(set);
+  }, [catalog]);
 
   /* 公开托管工具：客户端拉取（接口异常就当作没有，不影响静态列表） */
   const [hosted, setHosted] = useState<HostedTool[]>([]);
@@ -131,12 +142,12 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     if (query.trim()) {
       /* 复用首页搜索条同一套索引与评分，保证「首页能搜到的，这里也一定搜得到」 */
       const matched = new Set(
-        searchIndex(query, buildSearchIndex(products, locale), locale).map((e) => e.slug),
+        searchIndex(query, buildSearchIndex(catalog, locale), locale).map((e) => e.slug),
       );
       list = list.filter((p) => matched.has(p.slug));
     }
     return list;
-  }, [ranked, kind, category, query, locale, products]);
+  }, [ranked, kind, category, query, locale, catalog]);
 
   const filteredHosted = useMemo(() => {
     if (kind === "site") return [];
@@ -434,51 +445,6 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
             );
           })}
 
-          {/* 社区提交的产品（合并在同一列表，连续编号） */}
-          {community.map((item, ci) => {
-            const communityRank = sort === "ranked" ? shown.length + ci + 1 : null;
-            return (
-              <li key={`community-${item.id}`}>
-                <a
-                  href={p(`/products/c-${item.id}/`, locale)}
-                  className="group flex items-center gap-4 px-4 py-4 transition-colors hover:bg-secondary/40 sm:px-5"
-                >
-                  {communityRank !== null && (
-                    <span
-                      className="font-display w-7 shrink-0 text-center text-base font-bold text-muted-foreground/50"
-                      aria-label={`${locale === "en" ? "Rank" : "第"} ${communityRank} ${locale === "en" ? "" : "名"}`}
-                    >
-                      #{communityRank}
-                    </span>
-                  )}
-                  {item.icon ? (
-                    <img src={item.icon} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-[8px] border border-border bg-card object-cover" />
-                  ) : (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-border bg-secondary font-display text-sm font-bold text-foreground/70" aria-hidden="true">
-                      {item.name.slice(0, 2).toUpperCase()}
-                    </span>
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="font-display text-[15px] font-bold text-foreground group-hover:text-accent">
-                        {item.name}
-                      </span>
-                      <span className="badge border-accent/30 bg-accent/10 text-accent">{locale === "en" ? "Community" : "社区"}</span>
-                    </span>
-                    {item.description && (
-                      <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">
-                        {item.description}
-                      </span>
-                    )}
-                    <span className="mt-1.5 text-[11px] text-muted-foreground">
-                      {locale === "en" ? `Submitted ${item.createdAt}` : `提交于 ${item.createdAt}`}
-                    </span>
-                  </span>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-all duration-150 group-hover:translate-x-0.5 group-hover:text-accent" aria-hidden="true" />
-                </a>
-              </li>
-            );
-          })}
         </ul>
       </div>
 
