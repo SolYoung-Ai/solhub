@@ -35,7 +35,8 @@ describe("Search index", () => {
   });
 
   it("requires every token to match (AND)", () => {
-    expect(searchIndex("solyoung studio", index).some((e) => e.slug === "solyoung-studio")).toBe(true);
+    /* 用现存目录产品验证多词 AND（原来的 solyoung-studio 已下架，别再引用它） */
+    expect(searchIndex("account insight", index).some((e) => e.slug === "xinsight")).toBe(true);
     expect(searchIndex("solyoung 完全不存在的词", index)).toHaveLength(0);
   });
 });

@@ -148,6 +148,34 @@ for (const { src, dst } of EXTRA) {
   for (const one of [].concat(dst)) emit(one, `${BANNER}${asCjs}`, "module");
 }
 
+/* 原样复制：CJS 模块，不需要 ESM→CJS 转换。
+   存储驱动的源在 solhub-auth/ 下，solhub-cron 也必须有一份（它也 require core.cjs，
+   而 core 会用到 PROFILES）。这两份曾长期靠手工 cp 保持一致，已经分叉过一次，
+   所以纳入同步脚本：只改 auth 那份，cron 那份自动跟上。 */
+const COPY_BANNER = `/*
+ * ⚠️ 本文件由 scripts/sync-cloudbase-fn.mjs 从 cloudbase/functions/solhub-auth/ 复制，
+ *    请勿直接编辑；改存储层请改 solhub-auth/ 下的源文件再执行同步脚本。
+ */
+`;
+const COPY = [
+  { name: "kv.cjs", dirs: ["solhub-cron"] },
+  { name: "kv-pg.cjs", dirs: ["solhub-cron"] },
+  { name: "kv-nosql.cjs", dirs: ["solhub-cron"] },
+];
+
+for (const { name, dirs } of COPY) {
+  const src = path.join(ROOT, "cloudbase", "functions", "solhub-auth", name);
+  if (!fs.existsSync(src)) {
+    console.error(`[sync] 找不到存储层源文件，跳过：${path.relative(ROOT, src)}`);
+    process.exitCode = 1;
+    continue;
+  }
+  const body = fs.readFileSync(src, "utf8");
+  for (const dir of dirs) {
+    emit(path.join(ROOT, "cloudbase", "functions", dir, name), COPY_BANNER + body, "copy");
+  }
+}
+
 if (checkOnly && changed > 0) {
   console.error("[sync] 生成文件与源文件不一致，请执行 node scripts/sync-cloudbase-fn.mjs");
   process.exit(1);
