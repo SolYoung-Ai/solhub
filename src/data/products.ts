@@ -41,29 +41,6 @@ export const products: Product[] = [
     isDemo: false,
   },
   {
-    id: "solyoung-studio",
-    slug: "solyoung-studio",
-    name: "SolYoung Studio",
-    icon: "/icons/solyoung-studio.png",
-    shortDescription: "AI 个人网站、数字空间与轻量产品制作服务。",
-    description:
-      "SolYoung Studio 是面向创作者、自由职业者和小型品牌的服务型站点：从需求梳理、视觉设计到 AI 辅助制作与部署，把想法逐步变成真实可用的作品，并提供品牌与商业合作入口。",
-    websiteUrl: "https://studio.solyoung.top",
-    category: "services",
-    kind: "site",
-    tags: ["website", "brand", "ai-assisted"],
-    developerName: "Sol Young",
-    developerLogin: OWNER_LOGIN,
-    publishedAt: "2026-10-16",
-    launchBatch: "Curated W42",
-    verificationStatus: "verified",
-    verificationMethod:
-      "人工访问 https://studio.solyoung.top，核对服务定位与页面内容后核验通过。",
-    verifiedAt: "2026-10-16",
-    rankPosition: 3,
-    isDemo: false,
-  },
-  {
     id: "myos",
     slug: "myos",
     name: "My.OS",
@@ -127,28 +104,6 @@ export const products: Product[] = [
     verificationMethod:
       "人工访问 https://camera.solyoung.top，核对工具功能与可用性后核验通过。",
     verifiedAt: "2026-10-16",
-    isDemo: false,
-  },
-  {
-    id: "solclip",
-    slug: "solclip",
-    name: "SolClip",
-    icon: "/icons/solclip.png",
-    shortDescription: "多平台短视频解析、下载与文案提取工具。",
-    description:
-      "SolClip 是面向内容创作者的短视频素材提取工具：粘贴抖音、小红书、微信视频号、哔哩哔哩的分享链接，即可解析公开作品、保存媒体文件，并提取发布文案、字幕与口播文字。仅处理公开内容，不提供付费、DRM 或登录权限绕过。",
-    websiteUrl: "https://clip.solyoung.top",
-    category: "creator-tools",
-    kind: "tool",
-    tags: ["video-parser", "subtitle", "content-creator", "douyin"],
-    developerName: "Sol Young",
-    developerLogin: OWNER_LOGIN,
-    publishedAt: "2026-10-25",
-    launchBatch: "Curated W43",
-    verificationStatus: "verified",
-    verificationMethod:
-      "人工访问 https://clip.solyoung.top（HTTP 200），核对产品名称、描述、支持平台与页面内容后核验通过。",
-    verifiedAt: "2026-10-25",
     isDemo: false,
   },
   {

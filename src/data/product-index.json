@@ -19,25 +19,6 @@
     "rankPosition": 2
   },
   {
-    "slug": "solyoung-studio",
-    "name": "SolYoung Studio",
-    "icon": "/icons/solyoung-studio.png",
-    "shortDescription": "AI 个人网站、数字空间与轻量产品制作服务。",
-    "websiteUrl": "https://studio.solyoung.top",
-    "category": "services",
-    "tags": [
-      "website",
-      "brand",
-      "ai-assisted"
-    ],
-    "verificationStatus": "verified",
-    "publishedAt": "2026-10-16",
-    "developerName": "Sol Young",
-    "developerLogin": "solyoung",
-    "isDemo": false,
-    "rankPosition": 3
-  },
-  {
     "slug": "myos",
     "name": "My.OS",
     "icon": "/icons/myos.png",
@@ -87,25 +68,6 @@
     ],
     "verificationStatus": "verified",
     "publishedAt": "2026-10-16",
-    "developerName": "Sol Young",
-    "developerLogin": "solyoung",
-    "isDemo": false
-  },
-  {
-    "slug": "solclip",
-    "name": "SolClip",
-    "icon": "/icons/solclip.png",
-    "shortDescription": "多平台短视频解析、下载与文案提取工具。",
-    "websiteUrl": "https://clip.solyoung.top",
-    "category": "creator-tools",
-    "tags": [
-      "video-parser",
-      "subtitle",
-      "content-creator",
-      "douyin"
-    ],
-    "verificationStatus": "verified",
-    "publishedAt": "2026-10-25",
     "developerName": "Sol Young",
     "developerLogin": "solyoung",
     "isDemo": false
