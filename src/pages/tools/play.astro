@@ -125,7 +125,7 @@ const copy = {
       return res.text();
     }).then(function (html) {
       if (!/<[a-z]/i.test(html)) throw new Error("empty");
-      frame.setAttribute("sandbox", "allow-scripts allow-forms allow-popups allow-modals");
+      frame.setAttribute("sandbox", "allow-scripts allow-forms allow-popups allow-modals allow-downloads");
       frame.srcdoc = html;
       frame.addEventListener("load", function () {
         statusBox.classList.add("hidden");

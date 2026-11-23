@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>视频转 MP3 · SolHub</title>
+<style>
+  :root{
+    --bg:#f7f5f2; --card:#fff; --ink:#18181b; --muted:#71717a; --line:#e8e4de;
+    --soft:#f1ede8; --accent:#d96a24; --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);color-scheme:light;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:28px 20px 56px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .mark{width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgb(24 24 27/.06);flex:0 0 auto}
+  h1{font-size:19px;line-height:1.2;margin:0;letter-spacing:-.01em}
+  header p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .grid{display:grid;gap:18px;grid-template-columns:minmax(0,1fr) 316px}
+  @media (max-width:900px){ .grid{grid-template-columns:1fr} }
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+  .card + .card{margin-top:14px}
+  .lbl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-bottom:8px}
+
+  /* 舞台 */
+  .stage{position:relative;display:flex;align-items:center;justify-content:center;min-height:330px;
+    background:#faf8f6;border:1px solid var(--line);border-radius:12px;padding:18px;overflow:hidden}
+  .drop{position:absolute;inset:14px;border:1.5px dashed #d8d0c6;border-radius:10px;background:#fffdfa;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:20px}
+  .drop strong{font-size:14px}
+  .drop span{font-size:12px;color:var(--muted);max-width:340px}
+  .drop .btn{margin-top:8px}
+  .stage.drag .drop{border-color:var(--accent);background:#fff8f2}
+
+  /* 文件信息 */
+  .filebox{width:100%;display:flex;flex-direction:column;gap:14px}
+  .fname{display:flex;align-items:flex-start;gap:10px}
+  .fname .ico{width:38px;height:38px;border-radius:10px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .fname b{display:block;font-size:13.5px;line-height:1.45;word-break:break-all}
+  .fname small{font-size:11.5px;color:var(--muted)}
+  .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .meta div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .meta span{display:block;font-size:11px;color:var(--muted)}
+  .meta b{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+  .wave{display:flex;align-items:flex-end;justify-content:center;gap:3px;height:64px;padding:0 6px}
+  .wave i{display:block;width:4px;border-radius:2px;background:#e0d9d1}
+
+  /* 结果 */
+  .done{width:100%;display:flex;flex-direction:column;gap:12px}
+  .done audio{width:100%;height:38px}
+  .saved{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+  .saved b{color:var(--ink)}
+  .pill{display:inline-flex;align-items:center;gap:5px;background:#eef7ef;color:#2e7d32;
+    border:1px solid #d6ebd8;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:600;
+    flex:0 0 auto;white-space:nowrap}
+
+  /* 控件 */
+  .field{margin-bottom:16px}
+  .field:last-child{margin-bottom:0}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chips button{border:1px solid var(--line);background:#fff;font:inherit;font-size:12.5px;color:var(--muted);
+    padding:5px 11px;border-radius:8px;cursor:pointer;transition:.15s}
+  .chips button:hover{border-color:#cfc7bd}
+  .chips button[aria-pressed=true]{border-color:var(--ink);background:var(--ink);color:#fff;font-weight:600}
+  .btn{font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:9px 13px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s}
+  .btn:hover{background:#faf8f6}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(.95)}
+  .btn.block{width:100%}
+  .btn:disabled{opacity:.55;cursor:not-allowed;filter:none}
+  .bar{height:6px;border-radius:99px;background:var(--soft);overflow:hidden;margin:12px 0 8px}
+  .bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .18s ease}
+  .status{font-size:12px;color:var(--muted);min-height:18px}
+  .status.err{color:#b42318}
+  .hint{font-size:11.5px;color:var(--muted);line-height:1.65;margin:10px 0 0}
+  footer{margin-top:26px;text-align:center;font-size:11.5px;color:#a1a1aa}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="mark" aria-hidden="true">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2.5" y="4.5" width="12" height="10" rx="2"/>
+        <path d="M2.5 12.2l3.2-2.6 2.6 2.2 2.2-1.7 4 3.3"/>
+        <path d="M19.5 9v9.5"/><circle cx="17.6" cy="19" r="1.9"/>
+      </svg>
+    </span>
+    <div>
+      <h1>视频转 MP3</h1>
+      <p>把视频里的音轨抽出来存成 MP3，文件不出本机，不上传</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <div class="stage" id="stage">
+        <div class="drop" id="drop">
+          <strong>拖入视频，或点击选择文件</strong>
+          <span>支持 MP4 / M4V / MOV / M4A / AAC，画面会被丢掉，只保留声音</span>
+          <button class="btn" id="choose" type="button">选择文件</button>
+        </div>
+
+        <div class="filebox hidden" id="filebox">
+          <div class="fname">
+            <span class="ico" aria-hidden="true">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10 9.5l5 2.5-5 2.5z"/>
+              </svg>
+            </span>
+            <div style="min-width:0">
+              <b id="fname">—</b>
+              <small id="fsize">—</small>
+            </div>
+          </div>
+          <div class="meta">
+            <div><span>时长</span><b id="fdur">—</b></div>
+            <div><span>音轨</span><b id="fch">—</b></div>
+            <div><span>预计输出</span><b id="fest">—</b></div>
+          </div>
+          <div class="wave" id="wave" aria-hidden="true"></div>
+          <button class="btn" id="reselect" type="button">换一个文件</button>
+        </div>
+
+        <div class="done hidden" id="done">
+          <div class="saved">
+            <span class="pill">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              已生成
+            </span>
+            <span id="savedinfo">—</span>
+          </div>
+          <audio id="player" controls preload="metadata"></audio>
+          <button class="btn primary block" id="download" type="button">下载 MP3</button>
+          <button class="btn block" id="again" type="button">换个码率再转一次</button>
+        </div>
+      </div>
+      <p class="hint">解码与编码都在你的浏览器里完成：文件不会离开这台设备，也没有上传进度这么一说。</p>
+    </section>
+
+    <aside>
+      <div class="card">
+        <div class="field">
+          <div class="lbl">输出码率</div>
+          <div class="chips" id="rates">
+            <button type="button" data-k="128" aria-pressed="false">128 kbps</button>
+            <button type="button" data-k="192" aria-pressed="true">192 kbps</button>
+            <button type="button" data-k="320" aria-pressed="false">320 kbps</button>
+          </div>
+          <p class="hint" id="ratehint">192 够听且体积适中；320 适合再剪辑，体积约为 192 的 1.7 倍。</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="lbl">开始转换</div>
+        <button class="btn primary block" id="run" type="button" disabled>选择文件后开始</button>
+        <div class="bar hidden" id="barwrap"><i id="pbar"></i></div>
+        <p class="status" id="status"></p>
+        <p class="hint">长视频要解码整条音轨，进度走完前别关页面。建议单条不超过 40 分钟。</p>
+      </div>
+    </aside>
+  </div>
+
+  <footer>SolHub 在线工具 · 纯本地处理 · 不上传、不留存</footer>
+</div>
+
+<input type="file" id="picker" accept="video/mp4,video/quicktime,video/x-m4v,audio/mp4,audio/x-m4a,.mp4,.m4v,.mov,.m4a,.aac,.webm,.mkv" hidden>
+
+<script src="vendor/lamejs.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var MAX_BYTES = 400 * 1024 * 1024;
+  var MAX_SECONDS = 40 * 60;
+  var RATE_KEYS = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var stage = $("stage"), drop = $("drop"), picker = $("picker");
+  var filebox = $("filebox"), done = $("done");
+  var runBtn = $("run"), statusEl = $("status"), barwrap = $("barwrap"), pbar = $("pbar");
+
+  var file = null;
+  var meta = null;      /* { duration, size, name } */
+  var pcm = null;       /* { left, right, sampleRate, duration } 解码结果缓存 */
+  var kbps = 192;
+  var mp3Blob = null;
+  var mp3Name = "";
+  var busy = false;
+
+  /* ---------- 小工具 ---------- */
+  function fmtSize(n) {
+    if (!n && n !== 0) return "—";
+    if (n < 1024) return n + " B";
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+    if (n < 1024 * 1024 * 1024) return (n / 1048576).toFixed(1) + " MB";
+    return (n / 1073741824).toFixed(2) + " GB";
+  }
+  function fmtTime(s) {
+    if (!isFinite(s) || s <= 0) return "—";
+    s = Math.round(s);
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    var mm = (h ? (m < 10 ? "0" : "") + m : m) + ":" + (sec < 10 ? "0" : "") + sec;
+    return h ? h + ":" + (m < 10 ? "0" : "") + m + ":" + (sec < 10 ? "0" : "") + sec : mm;
+  }
+  function baseName(name) {
+    var i = name.lastIndexOf(".");
+    return i > 0 ? name.slice(0, i) : name;
+  }
+  function setStatus(text, isErr) {
+    statusEl.textContent = text || "";
+    statusEl.className = "status" + (isErr ? " err" : "");
+  }
+  function show(which) {
+    drop.classList.toggle("hidden", which !== "drop");
+    filebox.classList.toggle("hidden", which !== "file");
+    done.classList.toggle("hidden", which !== "done");
+  }
+  function estimateBytes(seconds, k) {
+    return Math.round((seconds || 0) * k * 1000 / 8);
+  }
+
+  /* ---------- 拖拽 / 选择 ---------- */
+  ["dragenter", "dragover"].forEach(function (ev) {
+    stage.addEventListener(ev, function (e) {
+      e.preventDefault(); e.stopPropagation();
+      stage.classList.add("drag");
+    });
+  });
+  ["dragleave", "dragend"].forEach(function (ev) {
+    stage.addEventListener(ev, function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (ev === "dragleave" && stage.contains(e.relatedTarget)) return;
+      stage.classList.remove("drag");
+    });
+  });
+  stage.addEventListener("drop", function (e) {
+    e.preventDefault(); e.stopPropagation();
+    stage.classList.remove("drag");
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) accept(f);
+  });
+  $("choose").addEventListener("click", function () { picker.click(); });
+  $("reselect").addEventListener("click", function () { picker.click(); });
+  picker.addEventListener("change", function () {
+    if (picker.files && picker.files[0]) accept(picker.files[0]);
+    picker.value = "";
+  });
+
+  /* ---------- 读取文件 ---------- */
+  function readDuration(f) {
+    return new Promise(function (resolve) {
+      var isAudio = /^audio\//.test(f.type) || /\.(m4a|aac|mp3|wav)$/i.test(f.name);
+      var el = document.createElement(isAudio ? "audio" : "video");
+      var url = URL.createObjectURL(f);
+      var settled = false;
+      function finish(v) {
+        if (settled) return;
+        settled = true;
+        URL.revokeObjectURL(url);
+        el.removeAttribute("src");
+        resolve(v);
+      }
+      el.preload = "metadata";
+      el.onloadedmetadata = function () { finish(isFinite(el.duration) ? el.duration : 0); };
+      el.onerror = function () { finish(0); };
+      setTimeout(function () { finish(0); }, 8000);
+      el.src = url;
+    });
+  }
+
+  function accept(f) {
+    if (busy) return;
+    if (f.size > MAX_BYTES) {
+      setStatus("文件太大（" + fmtSize(f.size) + "），上限 400 MB。可以先用其它工具把视频裁短。", true);
+      show("drop");
+      return;
+    }
+    file = f;
+    pcm = null;
+    mp3Blob = null;
+    setStatus("");
+    runBtn.disabled = true;
+    runBtn.textContent = "读取中…";
+
+    readDuration(f).then(function (dur) {
+      if (!dur) {
+        setStatus("读不出时长，这个文件可能不是标准视频容器。换个 MP4 再试。", true);
+        runBtn.textContent = "选择文件后开始";
+        show("drop");
+        return;
+      }
+      if (dur > MAX_SECONDS) {
+        setStatus("时长 " + fmtTime(dur) + "，超过 40 分钟上限：整条音轨要解进内存，浏览器扛不住。先剪短再转。", true);
+        runBtn.textContent = "选择文件后开始";
+        show("drop");
+        return;
+      }
+      meta = { duration: dur, size: f.size, name: f.name };
+      $("fname").textContent = f.name;
+      $("fsize").textContent = fmtSize(f.size);
+      $("fdur").textContent = fmtTime(dur);
+      $("fch").textContent = "待解码";
+      $("fest").textContent = fmtSize(estimateBytes(dur, kbps));
+      paintWave(dur);
+      show("file");
+      runBtn.disabled = false;
+      runBtn.textContent = "开始转换";
+    });
+  }
+
+  /* 装饰性音波条（按文件名做稳定的随机高度，不表示真实波形） */
+  function paintWave(seedSource) {
+    var box = $("wave");
+    var n = 46;
+    var html = "";
+    var seed = String(file.name) + "|" + file.size;
+    var h = 0;
+    for (var i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+    for (var j = 0; j < n; j++) {
+      h = (h * 1664525 + 1013904223) >>> 0;
+      var v = 12 + Math.round((h % 1000) / 1000 * 46);
+      if (j > n * 0.45 && j < n * 0.55) v = Math.round(v * 0.55);
+      html += '<i style="height:' + v + 'px;background:' + (j % 7 === 0 ? "#d96a24" : "#e0d9d1") + '"></i>';
+    }
+    box.innerHTML = html;
+  }
+
+  /* ---------- 码率 ---------- */
+  var rateBtns = Array.prototype.slice.call($("rates").querySelectorAll("button"));
+  rateBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (busy) return;
+      kbps = parseInt(b.dataset.k, 10);
+      rateBtns.forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      $("ratehint").textContent =
+        kbps === 128 ? "体积最小，人声、播客够用，音乐高频会有点毛。" :
+        kbps === 320 ? "接近 CD 音质，适合再剪辑或存档，体积约为 192 的 1.7 倍。" :
+                       "192 够听且体积适中；320 适合再剪辑，体积约为 192 的 1.7 倍。";
+      if (meta) $("fest").textContent = fmtSize(estimateBytes(meta.duration, kbps));
+      if (mp3Blob) setStatus("码率已改为 " + kbps + " kbps，点「换个码率再转一次」重新生成。");
+    });
+  });
+
+  /* ---------- 解码 ---------- */
+  function decodeBuffer(buf) {
+    /* 固定用 44.1kHz 的离线上下文解码：MP3 支持的采样率有限，
+       让浏览器顺手把 48k / 8k 之类重采样到 44.1k，后面编码就不会报错。 */
+    var ctx;
+    try {
+      ctx = new OfflineAudioContext(1, 1, 44100);
+    } catch (e) {
+      ctx = null;
+    }
+    if (ctx && typeof ctx.decodeAudioData === "function") {
+      return new Promise(function (resolve, reject) {
+        var ret = ctx.decodeAudioData(buf, resolve, function (err) { reject(err || new Error("decode failed")); });
+        if (ret && typeof ret.then === "function") ret.then(resolve, reject);
+      });
+    }
+    var ac = new (window.AudioContext || window.webkitAudioContext)();
+    return ac.decodeAudioData(buf).then(function (a) { ac.close(); return a; },
+      function (e) { ac.close(); throw e; });
+  }
+
+  function toPcm(audio) {
+    var nch = audio.numberOfChannels;
+    var ch0 = audio.getChannelData(0);
+    var ch1 = nch > 1 ? audio.getChannelData(1) : null;
+    var useStereo = !!(ch1 && nch >= 2);
+    return {
+      left: ch0,
+      right: useStereo ? ch1 : null,
+      sampleRate: RATE_KEYS.indexOf(audio.sampleRate) >= 0 ? audio.sampleRate : 44100,
+      duration: audio.duration,
+      channels: useStereo ? 2 : 1
+    };
+  }
+
+  /* ---------- 编码 ---------- */
+  function toInt16(src, from, count, out) {
+    for (var i = 0; i < count; i++) {
+      var s = src[from + i];
+      if (s > 1) s = 1; else if (s < -1) s = -1;
+      out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    return out;
+  }
+
+  function encodeMp3(p) {
+    var block = 1152;
+    var nch = p.right ? 2 : 1;
+    var enc = new lamejs.Mp3Encoder(nch, p.sampleRate, kbps);
+    var lb = new Int16Array(block);
+    var rb = nch === 2 ? new Int16Array(block) : null;
+    var chunks = [];
+    var total = p.left.length;
+    var i = 0;
+    var lastYield = 0;
+
+    return new Promise(function (resolve, reject) {
+      function step() {
+        try {
+          var guard = 0;
+          while (i < total) {
+            var n = Math.min(block, total - i);
+            toInt16(p.left, i, n, lb);
+            var out;
+            if (nch === 2) {
+              toInt16(p.right, i, n, rb);
+              out = enc.encodeBuffer(n === block ? lb : lb.subarray(0, n),
+                                     n === block ? rb : rb.subarray(0, n));
+            } else {
+              out = enc.encodeBuffer(n === block ? lb : lb.subarray(0, n));
+            }
+            if (out.length > 0) chunks.push(new Uint8Array(out));
+            i += block;
+            if (++guard >= 40) break;   /* 每 40 帧让出主线程，界面不卡 */
+          }
+          var pct = total ? Math.min(99, Math.round(i / total * 100)) : 99;
+          pbar.style.width = pct + "%";
+          setStatus("编码中 " + pct + "%");
+
+          if (i < total) {
+            setTimeout(step, 0);
+          } else {
+            var tail = enc.flush();
+            if (tail.length > 0) chunks.push(new Uint8Array(tail));
+            resolve(new Blob(chunks, { type: "audio/mpeg" }));
+          }
+        } catch (err) {
+          reject(err);
+        }
+      }
+      step();
+    });
+  }
+
+  /* ---------- 主流程 ---------- */
+  function convert() {
+    if (!file || busy) return;
+    busy = true;
+    runBtn.disabled = true;
+    runBtn.textContent = "转换中…";
+    mp3Blob = null;
+    barwrap.classList.remove("hidden");
+    pbar.style.width = "0%";
+    show("file");
+
+    var t0 = Date.now();
+    var phase = pcm ? Promise.resolve(pcm) : (function () {
+      setStatus("解码音轨…");
+      return file.arrayBuffer()
+        .then(decodeBuffer)
+        .then(function (audio) {
+          pcm = toPcm(audio);
+          return pcm;
+        });
+    })();
+
+    phase.then(function (p) {
+      $("fch").textContent = (p.channels === 2 ? "立体声" : "单声道") + " · " + (p.sampleRate / 1000).toFixed(1) + " kHz";
+      setStatus("编码中 0%");
+      return encodeMp3(p);
+    }).then(function (blob) {
+      mp3Blob = blob;
+      mp3Name = baseName(file.name) + ".mp3";
+      var url = URL.createObjectURL(blob);
+      $("player").src = url;
+      var saved = meta.size > 0 ? Math.round((1 - blob.size / meta.size) * 100) : 0;
+      $("savedinfo").innerHTML = "<b>" + fmtSize(meta.size) + "</b> → <b>" + fmtSize(blob.size) +
+        "</b>（" + (saved >= 0 ? "省 " + saved + "%" : "比原文件大 " + Math.abs(saved) + "%") + "）· " +
+        kbps + " kbps · " + ((Date.now() - t0) / 1000).toFixed(1) + " 秒";
+      pbar.style.width = "100%";
+      show("done");
+      barwrap.classList.add("hidden");
+      if (saved < 0) {
+        setStatus("完成。这条源文件的音频码率本来就低于 " + kbps + " kbps，重新编码后体积变大，换成 128 kbps 会更小。", false);
+      } else {
+        setStatus("完成，可以下载了。");
+      }
+    }).catch(function (err) {
+      console.error(err);
+      pbar.style.width = "0%";
+      barwrap.classList.add("hidden");
+      show("file");
+      var msg = String(err && err.message || err);
+      if (/decode|Unable|not supported|EncodingError/i.test(msg) || /decodeAudioData/i.test(msg)) {
+        setStatus("这条文件里的音轨解不出来。常见原因：没有音轨（静音视频）、音频编码是 AC-3 / E-AC-3 / DTS，或文件损坏。H.264 + AAC 的 MP4 一定能转。", true);
+      } else {
+        setStatus("转换失败：" + msg, true);
+      }
+    }).then(function () {
+      busy = false;
+      runBtn.disabled = !file;
+      runBtn.textContent = "重新转换";
+    });
+  }
+
+  runBtn.addEventListener("click", convert);
+
+  $("download").addEventListener("click", function () {
+    if (!mp3Blob) return;
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(mp3Blob);
+    a.download = mp3Name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 4000);
+  });
+
+  $("again").addEventListener("click", function () {
+    if (busy) return;
+    show("file");
+    setStatus("已换成 " + kbps + " kbps，点右侧「重新转换」。");
+  });
+})();
+</script>
+</body>
+</html>

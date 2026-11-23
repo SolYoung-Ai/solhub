@@ -3050,7 +3050,7 @@ export default {
                下载而不是渲染），必须显式 inline 覆盖。 */
             "Content-Disposition": "inline",
             /* 不含 allow-same-origin：不透明 origin，读不到主站 Cookie/存储 */
-            "Content-Security-Policy": "sandbox allow-scripts allow-forms allow-popups allow-modals",
+            "Content-Security-Policy": "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads",
             "X-Content-Type-Options": "nosniff",
             "Referrer-Policy": "no-referrer",
             "Cache-Control": "no-store",

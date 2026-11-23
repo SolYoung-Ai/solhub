@@ -101,6 +101,15 @@
       "tags": ["文本", "字数", "命名"]
     },
     {
+      "id": "solmp3",
+      "file": "mp4-to-mp3.html",
+      "logo": "logos/mp4-to-mp3.svg",
+      "name": "视频转 MP3",
+      "description": "把 MP4、MOV、M4A 里的音轨抽出来存成 MP3，码率可选 128 / 192 / 320，文件不上传、在本机转完。",
+      "category": "creator-tools",
+      "tags": ["MP4", "MP3", "音频提取", "离线可用"]
+    },
+    {
       "id": "solrand",
       "file": "random-picker.html",
       "logo": "logos/random-picker.svg",
