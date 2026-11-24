@@ -27,7 +27,6 @@ cloudbase/functions/*/core.cjs
 cloudbase/functions/*/hot.cjs
 cloudbase/functions/*/translate.cjs
 cloudbase/functions/*/t2s.cjs
-cloudbase/functions/*/quotes.cjs
 cloudbase/functions/*/hot-search.cjs
 cloudbase/functions/*/skills-hot.cjs
 

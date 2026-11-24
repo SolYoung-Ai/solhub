@@ -58,15 +58,6 @@ const EXTRA = [
     ],
   },
   {
-    /* 行情引擎。core.cjs 用 require 引入，所以凡是带 core.cjs 的函数目录都得有它
-       （solhub-cron 也 require core.cjs，少一份就整个函数起不来）。 */
-    src: path.join(ROOT, "worker", "quotes.js"),
-    dst: [
-      path.join(ROOT, "cloudbase", "functions", "solhub-auth", "quotes.cjs"),
-      path.join(ROOT, "cloudbase", "functions", "solhub-cron", "quotes.cjs"),
-    ],
-  },
-  {
     /* 热点搜索匹配（同样被 core.cjs 引入，两个目录都要有） */
     src: path.join(ROOT, "worker", "hot-search.js"),
     dst: [

@@ -12,7 +12,6 @@
  */
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import HotFeed from "@/islands/HotFeed.tsx";
-import MarketTicker from "@/islands/MarketTicker.tsx";
 import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 
@@ -55,7 +54,6 @@ const metaDesc = en
 
   <section class="py-6 sm:py-8">
     <div class="container-page">
-      <MarketTicker client:load locale={locale} />
       <HotFeed client:load locale={locale} />
     </div>
   </section>
