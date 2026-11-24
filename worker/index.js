@@ -1,16 +1,15 @@
 /**
  * SolHub Auth Service — Cloudflare Worker（无服务器账号体系）
  *
- * 双登录方式：
- *   1. 邮箱 + 密码（本 Worker 自托管）：KV 存用户，PBKDF2-SHA256 哈希密码，
- *      HttpOnly Secure 会话 Cookie（KV TTL 30 天自动过期）
- *   2. GitHub OAuth（原有通道）：solhub_token cookie
+ * 登录方式：邮箱 + 密码（本 Worker 自托管）：KV 存用户，PBKDF2-SHA256 哈希密码，
+ *   HttpOnly Secure 会话 Cookie（KV TTL 30 天自动过期）。
+ *   GitHub OAuth 通道已于 2026-11 整体下线（要 public_repo 权限，前端却早无入口）。
  *
  * KV 绑定 PROFILES：
  *   user:<email>      邮箱用户记录（个人资料；密码哈希不存这里）
  *   pw:<email>        密码凭据 { s:盐, h:哈希, v:密码版本号 }（与资料分键，见下）
  *   session:<id>      会话（{email, handle, pwdVersion, createdAt}，30 天 TTL）
- *   profile:<login>   GitHub 用户的展示资料（兼容保留）
+ *   profile:<login>   GitHub 用户的展示资料（历史遗留，只读兼容）
  *   handle:<handle>   用户名 → 邮箱索引（公开标识解析用）
  *   alias:<oldEmail>  改邮箱后旧邮箱 → 新邮箱的别名（让旧会话不失效）
  *   vcode:<用途>:<邮箱>:<验证码> 一枚邮箱验证码一个键（10 分钟 TTL）
@@ -39,7 +38,7 @@
  *                    个人主页、搜索结果、产品提交记录里。
  *   两者用 sidOf() / pidOf() 互相解析，旧链接里的邮箱地址仍然可用（向后兼容）。
  *
- * 安全边界：任何密钥（GITHUB_CLIENT_SECRET / GITHUB_PAT / DM_ACCESS_KEY_SECRET）只存在于
+ * 安全边界：任何密钥（GITHUB_PAT / DM_ACCESS_KEY_SECRET）只存在于
  * Worker 环境变量，严禁返回给前端。密码哈希永不出库。
  *
  * 邮件通道（阿里云 DirectMail）：
@@ -54,8 +53,6 @@ import { searchHotItems } from "./hot-search.js";
 
 const REPO = "SolYoung-Ai/solhub";
 const SITE_BASE = "https://solhub.solyoung.top";
-const OAUTH_URL = "https://github.com/login/oauth/authorize";
-const TOKEN_URL = "https://github.com/login/oauth/access_token";
 const API = "https://api.github.com";
 const SESSION_COOKIE = "solhub_session";
 const SESSION_TTL = 60 * 60 * 24 * 30; // 30 天
@@ -165,14 +162,6 @@ function readBearerSession(request) {
   return (request.headers.get("X-Solhub-Session") || "").trim();
 }
 
-/* GitHub 登录同理：移动端拿不到 solhub_token 这个跨站 Cookie，
-   改用标准的 Authorization: Bearer 头把 GitHub access token 带回来。 */
-function readBearerGithub(request) {
-  const h = request.headers.get("Authorization") || "";
-  const m = h.match(/^Bearer\s+(.+)$/i);
-  return m ? m[1].trim() : "";
-}
-
 /* ---------------- 密码与令牌（WebCrypto） ---------------- */
 
 function toB64(buf) {
@@ -180,19 +169,6 @@ function toB64(buf) {
 }
 function fromB64(b64) {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-}
-
-/** 图片魔数校验（PNG / JPEG / GIF / WebP）。
- *  data URL 里写的 MIME 是客户端自己声明的，落盘到公开仓库前必须按字节再看一遍。 */
-function looksLikeImage(bytes) {
-  if (!bytes || bytes.length < 12) return false;
-  const b = bytes;
-  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return true; // PNG
-  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return true; // JPEG
-  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38) return true; // GIF
-  if (String.fromCharCode(b[0], b[1], b[2], b[3]) === "RIFF"
-      && String.fromCharCode(b[8], b[9], b[10], b[11]) === "WEBP") return true; // WebP
-  return false;
 }
 
 async function hashPassword(password, saltB64) {
@@ -558,32 +534,13 @@ async function getSessionUser(request, env) {
   }
 }
 
-/* ---------------- 身份统一（邮箱 or GitHub） ---------------- */
-
-async function getGitHubIdentity(request, env) {
-  const token = readCookie(request, "solhub_token") || readBearerGithub(request);
-  if (!token) return null;
-  const res = await fetch(`${API}/user`, {
-    headers: { Authorization: `Bearer ${token}`, "User-Agent": "SolHub" },
-  });
-  const user = await res.json();
-  if (!user.login) return null;
-  /* 封禁要在身份解析处就拦住：以前只有发帖/评论几处单独判断，
-     被封的 GitHub 账号仍能提交产品、上传工具、改资料。封禁键与后台写入一致
-     （ban:<登录名>），邮箱用户的同类判断在 getSessionUser 里。 */
-  if (env && env.PROFILES) {
-    try {
-      if (await env.PROFILES.get(`ban:${user.login}`)) return null;
-    } catch { /* 存储抖动不阻断登录态解析 */ }
-  }
-  return { type: "github", login: user.login, avatar_url: user.avatar_url, token };
-}
+/* ---------------- 身份统一 ---------------- */
+/* 只认邮箱会话。GitHub OAuth 通道已于 2026-11 下线：那条链路要 public_repo 权限，
+   而前端早已没有 GitHub 登录入口，只剩一个能被任意人触发的授权跳转。 */
 
 async function getIdentity(request, env) {
   const session = await getSessionUser(request, env);
   if (session) return { type: "email", login: session.email, user: session };
-  const gh = await getGitHubIdentity(request, env);
-  if (gh) return gh;
   return null;
 }
 
@@ -2427,63 +2384,6 @@ export default {
       return json(request, { ok: true }, 200, clear);
     }
 
-    /* ---------- GitHub OAuth（保留） ---------- */
-    if (url.pathname === "/auth") {
-      /* OAuth state：防「登录 CSRF」——否则攻击者可以把自己的 code 喂给受害者浏览器，
-         让受害者以攻击者身份登录（后续操作全落在攻击者账号里）。
-         state 同时存进一个 HttpOnly Cookie，回调时比对，单次有效。 */
-      const state = toB64(crypto.getRandomValues(new Uint8Array(16)))
-        .replace(/[+/=]/g, "")
-        .slice(0, 24);
-      const params = new URLSearchParams({
-        client_id: env.GITHUB_CLIENT_ID,
-        redirect_uri: env.WORKER_URL + "/callback",
-        scope: "public_repo",
-        state,
-      });
-      return redirect(request, `${OAUTH_URL}?${params}`, {
-        "Set-Cookie": `solhub_oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`,
-      });
-    }
-
-    if (url.pathname === "/callback") {
-      const code = url.searchParams.get("code");
-      if (!code) return json(request, { error: "missing code" }, 400);
-      const wantState = readCookie(request, "solhub_oauth_state") || "";
-      const gotState = url.searchParams.get("state") || "";
-      if (!wantState || !gotState || wantState !== gotState) {
-        return json(request, { error: "登录状态校验失败，请重新登录" }, 400);
-      }
-      const tokenRes = await fetch(TOKEN_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code }),
-      });
-      const tokenData = await tokenRes.json();
-      if (!tokenData.access_token) return json(request, { error: "token exchange failed" }, 400);
-      /* 写一份最小资料，保证这个 GitHub 账号的主页地址真实存在（否则任意名字都能生成空白主页） */
-      if (env.PROFILES) {
-        try {
-          const ghRes = await fetch(`${API}/user`, {
-            headers: { Authorization: `Bearer ${tokenData.access_token}`, "User-Agent": "SolHub" },
-          });
-          const ghUser = await ghRes.json();
-          if (ghUser && ghUser.login && !(await env.PROFILES.get(`profile:${ghUser.login}`))) {
-            await env.PROFILES.put(`profile:${ghUser.login}`, JSON.stringify({
-              displayName: ghUser.name || ghUser.login,
-              avatar: ghUser.avatar_url || "",
-              website: ghUser.blog || "",
-              createdAt: new Date().toISOString(),
-            }));
-          }
-        } catch { /* 拿不到资料也不影响登录 */ }
-      }
-      const cookie = `solhub_token=${encodeURIComponent(tokenData.access_token)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=2592000`;
-      /* 移动端拿不到跨站 Cookie（ITP 拦截），所以把 GitHub access token 放进 URL
-         片段回传给站点，前端从 location.hash 里读出来当 Bearer 用（片段不会发给服务器）。 */
-      return redirect(request, `${SITE_BASE}/my-submissions/#gh_token=${encodeURIComponent(tokenData.access_token)}`, { "Set-Cookie": cookie });
-    }
-
     /* ---------- 当前用户 ---------- */
     if (url.pathname === "/me") {
       const identity = await getIdentity(request, env);
@@ -2499,17 +2399,6 @@ export default {
         me.avatar = avatarUrl(imgBase, handle, me.avatar, me.hasAvatar);
         return json(request, { authenticated: true, isAdmin: admin, user: me });
       }
-      let profile = {};
-      if (env.PROFILES) {
-        const raw = await env.PROFILES.get(`profile:${identity.login}`);
-        if (raw) { try { profile = JSON.parse(raw); } catch {} }
-      }
-      const admin = isAdminLogin(env, identity.login);
-      return json(request, {
-        authenticated: true,
-        isAdmin: admin,
-        user: { login: identity.login, avatar_url: identity.avatar_url, authType: "github", isAdmin: admin, ...profile },
-      });
     }
 
     /* ---------- 个人资料（GET / PUT） ---------- */
@@ -2631,75 +2520,6 @@ export default {
         }
         return json(request, { ok: true, ...allowed });
       }
-    }
-
-    /* ---------- 我的 GitHub Issue 投稿（仅 GitHub 登录） ---------- */
-    if (url.pathname === "/my-issues") {
-      const gh = await getGitHubIdentity(request, env);
-      if (!gh) return json(request, []);
-      const res = await fetch(`${API}/repos/${REPO}/issues?creator=${encodeURIComponent(gh.login)}&state=all&per_page=50`, {
-        headers: { Authorization: `Bearer ${gh.token}`, "User-Agent": "SolHub" },
-      });
-      const issues = await res.json();
-      return json(request, issues);
-    }
-
-    if (url.pathname.startsWith("/issues/") && request.method === "PATCH" && !url.pathname.endsWith("/close")) {
-      const gh = await getGitHubIdentity(request, env);
-      if (!gh) return json(request, { authenticated: false }, 401);
-      const number = url.pathname.split("/")[2];
-      const body = await request.text();
-      const res = await fetch(`${API}/repos/${REPO}/issues/${number}`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${gh.token}`, "User-Agent": "SolHub", "Content-Type": "application/json" },
-        body,
-      });
-      return json(request, await res.json(), res.status);
-    }
-
-    if (url.pathname.match(/^\/issues\/\d+\/close$/) && request.method === "POST") {
-      const gh = await getGitHubIdentity(request, env);
-      if (!gh) return json(request, { authenticated: false }, 401);
-      const number = url.pathname.split("/")[2];
-      const res = await fetch(`${API}/repos/${REPO}/issues/${number}`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${gh.token}`, "User-Agent": "SolHub", "Content-Type": "application/json" },
-        body: JSON.stringify({ state: "closed" }),
-      });
-      return json(request, { ok: true }, res.status);
-    }
-
-    /* ---------- 图标上传（GitHub 登录用户，提交到仓库 icons/） ---------- */
-    if (url.pathname === "/upload-icon" && request.method === "POST") {
-      const gh = await getGitHubIdentity(request, env);
-      if (!gh) return json(request, { error: "not authenticated" }, 401);
-      const body = await request.json();
-      if (!body.dataUrl) return json(request, { error: "missing dataUrl" }, 400);
-      /* 上限 2MB 字符串：这个接口把图片直接提交进 Git 仓库，
-         不设限等于允许往仓库里塞任意大的文件（会永久留在历史里）。 */
-      if (String(body.dataUrl).length > 2000000) {
-        return json(request, { error: "图标文件太大（上限约 1.5MB），请先压缩" }, 413);
-      }
-      /* 类型白名单 + 真伪校验：这个接口用**用户自己的 GitHub token** 直接往
-         仓库 main 分支提交文件，而 GitHub Pages 会用站点自己的域名发 icons/ 下的
-         任何东西 —— 只要声明成 image/html 塞一段脚本，就是同源存储型 XSS。
-         所以后缀只认四种图片，字节也要过魔数校验。 */
-      const m = body.dataUrl.match(/^data:image\/(png|jpe?g|gif|webp);base64,([A-Za-z0-9+/=]+)$/);
-      if (!m) return json(request, { error: "图标只支持 PNG / JPG / GIF / WebP" }, 400);
-      let iconBytes;
-      try { iconBytes = fromB64(m[2]); } catch { return json(request, { error: "invalid dataUrl" }, 400); }
-      if (!looksLikeImage(iconBytes)) return json(request, { error: "文件内容不是有效的图片" }, 400);
-      const ext = m[1] === "jpeg" ? "jpg" : m[1];
-      const filename = `icon-${Date.now()}.${ext}`;
-      const path = `icons/${filename}`;
-      const res = await fetch(`${API}/repos/${REPO}/contents/${path}`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${gh.token}`, "User-Agent": "SolHub", "Content-Type": "application/json" },
-        body: JSON.stringify({ message: `add icon ${filename}`, content: m[2] }),
-      });
-      const data = await res.json();
-      if (!data.content) return json(request, { error: "upload failed", detail: data }, 500);
-      return json(request, { url: `https://raw.githubusercontent.com/${REPO}/main/${path}` });
     }
 
     /* ---------- URL 可达性检测 ---------- */

@@ -5,8 +5,8 @@
  * 属于跨站。iOS Safari 的 ITP（防跨站跟踪）会直接拦截这个第三方 Cookie，
  * 导致 /me 这类带凭证的请求被浏览器掐掉（报「连不上认证服务」）。
  *
- * 解决：邮箱 / GitHub 登录成功后，后端额外回传一个令牌，前端存在 sessionStorage，
- * 之后每个请求用请求头带上去（邮箱走 X-Solhub-Session，GitHub 走 Authorization: Bearer）。
+ * 解决：邮箱登录成功后，后端额外回传一个令牌，前端存在 sessionStorage，
+ * 之后每个请求用 X-Solhub-Session 头带上去。
  * 这是「跨域请求 + 自定义头」，ITP 不会拦，移动端 Safari 也能正常登录。
  *
  * 注意：令牌存在 sessionStorage（非 HttpOnly），理论上比 Cookie 更怕 XSS；
@@ -14,7 +14,7 @@
  * 站点本身又是静态站、风险可控。桌面端仍保留 HttpOnly Cookie 作为兜底。
  */
 
-export type AuthTokenType = "email" | "github";
+export type AuthTokenType = "email";
 
 export interface AuthToken {
   type: AuthTokenType;
@@ -28,7 +28,8 @@ export function getAuthToken(): AuthToken | null {
     const raw = sessionStorage.getItem(KEY);
     if (!raw) return null;
     const t = JSON.parse(raw) as AuthToken;
-    if (t && (t.type === "email" || t.type === "github") && typeof t.token === "string" && t.token) {
+    /* 只认邮箱会话：GitHub 通道已下线，旧的 github 令牌一律当作未登录。 */
+    if (t && t.type === "email" && typeof t.token === "string" && t.token) {
       return t;
     }
     return null;

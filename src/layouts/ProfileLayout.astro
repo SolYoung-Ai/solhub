@@ -96,21 +96,6 @@ const orgJsonLd = {
     <script is:inline>
       (function () {
         try {
-          var hash = window.location.hash || "";
-          var m = hash.match(/[#&]gh_token=([^&]+)/);
-          if (m) {
-            try {
-              sessionStorage.setItem(
-                "solhub:auth",
-                JSON.stringify({ type: "github", token: decodeURIComponent(m[1]) }),
-              );
-            } catch (e) { /* 忽略存储不可用 */ }
-            var clean = window.location.pathname + window.location.search;
-            if (window.history && window.history.replaceState) {
-              window.history.replaceState(null, "", clean);
-            }
-          }
-
           var savedTheme = localStorage.getItem("solhub:theme");
           var theme = savedTheme === "dark" ? "dark" : "light";
           if (theme === "dark") document.documentElement.classList.add("dark");

@@ -57,7 +57,6 @@ export async function request(
     if (t) {
       credentials = "omit";
       if (t.type === "email") mergedHeaders.set("X-Solhub-Session", t.token);
-      else if (t.type === "github") mergedHeaders.set("Authorization", `Bearer ${t.token}`);
     }
   } catch {
     /* sessionStorage 不可用时退回 Cookie 路径 */

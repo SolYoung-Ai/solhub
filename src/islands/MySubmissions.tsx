@@ -28,16 +28,6 @@ import GoldBadge from "@/components/GoldBadge";
 import { base } from "@/lib/api-base";
 import type { Locale } from "@/i18n";
 
-
-interface GhIssue {
-  number: number;
-  title: string;
-  body: string | null;
-  html_url: string;
-  state: string;
-  created_at: string;
-}
-
 interface CommunityProduct {
   slug: string;
   name: string;
@@ -84,25 +74,7 @@ class PanelErrorBoundary extends Component<{ children: ReactNode }, { err: Error
   }
 }
 
-function parseBody(body: string | null) {
-  if (!body) return {} as Record<string, string>;
-  const map: Record<string, string> = {};
-  const lines = body.split("\n");
-  let currentKey = "";
-  let currentVal = "";
-  for (const line of lines) {
-    const m = line.match(/^\*\*(.+?)\*\*：\s*(.*)$/);
-    if (m) {
-      if (currentKey) map[currentKey] = currentVal.trim();
-      currentKey = m[1].trim();
-      currentVal = m[2];
-    } else if (currentKey && !line.startsWith("##") && !line.startsWith("---") && !line.startsWith("由 SolHub")) {
-      currentVal += "\n" + line;
-    }
-  }
-  if (currentKey) map[currentKey] = currentVal.trim();
-  return map;
-}
+
 
 export default function MySubmissionsWithBoundary({ locale = "zh" }: { locale?: Locale }) {
   return (
@@ -118,7 +90,6 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [stale, setStale] = useState(false);
-  const [issues, setIssues] = useState<GhIssue[]>([]);
   const [products, setProducts] = useState<CommunityProduct[]>([]);
 
   /* 资料编辑 */
@@ -223,12 +194,6 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         fetchProfile(me.login)
           .then((prof) => { if (prof) setWorld(prof); })
           .catch(() => { /* 忽略，关注 / 粉丝区显示空态 */ }),
-        me.authType === "github"
-          ? request(`${base()}/my-issues`, { cache: "no-store" }, { retries: 1 })
-              .then((res) => (res.ok ? res.json() : null))
-              .then((data) => { if (data) setIssues(data); })
-              .catch(() => { /* 忽略 */ })
-          : Promise.resolve(),
       ]);
     } catch {
       setLoadFailed(true);
@@ -494,7 +459,6 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     );
   }
 
-  const isGithub = user.authType === "github";
   const avatar = avatarOf(user);
 
   return (
@@ -552,7 +516,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
 
             <div className="mt-3">
               <h1 className="flex flex-wrap items-center gap-1.5 font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
-                {user.displayName || (isGithub ? user.login : (en ? "Anonymous creator" : "匿名创作者"))}
+                {user.displayName || (en ? "Anonymous creator" : "匿名创作者")}
                 {/* 黄V：与公开主页（/world/?u=）口径一致，读公开资料里的 verified */}
                 {world?.user.verified && <GoldBadge className="h-[18px] w-[18px] shrink-0" />}
               </h1>
@@ -563,7 +527,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                 >
                   @{user.handle || user.login}
                 </a>
-                {!isGithub && user.email && (
+                {user.email && (
                   <span className="inline-flex flex-wrap items-center gap-x-1 text-[11px] text-muted-foreground/80">
                     · {user.emailPublic
                       ? (en ? "public email" : "公开邮箱")
@@ -676,15 +640,12 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                   className="input w-full"
                   maxLength={20}
                   placeholder="yourname"
-                  disabled={isGithub}
                 />
               </div>
               <span className="mt-1 block text-[11px] text-muted-foreground">
-                {isGithub
-                  ? (en ? "GitHub accounts use the GitHub username." : "GitHub 账号使用 GitHub 用户名。")
-                  : (en
-                      ? "Your public page: solhub.solyoung.top/@username. 3–20 chars, letters/digits/underscore; changing it also renames your past posts."
-                      : "公开主页地址里的名字：/@用户名。3–20 位字母数字下划线；修改后历史帖子会一起改名。")}
+                {en
+                  ? "Your public page: solhub.solyoung.top/@username. 3–20 chars, letters/digits/underscore; changing it also renames your past posts."
+                  : "公开主页地址里的名字：/@用户名。3–20 位字母数字下划线；修改后历史帖子会一起改名。"}
               </span>
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -707,8 +668,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                   : "会显示在你的公开主页上，方便别人联系你；留空即不展示。"}
               </span>
             </div>
-            {!isGithub && (
-              <label className={`flex items-start gap-2.5 rounded-[16px] border border-border bg-secondary/40 px-3 py-2.5 ${user.emailVerified ? "cursor-pointer" : "opacity-60"}`}>
+            <label className={`flex items-start gap-2.5 rounded-[16px] border border-border bg-secondary/40 px-3 py-2.5 ${user.emailVerified ? "cursor-pointer" : "opacity-60"}`}>
                 <input
                   type="checkbox"
                   checked={pf.emailPublic}
@@ -729,7 +689,6 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
                   </span>
                 </span>
               </label>
-            )}
             {profileError && (
               <p className="rounded-[8px] bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{profileError}</p>
             )}
@@ -1036,44 +995,6 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         </div>
       )}
 
-      {/* GitHub Issue 投稿记录（仅 GitHub 登录） */}
-      {isGithub && (
-        <>
-          <h2 className="mt-10 font-display text-base font-bold text-foreground">
-            {en ? "Issue submissions" : "Issue 投稿记录"}
-          </h2>
-          {issues.length === 0 ? (
-            <p className="mt-3 text-sm text-muted-foreground">
-              {en ? "No GitHub issue submissions." : "还没有通过 GitHub Issue 投稿的记录。"}
-            </p>
-          ) : (
-            <ul className="mt-4 grid gap-4">
-              {issues.map((issue) => {
-                const f = parseBody(issue.body);
-                const name = f["产品提交"] || issue.title.replace(/^\[SolHub\]\s*产品提交：/, "");
-                return (
-                  <li key={issue.number} className="card p-5">
-                    <div className="flex items-center gap-2">
-                      <h3 className="truncate text-sm font-bold text-foreground">{name}</h3>
-                      <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] uppercase ${issue.state === "open" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
-                        {issue.state === "open" ? (en ? "Open" : "公开") : (en ? "Closed" : "已关闭")}
-                      </span>
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-muted-foreground">
-                      {f["一句话介绍"] || f["详细描述"] || ""}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <a href={issue.html_url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost !h-7 px-3 text-xs">
-                        GitHub <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </>
-      )}
     </div>
   );
 }

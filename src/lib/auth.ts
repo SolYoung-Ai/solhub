@@ -32,7 +32,7 @@ export interface AuthUser {
   emailPublic?: boolean;
   /** 邮箱是否已完成验证（验证后才允许公开邮箱） */
   emailVerified?: boolean;
-  authType?: "email" | "github";
+  authType?: "email";
   /** 黄V 认证 */
   verified?: boolean;
   /** 管理员（由后端白名单判定） */
