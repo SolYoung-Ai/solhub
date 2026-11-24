@@ -2,7 +2,7 @@
  * 热点流（/hot/）
  * =================
  *
- * 数据由后端每 15 分钟抓一轮，这里每 60 秒拉一次增量。
+ * 数据由后端定时抓取，这里每 5 分钟拉一次增量；页面不可见时暂停。
  *
  * 三个刻意的设计：
  *   1. 新内容不自动插队。读者正在往下读，列表突然整体下移是最烦的交互之一，
@@ -55,8 +55,9 @@ const CAT_DOT: Record<string, string> = {
   world: "bg-[#7d6cc9]",
 };
 
-const POLL_MS = 60 * 1000;
+const POLL_MS = 5 * 60 * 1000;
 const PAGE = 40;
+const FEED_LIMIT = 80;
 const STORE_CAT = "solhub:hot:cat";
 const STORE_NOTIFY = "solhub:hot:notify";
 /** 输入后等这么久再打接口：中文一个字一个字敲，每个字都发请求既慢又费额度 */
@@ -184,7 +185,7 @@ export default function HotFeed({
   const fetchFeed = useCallback(async (targetCat: Cat, targetQuery: string): Promise<HotResponse | null> => {
     /* 搜索时先跨全部分类找，再在结果里看 —— 读者搜「英伟达」不关心自己停在哪个
        分类标签上。分类过滤留在后端，前端不做第二套规则。 */
-    const params = new URLSearchParams({ cat: targetQuery ? "all" : targetCat, limit: "200" });
+    const params = new URLSearchParams({ cat: targetQuery ? "all" : targetCat, limit: String(FEED_LIMIT) });
     if (targetQuery) params.set("q", targetQuery);
     const res = await fetch(`${base()}/hot?${params.toString()}`, {
       headers: { accept: "application/json" },
@@ -490,8 +491,8 @@ export default function HotFeed({
           <span className="text-[11px] text-muted-foreground">
             {data?.fetchedAt
               ? en
-                ? `Updated ${clockOf(data.fetchedAt)} · every 15 min`
-                : `更新于 ${clockOf(data.fetchedAt)} · 每 15 分钟抓取`
+                ? `Updated ${clockOf(data.fetchedAt)}`
+                : `更新于 ${clockOf(data.fetchedAt)}`
               : en
                 ? "Loading…"
                 : "加载中…"}

@@ -301,10 +301,10 @@ describe("mergeItems", () => {
     expect(out[0].titleRaw).toContain("AI Bills");
   });
 
-  it("单一来源最多留 26 条（否则 IT之家 会把外媒全挤到第二页）", () => {
+  it("单一来源最多留 18 条（压低单源条目，避免热点缓存与列表响应过大）", () => {
     const many = Array.from({ length: 40 }).map((_, i) => mk(`x${i}`, `标题 ${i}`, i + 1, "ithome"));
     const out = mergeItems(many, [], now);
-    expect(out.filter((x) => x.source === "ithome")).toHaveLength(26);
+    expect(out.filter((x) => x.source === "ithome")).toHaveLength(18);
   });
 
   it("同一件事被多家改写标题时只留一条", () => {

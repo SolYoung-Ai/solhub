@@ -23,12 +23,12 @@
 
 import { toSimplified, needsT2S } from "./t2s.js";
 
-/** 单批最多几条。超过这个数，模型容易漏行。 */
-const BATCH_SIZE = 12;
+/** 单批最多几条。超过这个数，模型容易漏行；小批也能缩短单次等待。 */
+const BATCH_SIZE = 8;
 
-/** 翻译请求超时。LLM 一批要 20~40 秒，给足余量。 */
-const LLM_TIMEOUT = 60000;
-const MYMEMORY_TIMEOUT = 12000;
+/** 翻译请求超时。批量缩到 8 条后，45 秒已留足重试余量。 */
+const LLM_TIMEOUT = 45000;
+const MYMEMORY_TIMEOUT = 10000;
 
 const LLM_ENDPOINT = "https://text.pollinations.ai/openai";
 const MYMEMORY_ENDPOINT = "https://api.mymemory.translated.net/get";
@@ -157,10 +157,8 @@ async function translateBatch(lines, kind, opts = {}) {
   if (!list.length) return { out, provider: "none" };
 
   const prompt = kind === "title" ? TITLE_PROMPT : SUMMARY_PROMPT;
-  /* 默认 190 秒：一批 12 条约 35 秒，36 条要 3 批 ≈ 105 秒，再加冷启动与重试余量。
-     这个值曾经写成 90 秒，结果第 3 批被 deadline 截断，日志里表现为「翻译 12/36」——
-     看起来像限流，其实是自己把时间掐了。 */
-  const deadline = Date.now() + (opts.budgetMs || 190000);
+  /* 默认 90 秒：每轮只翻一小批，避免翻译链路把定时函数拖到分钟级。 */
+  const deadline = Date.now() + (opts.budgetMs || 90000);
 
   for (let start = 0; start < list.length; start += BATCH_SIZE) {
     if (Date.now() > deadline) break;

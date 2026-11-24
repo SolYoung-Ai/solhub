@@ -159,17 +159,16 @@ const CATEGORIES = [
   { id: "world", label: "时政" },
 ];
 
-/** 单次抓取超时。雷锋网单个请求要 4~16 秒且波动大，给足 20 秒；整轮并发，
-    最慢的源决定一轮耗时。 */
-const FEED_TIMEOUT = 20000;
-/** 库里最多保留多少条 */
-const MAX_ITEMS = 600;
+/** 单次抓取超时。慢源不值得占用整轮函数时长；失败条目下一轮再试。 */
+const FEED_TIMEOUT = 10000;
+/** 库里最多保留多少条：首屏与分页只消费前几十条，压缩全量 KV 体积。 */
+const MAX_ITEMS = 300;
 /** 超过这个时长的条目不再保留（源多之后 48 小时已经够 400+ 条） */
 const MAX_AGE_MS = 48 * 3600 * 1000;
 /** 单一来源最多保留多少条 */
-const MAX_PER_SOURCE = 26;
+const MAX_PER_SOURCE = 18;
 /** 未翻译的英文条目最多留多少条，防止翻译服务挂掉时把库塞满 */
-const MAX_PENDING = 120;
+const MAX_PENDING = 40;
 
 /* ---------------------------------------------------------------- 文本处理 */
 
@@ -585,36 +584,8 @@ async function fetchFeed(feed, now) {
     return { feed: feed.id, ok: true, items, empty: !items.length };
   } catch (err) {
     const error = err && err.name === "AbortError" ? "timeout" : String((err && err.message) || err);
-    /* 超时不重试（重试只会让慢源拖成两倍耗时）；连接层的抖动重试一次通常就好了。 */
-    if (error !== "timeout" && feed.lang === "en") {
-      clearTimeout(timer);
-      return fetchFeedOnce(feed, now, true);
-    }
+    /* 慢源/抖动源本轮跳过，避免第二次请求把函数时长放大成两倍；下一轮定时任务再补。 */
     return { feed: feed.id, ok: false, error, items: [] };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/** 带重试标记的第二次请求，不再嵌套重试（避免指数放大的请求风暴） */
-async function fetchFeedOnce(feed, now, isRetry) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), FEED_TIMEOUT);
-  try {
-    const res = await fetch(feed.url, {
-      signal: ctrl.signal,
-      redirect: "follow",
-      headers: {
-        "user-agent": "Mozilla/5.0 (compatible; SolHubHot/1.0; +https://solhub.solyoung.top/hot/)",
-        accept: feed.type === "json" ? "application/json" : "application/rss+xml, application/xml, text/xml, */*",
-      },
-    });
-    if (!res.ok) return { feed: feed.id, ok: false, error: `HTTP ${res.status}`, items: [] };
-    const body = await res.text();
-    return { feed: feed.id, ok: true, items: parseBody(feed, body, now) };
-  } catch (err) {
-    const error = err && err.name === "AbortError" ? "timeout" : String((err && err.message) || err);
-    return { feed: feed.id, ok: false, error: isRetry ? `${error} (retried)` : error, items: [] };
   } finally {
     clearTimeout(timer);
   }
@@ -893,14 +864,14 @@ function spread(list, maxRun = 2) {
 /**
  * 把未翻译的英文条目翻成中文。每轮限量，翻不完的下轮继续。
  *
- * 限量的原因：一批 12 条要 20~40 秒，一轮翻 200 条会让函数超时；
- * 而 15 分钟一轮的节奏下，每轮 24 条已经能消化两倍于实际新增量的积压。
+ * 限量的原因：翻译是函数时长的主要来源之一；每轮只消化一小批，
+ * 避免 LLM 重试和兜底机翻把单次定时任务拖到分钟级。
  *
  * @param {any[]} items 全量条目（会就地改）
  * @param {{ budget?: number, budgetMs?: number }} opts
  */
 async function translatePending(items, opts = {}) {
-  const budget = Math.max(1, Math.min(60, opts.budget || 36));
+  const budget = Math.max(1, Math.min(30, opts.budget || 18));
   const pending = items
     .filter((x) => x.lang === "en" && !x.translated && x.titleRaw)
     .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
@@ -920,8 +891,8 @@ async function translatePending(items, opts = {}) {
   /* 标题与摘要并发翻：串行最坏要 80 秒，并发只要 40 秒左右，
      而函数超时是有限的，能省一半就省一半。 */
   const [titleRes, summaryRes] = await Promise.all([
-    translateBatch(titles, "title", { budgetMs: opts.budgetMs || 190000 }),
-    translateBatch(summaryList, "summary", { budgetMs: opts.budgetMs || 190000 }),
+    translateBatch(titles, "title", { budgetMs: opts.budgetMs || 90000 }),
+    translateBatch(summaryList, "summary", { budgetMs: opts.budgetMs || 90000 }),
   ]);
 
   const summaryOf = new Map();
