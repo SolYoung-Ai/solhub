@@ -219,7 +219,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
             onClick={() => setKind(key)}
             aria-pressed={kind === key}
             className={cx(
-              "inline-flex items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-[13px] font-medium transition-colors",
+              "inline-flex items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-[13px] font-medium transition-all duration-200 active:scale-[0.97]",
               kind === key
                 ? "border-foreground bg-foreground text-background"
                 : "border-border bg-card text-foreground/70 hover:border-foreground/40",
@@ -249,7 +249,7 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
               aria-pressed={category === c}
               title={category === c ? (locale === "en" ? "Click again to clear" : "再点一次取消筛选") : undefined}
               className={cx(
-                "rounded-[6px] border px-2.5 py-1 text-xs font-medium transition-colors",
+                "rounded-[6px] border px-2.5 py-1 text-xs font-medium transition-all duration-200 active:scale-[0.97]",
                 category === c
                   ? "border-foreground bg-foreground text-background"
                   : "border-border bg-card text-foreground/70 hover:border-foreground/40",

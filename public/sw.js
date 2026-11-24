@@ -10,7 +10,7 @@
    - ASSETS：带内容哈希的 _astro 资源、图标、数据快照、字体，缓存优先
    ============================================================ */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC = `solhub-static-${VERSION}`;
 const PAGES = `solhub-pages-${VERSION}`;
 const ASSETS = `solhub-assets-${VERSION}`;

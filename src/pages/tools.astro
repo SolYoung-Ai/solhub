@@ -162,7 +162,7 @@ const copy = {
           <div class="mb-3 flex items-center justify-between gap-3">
             <h2 class="font-display text-lg font-bold text-foreground">{copy.running}</h2>
             <span class="flex items-center gap-3 text-[12px] text-muted-foreground">
-              <a id="tool-direct" href="#" target="_blank" rel="noopener noreferrer" class="underline-offset-2 hover:text-accent hover:underline">
+              <a id="tool-direct" href="#" class="underline-offset-2 hover:text-accent hover:underline">
                 {en ? "Open full screen" : "全屏打开"}
               </a>
               <button id="tool-collapse" type="button" class="underline-offset-2 hover:text-accent hover:underline">
@@ -180,6 +180,8 @@ const copy = {
               class="hidden h-[70dvh] w-full border-0 bg-white"
               title={en ? "Hosted tool" : "托管工具"}
               referrerpolicy="no-referrer"
+              allow="fullscreen; clipboard-write"
+              allowfullscreen
             ></iframe>
           </div>
         </section>
@@ -387,7 +389,8 @@ const copy = {
         tagsEl.appendChild(span);
       });
 
-      /* 全屏使用：/tools/play/?id=xxx —— 左侧保留站点导航，右侧整块都是工具。
+      /* 全屏使用：/tools/play/?id=xxx —— 手机端整页铺满（隐掉站点顶栏/底栏，
+         左上角留浮层返回键），桌面保留左侧导航 + 顶部工具名。
          不能直指 /hosted/<id>（网关会强制下载 HTML 而不是渲染）。 */
       var playUrl = copy.playBase + "?id=" + encodeURIComponent(id);
       el("tool-full").href = playUrl;

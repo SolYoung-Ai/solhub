@@ -3,9 +3,12 @@
  * 全屏使用托管工具（/tools/play/?id=xxxx）
  * =====================================
  *
- * 详情页（/tools/?id=）回答「这是什么」，这一页只负责「把工具铺满」：
- * 左侧保留站点导航（HeaderApp），右侧整块是沙箱 iframe，顶部一条 44px 窄栏
- * 放返回详情 + 工具名。手机上扣掉顶栏与悬浮底栏。
+ * 详情页（/tools/?id=）回答「这是什么」，这一页只负责「把工具铺满」。
+ * 手机端是**真全屏**（html[data-immersive]）：站点顶栏、悬浮底栏、顶部窄栏
+ * 全部隐藏，iframe 铺满 100dvh，左上角只剩一枚玻璃返回键 —— 用户随时能退回详情，
+ * 不必刷新网页或找系统返回。
+ * 桌面端保留左侧站点导航 + 顶部 44px 窄栏（返回详情 / 工具名），因为桌面有鼠标、
+ * 不存在「退不出去」的问题，留导航反而更好用。
  *
  * 为什么还要 fetch 再写 srcdoc：CloudBase 网关对 text/html 强制
  * content-disposition: attachment，iframe 直接导航会变成下载文件。
@@ -40,10 +43,11 @@ const copy = {
   route="/tools/"
   locale={locale}
   bare
+  immersive
 >
   <div class="tool-stage">
-    <!-- 窄栏：返回详情 / 工具名 / 沙箱标记 -->
-    <div class="flex h-11 shrink-0 items-center gap-3 border-b border-border px-4">
+    <!-- 窄栏：返回详情 / 工具名 / 沙箱标记（桌面保留；手机走真全屏，栏隐藏） -->
+    <div class="play-bar flex h-11 shrink-0 items-center gap-3 border-b border-border px-4">
       <a id="play-back" href={copy.detailBase} class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M15 18l-6-6 6-6"></path>
@@ -67,8 +71,24 @@ const copy = {
         class="absolute inset-0 hidden h-full w-full border-0 bg-white"
         title={en ? "Hosted tool" : "托管工具"}
         referrerpolicy="no-referrer"
+        allow="fullscreen; clipboard-write"
+        allowfullscreen
       ></iframe>
     </div>
+
+    <!-- 手机真全屏时的浮动返回键（桌面由上面窄栏承担，这个按钮默认隐藏）。
+         工具铺满整个视口后没有系统返回键可用，所以它必须一直压在左上角。 -->
+    <a
+      id="play-back-float"
+      href={copy.detailBase}
+      class="play-back-float"
+      aria-label={copy.back}
+      title={copy.back}
+    >
+      <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 18l-6-6 6-6"></path>
+      </svg>
+    </a>
   </div>
 </BaseLayout>
 
@@ -87,6 +107,7 @@ const copy = {
     var spinner = el("play-spinner");
     var nameEl = el("play-name");
     var backEl = el("play-back");
+    var backFloat = el("play-back-float");
 
     function fail(msg) {
       statusText.textContent = msg || copy.missing;
@@ -101,6 +122,7 @@ const copy = {
 
     var detailUrl = (copy.detailBase || "/tools/") + "?id=" + encodeURIComponent(id);
     backEl.href = detailUrl;
+    if (backFloat) backFloat.href = detailUrl;
 
     var baseEl = document.querySelector('meta[name="solhub-api-base"]');
     var base = ((baseEl && baseEl.content) ||

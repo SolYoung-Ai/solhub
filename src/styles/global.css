@@ -3,25 +3,23 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ============================================================
-   SolHub Design Tokens — 白底 + 一个橙
-   配色只有两支：近白底（#fbfaf9）+ 低饱和橙（#d96a24）。
-   橙色只做「强调」：一个实心主按钮、少量标签与小图标，
-   不做大面积色块、不做彩光晕——所以页面读起来是白纸，不是晚霞。
-   表面走「半透明 + 毛玻璃」，但底下的色场也是单色暖光，
-   玻璃只透出一点点暖，不再有蓝/粉/薄荷的糖果感。
+   SolHub Design Tokens — 纯白 + 一个橙
+   底色是纸白（#ffffff），不是暖白（#fbfaf9）。
+   灰阶全部走中性 zinc（不带黄/红），阴影也是中性黑 —— 页面读起来是
+   一张白纸，唯一的有彩色就是那支橙（#d96a24），只用于强调。
+   表面语言：纯白卡片 + 发丝边 + 中性柔和落影；只有浮层与导航
+   （侧栏 / 顶栏 / 底栏 / 弹窗 / 下拉）才做毛玻璃。
    ============================================================ */
 @theme {
-  /* 液态玻璃：卡片不再是实色块，而是「半透明白 + 毛玻璃」。
-     令牌直接写成带 alpha 的颜色，全站 170+ 处 bg-card / border-border
-     不需要逐个改 JSX，就一起变成玻璃面。
-     底色改成近白之后，卡片必须更白更实（0.82），否则白玻璃压在白底上会消失。 */
+  /* 卡片直接是纯白实色 —— 白底上再叠半透明白只会更糊。
+     层次靠 1px 发丝边 + 中性落影拉开，不再靠透明度。 */
   --color-background: #ffffff;
-  --color-foreground: #18181b;
-  --color-card: rgb(255 255 255 / 0.82);
-  --color-card-foreground: #18181b;
-  --color-secondary: rgb(24 24 27 / 0.06);
-  --color-secondary-foreground: #18181b;
-  --color-muted: rgb(24 24 27 / 0.05);
+  --color-foreground: #101013;
+  --color-card: #ffffff;
+  --color-card-foreground: #101013;
+  --color-secondary: rgb(16 16 20 / 0.045);
+  --color-secondary-foreground: #101013;
+  --color-muted: rgb(16 16 20 / 0.035);
   --color-muted-foreground: #71717a;
   --color-accent: #d96a24;
   --color-accent-foreground: #ffffff;
@@ -31,10 +29,10 @@
   --color-success-foreground: #ffffff;
   --color-warning: #c98a2b;
   --color-warning-foreground: #ffffff;
-  --color-border: rgb(24 24 27 / 0.10);
-  --color-border-strong: rgb(24 24 27 / 0.18);
+  --color-border: rgb(16 16 20 / 0.08);
+  --color-border-strong: rgb(16 16 20 / 0.16);
   --color-ring: #d96a24;
-  --color-ink: #18181b;
+  --color-ink: #101013;
 
   --font-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC",
     "Microsoft YaHei", "Helvetica Neue", Arial, "Apple Color Emoji",
@@ -50,12 +48,12 @@
   --radius-md: 14px;
   --radius-lg: 18px;
 
-  --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.06);
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05), 0 2px 8px -2px rgb(0 0 0 / 0.05);
-  --shadow-md: 0 2px 12px -2px rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 4px 16px -4px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.05);
-  --shadow-xl: 0 8px 28px -8px rgb(0 0 0 / 0.14), 0 4px 8px -2px rgb(0 0 0 / 0.05);
+  --shadow-2xs: 0 1px 2px 0 rgb(9 9 11 / 0.04);
+  --shadow-xs: 0 1px 2px 0 rgb(9 9 11 / 0.05), 0 1px 3px -1px rgb(9 9 11 / 0.05);
+  --shadow-sm: 0 1px 2px 0 rgb(9 9 11 / 0.04), 0 2px 8px -3px rgb(9 9 11 / 0.06);
+  --shadow-md: 0 2px 10px -3px rgb(9 9 11 / 0.08), 0 1px 2px 0 rgb(9 9 11 / 0.04);
+  --shadow-lg: 0 6px 20px -8px rgb(9 9 11 / 0.12), 0 2px 4px -2px rgb(9 9 11 / 0.05);
+  --shadow-xl: 0 12px 32px -12px rgb(9 9 11 / 0.16), 0 4px 8px -4px rgb(9 9 11 / 0.06);
 
   --container-page: 72rem;
   --container-narrow: 48rem;
@@ -157,6 +155,78 @@ html.dark {
   }
 }
 
+/* ---------- 工具运行页（手机）：真·全屏 ---------- */
+/* 以前手机上是「顶栏 + 44px 窄栏 + 悬浮底栏 + 中间 iframe」，
+   工具自己再全屏也还是被这几条边夹着。现在整页接管视口：
+   隐掉站点顶栏 / 底栏 / 页面窄栏，iframe 铺满 100dvh，
+   左上角浮一枚玻璃返回键，随时能退回详情页。
+   桌面不变（左侧仍是站点导航 + 顶部工具名），所以规则只压在 <1024px。 */
+html[data-immersive] .play-back-float {
+  display: none;
+}
+@media (max-width: 1023px) {
+  html[data-immersive] .app-topbar,
+  html[data-immersive] .app-tabbar {
+    display: none !important;
+  }
+  html[data-immersive] body {
+    overflow: hidden;
+  }
+  html[data-immersive] .app-content {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-bottom: 0;
+  }
+  html[data-immersive] .app-content > main {
+    animation: none;
+  }
+  html[data-immersive] .play-bar {
+    display: none;
+  }
+  html[data-immersive] .tool-stage {
+    position: fixed;
+    inset: 0;
+    height: 100dvh;
+    z-index: 1;
+  }
+  /* 返回键：40px 圆形玻璃，永远压在工具左上角，带安全区内缩。
+     工具内容在它下面滚动/绘制，所以底色要够实，不然会和工具界面糊在一起。 */
+  html[data-immersive] .play-back-float {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    z-index: 60;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid rgb(16 16 20 / 0.08);
+    background-color: rgb(255 255 255 / 0.86);
+    color: var(--color-foreground);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.95),
+      0 1px 2px rgb(9 9 11 / 0.06),
+      0 8px 20px -10px rgb(9 9 11 / 0.28);
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.2s ease;
+  }
+  html[data-immersive] .play-back-float:active {
+    transform: scale(0.94);
+    background-color: rgb(255 255 255 / 0.98);
+  }
+  html.dark[data-immersive] .play-back-float {
+    border-color: rgb(255 255 255 / 0.14);
+    background-color: rgb(24 22 20 / 0.82);
+    color: #f6f2ec;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.1),
+      0 8px 20px -10px rgb(0 0 0 / 0.8);
+  }
+}
+
 /* 搜索浮层挂在 fixed 容器里、按视口定位，吃不到 body 的水平安全区 padding，
    所以左右内边距要自己把刘海让开（竖屏 env() 为 0，等价于原来的 px-4）。 */
 .app-search-layer {
@@ -215,9 +285,11 @@ html.dark {
   }
 }
 
-/* 页面底色：纯白（X / 小红书式中性观感），不铺任何色场。 */
+/* 页面底色：纯白，不铺任何色场。分区靠 bg-secondary/30 的中性浅灰 + 发丝线，
+   不用暖光晕、不用渐变 —— 极简白的关键是「白得干净」。 */
 html:not(.dark) body {
   background-color: #ffffff;
+  background-image: none;
 }
 /* 深色同样只留一层暖光：底部不再有紫/蓝/青的彩边 */
 html.dark body {
@@ -240,22 +312,22 @@ html.dark body {
    所以在侧栏作用域内换成 iOS 中性灰填充，--color-border 换成中性发丝线，
    内部所有 bg-secondary / border-border 自动跟随，不必逐个改 JSX。 */
 .app-sidebar {
-  --color-secondary: rgb(120 120 128 / 0.14);
-  --color-border: rgb(15 15 20 / 0.09);
+  --color-secondary: rgb(16 16 20 / 0.055);
+  --color-border: rgb(16 16 20 / 0.075);
 
   isolation: isolate;
   background: transparent;
   border-color: var(--color-border);
-  /* 光从左上打来：左上内亮边 + 右下内暗边 + 顶部 1px 高光，
-     再加一圈几乎不可见的外发丝线与大范围柔和投影 —— iOS 玻璃的辨识度
-     主要来自这层边缘光学，而不是「透出了多少背景」。 */
+  /* 光从左上打来：顶部 1px 白高光 + 内圈折射亮边 + 外发丝线 + 中性柔和落影。
+     iOS 玻璃的辨识度主要来自这层「边缘光学」，而不是透出了多少背景 ——
+     页面是纯白，玻璃必须靠边缘和一点点冷调灰才立得起来。 */
   box-shadow:
-    inset 1px 1px 0 rgb(255 255 255 / 0.95),
-    inset -1px -1px 0 rgb(255 255 255 / 0.35),
-    inset 0 1px 12px rgb(255 255 255 / 0.55),
-    0 0 0 1px rgb(15 15 20 / 0.045),
-    0 2px 8px rgb(16 18 22 / 0.045),
-    0 24px 48px -20px rgb(16 18 22 / 0.26);
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    inset 0 0 0 1px rgb(255 255 255 / 0.45),
+    inset 0 -1px 0 rgb(255 255 255 / 0.35),
+    0 0 0 1px rgb(16 16 20 / 0.055),
+    0 1px 2px rgb(9 9 11 / 0.04),
+    0 22px 46px -26px rgb(9 9 11 / 0.22);
 }
 .app-sidebar::before {
   content: "";
@@ -264,14 +336,30 @@ html.dark body {
   z-index: 0;
   pointer-events: none;
   border-radius: inherit;
-  background-color: rgb(255 255 255 / 0.7);
+  /* 冷调近白（不是暖白）：白底上要能看出「这里有一块玻璃」，
+     底色必须比页面白低半档，再靠模糊把背后内容化开。 */
+  background-color: rgb(244 245 248 / 0.72);
   background-image:
-    /* 斜向镜面高光 + 顶部弧光，让面板有「光的流动」而不是一块纯白。
-       右下角保留一点点橙（alpha 0.045），克制到几乎看不出； */
-    linear-gradient(135deg, rgb(255 255 255 / 0.9) 0%, rgb(255 255 255 / 0.34) 30%, transparent 58%),
-    radial-gradient(110% 46% at 42% -12%, rgb(255 255 255 / 0.8), transparent 72%),
-    radial-gradient(90% 45% at 0% 100%, rgb(24 24 27 / 0.03), transparent 65%);
-  backdrop-filter: blur(28px) saturate(180%);
+    linear-gradient(150deg, rgb(255 255 255 / 0.92) 0%, rgb(255 255 255 / 0.32) 32%, transparent 60%),
+    radial-gradient(120% 44% at 38% -10%, rgb(255 255 255 / 0.9), transparent 72%);
+  backdrop-filter: blur(30px) saturate(200%);
+}
+/* 镜面高光：一道极淡的斜向反光，玻璃才有「厚度」而不是一块磨砂纸。
+   放在 ::before 之上、内容之下（内容统一 z-index:1）。 */
+.app-sidebar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image: linear-gradient(
+    112deg,
+    transparent 24%,
+    rgb(255 255 255 / 0.46) 38%,
+    transparent 54%
+  );
+  opacity: 0.75;
 }
 /* 内容永远在玻璃层之上 */
 .app-sidebar > * {
@@ -300,13 +388,44 @@ html.dark .app-sidebar::before {
     radial-gradient(110% 46% at 42% -12%, rgb(255 255 255 / 0.06), transparent 72%),
     radial-gradient(90% 45% at 0% 100%, rgb(240 133 63 / 0.045), transparent 65%);
 }
+/* 深色下同一条镜面高光要弱得多，否则会在暗玻璃上划出一道白条 */
+html.dark .app-sidebar::after {
+  background-image: linear-gradient(
+    112deg,
+    transparent 24%,
+    rgb(255 255 255 / 0.07) 38%,
+    transparent 54%
+  );
+  opacity: 0.8;
+}
 
-/* 玻璃面板上的选中项：白底灰填充 + 发丝边，深色沿用原暖灰 */
+/* 玻璃面板上的选中项：一枚浮起的白色胶囊（iOS 侧栏的选中语言），
+   靠发丝边 + 落影和玻璃面拉开层次；深色沿用原来的暖灰填充。
+   过渡放在 .side-row 上，鼠标划过 / 点到时是化开的，不是硬切。 */
+.app-sidebar .side-row {
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.22s ease,
+    color 0.18s ease,
+    box-shadow 0.26s ease,
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.app-sidebar .side-row:active {
+  transform: scale(0.985);
+}
 .app-sidebar .side-row[aria-current="page"] {
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6);
+  background-color: rgb(255 255 255 / 0.92);
+  border-color: rgb(16 16 20 / 0.055);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    0 1px 2px rgb(9 9 11 / 0.05),
+    0 10px 20px -14px rgb(9 9 11 / 0.22);
 }
 html.dark .app-sidebar .side-row[aria-current="page"] {
-  box-shadow: none;
+  background-color: rgb(255 255 255 / 0.07);
+  border-color: rgb(255 255 255 / 0.08);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
 }
 
 /* ---------- 手机端：iOS 玻璃顶栏 + 悬浮玻璃标签栏 ---------- */
@@ -317,19 +436,19 @@ html.dark .app-sidebar .side-row[aria-current="page"] {
    注意：底栏改成悬浮后，.app-content 的底部留白必须同步加大，
    否则最后一张卡片会被胶囊压住（下面两处 padding-bottom 一起改）。 */
 .app-topbar {
-  --color-border: rgb(15 15 20 / 0.10);
+  --color-border: rgb(16 16 20 / 0.09);
 
   /* 加到主屏的 PWA / 刘海屏时，顶部安全区要算进顶栏高度，
      否则 logo 会顶进状态栏；普通浏览器里 env() 为 0，样式不变。 */
   height: calc(52px + env(safe-area-inset-top, 0px));
   padding-top: env(safe-area-inset-top, 0px);
-  background-color: rgb(255 255 255 / 0.82);
-  /* 顶栏不再带蓝色反光，只留一层自上而下的白色高光 */
-  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.45) 0%, transparent 70%);
-  border-bottom: 1px solid rgb(15 15 20 / 0.07);
+  background-color: rgb(255 255 255 / 0.72);
+  /* 顶栏不再带任何反光，只留一层自上而下的白色高光 */
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.42) 0%, transparent 70%);
+  border-bottom: 1px solid rgb(16 16 20 / 0.07);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.9),
-    0 6px 20px -14px rgb(16 18 22 / 0.22);
+    0 6px 20px -16px rgb(9 9 11 / 0.2);
   /* 只写标准属性，让构建工具按 browserslist 自动补 -webkit-。
      手写两条同值声明会被 Lightning CSS 合并成仅 -webkit- 一条，
      而部分浏览器（含本机 Chrome）不认别名，毛玻璃会完全失效。 */
@@ -337,7 +456,7 @@ html.dark .app-sidebar .side-row[aria-current="page"] {
 }
 .app-topbar button,
 .app-topbar .topbar-tools > a {
-  box-shadow: 0 1px 2px rgb(16 18 22 / 0.05);
+  box-shadow: 0 1px 2px rgb(9 9 11 / 0.05);
 }
 /* 主题按钮在桌面侧栏与手机顶栏各有一个实例。两个图标都渲染、由 <html class="dark">
    决定显隐：首帧（含 island SSR）就是正确图标，且不需要在 React 里共享主题状态。 */
@@ -364,28 +483,42 @@ html.dark .app-topbar {
   bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   min-height: 57px;
   padding: 5px 6px;
-  border: 1px solid rgb(15 15 20 / 0.08);
+  border: 1px solid rgb(16 16 20 / 0.07);
   border-radius: 22px;
-  background-color: rgb(255 255 255 / 0.84);
-  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.42) 0%, transparent 52%);
+  background-color: rgb(255 255 255 / 0.74);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.5) 0%, transparent 56%);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.95),
-    0 2px 6px rgb(16 18 22 / 0.05),
-    0 16px 34px -16px rgb(16 18 22 / 0.26);
-  backdrop-filter: blur(24px) saturate(180%);
+    0 1px 2px rgb(9 9 11 / 0.04),
+    0 18px 38px -18px rgb(9 9 11 / 0.24);
+  backdrop-filter: blur(26px) saturate(190%);
+}
+/* 选中滑块：一枚会「滑」过去的胶囊。位置由 --tab-index（第几项）算，
+   宽度按 --tab-count 等分，transform 带缓动 —— 标签切换是滑过去的。
+   之前是给当前项直接加背景色，等于硬切；换成独立滑块后动效才连贯。 */
+.app-tabbar-thumb {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 6px;
+  width: calc((100% - 12px) / var(--tab-count, 5));
+  border-radius: 15px;
+  background-color: rgb(16 16 20 / 0.065);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6);
+  pointer-events: none;
+  transform: translateX(calc(var(--tab-index, 0) * 100%));
+  transition: transform 0.36s cubic-bezier(0.2, 0.9, 0.2, 1);
 }
 .app-tabbar a {
+  position: relative;
+  z-index: 1;
   padding-block: 6px;
   border-radius: 15px;
   -webkit-tap-highlight-color: transparent;
-  transition: background-color 0.18s ease, transform 0.18s ease;
-}
-.app-tabbar a[aria-current="page"] {
-  background-color: rgb(120 120 128 / 0.11);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55);
+  transition: color 0.2s ease, transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .app-tabbar a:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
 }
 html.dark .app-tabbar {
   border-color: rgb(255 255 255 / 0.11);
@@ -396,9 +529,9 @@ html.dark .app-tabbar {
     0 2px 8px rgb(0 0 0 / 0.4),
     0 18px 36px -16px rgb(0 0 0 / 0.85);
 }
-html.dark .app-tabbar a[aria-current="page"] {
-  background-color: rgb(255 255 255 / 0.09);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+html.dark .app-tabbar-thumb {
+  background-color: rgb(255 255 255 / 0.10);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
 }
 
 /* ---------- 侧栏收起 / 展开（桌面 ≥1280） ---------- */
@@ -569,40 +702,45 @@ html.viewport-mobile .app-tabbar {
     @apply mx-auto w-full max-w-[72rem] px-4 sm:px-6 lg:px-8;
   }
   .btn {
-    @apply inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium transition-all duration-150 select-none disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium transition-all duration-200 ease-out select-none disabled:pointer-events-none disabled:opacity-50;
+  }
+  /* 所有按钮按下去统一轻微内缩：比原来的 translate-y 更「iOS」，
+     而且 160ms 的缓动让点击有落点感，不是硬切。 */
+  .btn:active {
+    transform: scale(0.97);
   }
   /* 实心按钮：底仍是高对比填充（白玻璃上的黑色/橙色实心是 iOS 的主操作语言），
      额外补一层顶部内高光 + 一点落影，才不像一张贴纸。 */
   .btn-primary {
-    @apply bg-foreground text-background hover:opacity-85 active:translate-y-px;
+    @apply bg-foreground text-background hover:opacity-85;
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.22),
-      0 6px 16px -10px rgb(20 18 14 / 0.55);
+      0 6px 16px -12px rgb(9 9 11 / 0.5);
   }
   /* 主按钮的落影用中性灰，不用橙色辉光：橙色只出现在按钮本身，
      不往周围洇开一圈彩色光圈（以前那种光晕是最显眼的「彩色」来源之一）。 */
   .btn-accent {
-    @apply bg-accent text-accent-foreground hover:brightness-95 active:translate-y-px;
+    @apply bg-accent text-accent-foreground hover:brightness-95;
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.26),
-      0 6px 16px -10px rgb(20 18 14 / 0.42);
+      0 6px 16px -12px rgb(9 9 11 / 0.4);
   }
-  /* 次级 / 幽灵按钮：半透明玻璃胶囊，不再用实色底 */
+  /* 次级 / 幽灵按钮：白底 + 发丝边，hover 时化开一层浅灰 */
   .btn-outline {
-    @apply border border-border text-foreground active:translate-y-px;
-    background-color: rgb(255 255 255 / 0.5);
+    @apply border border-border text-foreground;
+    background-color: #ffffff;
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.75),
-      0 1px 2px rgb(20 18 14 / 0.05);
+      inset 0 1px 0 rgb(255 255 255 / 0.9),
+      0 1px 2px rgb(9 9 11 / 0.04);
   }
   .btn-outline:hover {
-    background-color: rgb(255 255 255 / 0.72);
+    background-color: rgb(16 16 20 / 0.03);
   }
   .btn-ghost {
-    @apply text-foreground active:translate-y-px;
+    @apply text-foreground;
   }
   .btn-ghost:hover {
-    background-color: rgb(120 120 128 / 0.12);
+    background-color: rgb(16 16 20 / 0.05);
   }
   html.dark .btn-outline {
     background-color: rgb(255 255 255 / 0.07);
@@ -616,21 +754,20 @@ html.viewport-mobile .app-tabbar {
   html.dark .btn-ghost:hover {
     background-color: rgb(255 255 255 / 0.08);
   }
-  /* 卡片 = 液态玻璃面板：半透明 + 毛玻璃 + 顶缘内高光 + 一圈极淡外描边 + 大范围落影 */
+  /* 卡片 = 纯白面板：白底 + 1px 发丝边 + 中性柔和落影。
+     白底上不再叠斜向白色高光（叠了也看不见，只会多一层渲染），
+     层次完全交给描边与投影。 */
   .card {
     @apply rounded-[18px] border;
     border-color: var(--color-border);
     background-color: var(--color-card);
-    background-image: linear-gradient(
-      150deg,
-      rgb(255 255 255 / 0.5) 0%,
-      rgb(255 255 255 / 0.1) 34%,
-      transparent 62%
-    );
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.7),
-      0 0 0 1px rgb(20 18 14 / 0.06),
-      0 10px 30px -18px rgb(20 18 14 / 0.30);
+      0 1px 2px rgb(9 9 11 / 0.03),
+      0 12px 28px -22px rgb(9 9 11 / 0.26);
+    transition:
+      border-color 0.24s ease,
+      box-shadow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+      transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   html.dark .card {
     background-image: linear-gradient(
@@ -649,17 +786,15 @@ html.viewport-mobile .app-tabbar {
     /* 手机 16px 防 iOS 聚焦放大；桌面回到 14px 保持紧凑 */
     @apply w-full rounded-[14px] border px-3.5 py-2 text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none sm:text-sm;
     border-color: var(--color-border-strong);
-    background-color: rgb(255 255 255 / 0.5);
-    box-shadow:
-      inset 0 1px 2px rgb(20 18 14 / 0.06),
-      inset 0 -1px 0 rgb(255 255 255 / 0.6);
-    transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+    background-color: #ffffff;
+    box-shadow: inset 0 1px 2px rgb(9 9 11 / 0.04);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
   }
   .input:focus {
     border-color: rgb(217 106 36 / 0.5);
-    background-color: rgb(255 255 255 / 0.9);
+    background-color: #ffffff;
     box-shadow:
-      inset 0 1px 2px rgb(20 18 14 / 0.05),
+      inset 0 1px 2px rgb(9 9 11 / 0.04),
       0 0 0 4px rgb(217 106 36 / 0.13);
   }
   html.dark .input {
@@ -692,7 +827,7 @@ html.viewport-mobile .app-tabbar {
 
   .badge {
     @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-4 font-medium;
-    background-color: rgb(255 255 255 / 0.45);
+    background-color: rgb(16 16 20 / 0.03);
   }
   html.dark .badge {
     background-color: rgb(255 255 255 / 0.07);
@@ -768,6 +903,25 @@ html.viewport-mobile .app-tabbar {
   animation: dialog-in 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* 整页入场：静态站每次跳页都是整页刷新，加一层 8px 上浮 + 淡入，
+   从「啪一下换掉」变成「接上来」。只动 main，不碰侧栏/顶栏，
+   否则导航也会跟着闪。 */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .app-content > main {
+    animation: page-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
 /* 长内容横向滚动（代码 / JSON 输出） */
 .scroll-x {
   overflow-x: auto;
@@ -814,27 +968,17 @@ html.viewport-mobile .app-tabbar {
    液态玻璃 · 表面体系
    ------------------------------------------------------------
    站点里绝大多数面板是内联写的 `border border-border bg-card`。
-   卡片外观由「半透明令牌 + 发丝边 + 落影」三件套统一给出（见 @theme 与 @layer components），
+   卡片外观由「纯白 + 发丝边 + 中性落影」三件套统一给出（见 @theme 与 @layer components），
    这里只定义需要额外光学层次的浮层：弹窗 / 下拉 / 分段控件。
    ============================================================ */
 /* 说明：内容卡片**不做整片 backdrop-filter**。
-   页面底色是平滑的径向色场，模糊在它上面几乎看不出差别，
+   页面是纯白，内容卡片本身就是白底，再开模糊没有任何视觉收益，
    但每张卡片各开一个合成层，列表页 30+ 张卡滚动时会明显掉帧。
    所以真正需要「化开背后内容」的只有浮层：侧栏 / 顶栏 / 底栏 / 弹窗 / 下拉菜单，
-   它们各自带 blur；内容卡片靠半透明令牌 + 发丝边 + 落影就足够像玻璃了。 */
+   它们各自带 blur；内容卡片靠描边 + 落影就够了。 */
 
-/* 内容卡片的光学层：只给 bg-card 叠一道斜向白色高光。
-   不做 backdrop-filter（理由见上），但这道 high-light 足以让平面「鼓」起来：
-   左上角亮、右下角透，是玻璃被光斜着打到的样子。
-   img 排除——图片占位不需要。 */
-.bg-card:not(img) {
-  background-image: linear-gradient(
-    150deg,
-    rgb(255 255 255 / 0.5) 0%,
-    rgb(255 255 255 / 0.1) 34%,
-    transparent 62%
-  );
-}
+/* 内容卡片的光学层：纯白主题下不再叠白色高光（白上叠白没有信息量），
+   只在深色主题保留那道斜向反光。 */
 html.dark .bg-card:not(img) {
   background-image: linear-gradient(
     150deg,
@@ -863,17 +1007,17 @@ html.dark .bg-card:not(img) {
 .glass-sheet {
   /* 不设 position：调用方常用 absolute / fixed 定位（弹窗、下拉），
      在这里写 relative 会把它们全部按回文档流。 */
-  background-color: rgb(252 251 250 / 0.84);
+  background-color: rgb(255 255 255 / 0.86);
   background-image:
-    linear-gradient(150deg, rgb(255 255 255 / 0.5) 0%, rgb(255 255 255 / 0.06) 36%, transparent 62%),
-    radial-gradient(120% 60% at 50% -20%, rgb(255 255 255 / 0.38), transparent 70%);
-  border: 1px solid rgb(255 255 255 / 0.72);
+    linear-gradient(150deg, rgb(255 255 255 / 0.6) 0%, rgb(255 255 255 / 0.1) 36%, transparent 62%),
+    radial-gradient(120% 60% at 50% -20%, rgb(255 255 255 / 0.5), transparent 70%);
+  border: 1px solid rgb(255 255 255 / 0.85);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.95),
     inset 0 -1px 0 rgb(255 255 255 / 0.28),
-    0 0 0 1px rgb(20 18 14 / 0.075),
-    0 2px 6px rgb(20 18 14 / 0.05),
-    0 28px 60px -28px rgb(20 18 14 / 0.42);
+    0 0 0 1px rgb(9 9 11 / 0.07),
+    0 2px 6px rgb(9 9 11 / 0.04),
+    0 28px 60px -30px rgb(9 9 11 / 0.38);
   backdrop-filter: blur(34px) saturate(185%);
 }
 html.dark .glass-sheet {
@@ -891,18 +1035,18 @@ html.dark .glass-sheet {
 }
 
 /* 页面级玻璃面板（登录页大卡片这类）：
-   背后只有平滑色场、没有正文，可以比弹层更透，玻璃感才出得来。 */
+   纯白底上它读起来是「一块抬起来的白板」，靠冷调微白 + 边缘折射 + 落影成立。 */
 .glass-panel {
-  background-color: rgb(255 255 255 / 0.52);
+  background-color: rgb(251 251 253 / 0.78);
   background-image:
-    linear-gradient(155deg, rgb(255 255 255 / 0.62) 0%, rgb(255 255 255 / 0.08) 40%, transparent 68%),
-    radial-gradient(120% 70% at 50% -18%, rgb(255 255 255 / 0.45), transparent 72%);
-  border: 1px solid rgb(255 255 255 / 0.7);
+    linear-gradient(155deg, rgb(255 255 255 / 0.72) 0%, rgb(255 255 255 / 0.1) 40%, transparent 68%),
+    radial-gradient(120% 70% at 50% -18%, rgb(255 255 255 / 0.55), transparent 72%);
+  border: 1px solid rgb(255 255 255 / 0.85);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.95),
     inset 0 -1px 0 rgb(255 255 255 / 0.3),
-    0 0 0 1px rgb(20 18 14 / 0.06),
-    0 24px 52px -26px rgb(20 18 14 / 0.38);
+    0 0 0 1px rgb(9 9 11 / 0.06),
+    0 24px 52px -28px rgb(9 9 11 / 0.34);
   backdrop-filter: blur(30px) saturate(180%);
 }
 html.dark .glass-panel {
@@ -921,7 +1065,7 @@ html.dark .glass-panel {
    遮罩要铺满整屏，加模糊等于给整屏开一个合成层，低端机上开窗动画会掉帧；
    而且它是浮层里唯一必须 100% 稳定的元素——压暗失效整块玻璃就浮不起来。 */
 .glass-scrim {
-  background-color: rgb(16 14 12 / 0.42);
+  background-color: rgb(9 9 11 / 0.38);
 }
 html.dark .glass-scrim {
   background-color: rgb(4 4 6 / 0.55);
@@ -930,16 +1074,25 @@ html.dark .glass-scrim {
 /* iOS 分段控件（登录页的「登录 / 注册」这类二选一）
    容器是凹陷的玻璃槽，选中项是一枚浮起的玻璃胶囊 */
 .seg {
-  background-color: rgb(120 120 128 / 0.12);
-  box-shadow: inset 0 1px 2px rgb(20 18 14 / 0.08);
+  background-color: rgb(16 16 20 / 0.055);
+  box-shadow: inset 0 1px 2px rgb(9 9 11 / 0.06);
   backdrop-filter: blur(10px);
 }
 .seg-thumb {
-  background-color: rgb(255 255 255 / 0.92);
+  background-color: #ffffff;
   box-shadow:
-    0 1px 3px rgb(20 18 14 / 0.14),
-    0 1px 1px rgb(20 18 14 / 0.06),
+    0 1px 3px rgb(9 9 11 / 0.12),
+    0 1px 1px rgb(9 9 11 / 0.05),
     inset 0 1px 0 rgb(255 255 255 / 0.95);
+}
+/* 选中胶囊在两颗按钮之间「化」过去：底色与落影都带过渡，
+   比瞬间换白色块柔和得多（三个分段控件的按钮已带 transition-all）。 */
+.seg-thumb,
+.seg > button {
+  transition:
+    background-color 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.18s ease;
 }
 html.dark .seg {
   background-color: rgb(255 255 255 / 0.06);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   ChevronsLeft,
   ChevronsRight,
@@ -82,6 +82,11 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", no
     { label: translate(dict, "nav.world"), path: "/world/", icon: Users, match: (r) => r.startsWith("/world/") },
     { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, match: (r) => r.startsWith("/my-submissions/") },
   ];
+
+  /* 手机底栏只放主栏目；滑块位置按「当前项在数组里的下标」算，
+     交给 CSS 的 --tab-index / --tab-count，切换时用 transform 滑过去。 */
+  const tabs = NAV.filter((item) => item.bottom !== false);
+  const activeTab = tabs.findIndex((item) => item.match(currentRoute));
 
   useEffect(() => {
     const onOpen = () => setSearchOpen(true);
@@ -335,8 +340,16 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", no
       <nav
         className="app-tabbar fixed z-40 flex lg:hidden"
         aria-label={en ? "Main navigation" : "主导航"}
+        style={{ "--tab-count": String(tabs.length) } as CSSProperties}
       >
-        {NAV.filter((item) => item.bottom !== false).map((item) => {
+        {activeTab >= 0 && (
+          <span
+            className="app-tabbar-thumb"
+            style={{ "--tab-index": String(activeTab) } as CSSProperties}
+            aria-hidden="true"
+          />
+        )}
+        {tabs.map((item) => {
           const on = item.match(currentRoute);
           const Icon = item.icon;
           return (

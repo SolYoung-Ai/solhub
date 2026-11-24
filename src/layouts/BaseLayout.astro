@@ -26,6 +26,8 @@ interface Props {
   noEn?: boolean;
   /** 满屏工具容器（/tools/play/）：不要页脚、不留底部空白，内容区自己撑满视口 */
   bare?: boolean;
+  /** 手机端真全屏（工具运行页）：隐掉站点顶栏与底栏，靠页面内的浮层返回键退出 */
+  immersive?: boolean;
 }
 
 const {
@@ -37,6 +39,7 @@ const {
   locale = "zh",
   noEn = false,
   bare = false,
+  immersive = false,
 } = Astro.props;
 
 const dict = getDict(locale);
@@ -64,13 +67,13 @@ const orgJsonLd = {
 ---
 
 <!doctype html>
-<html lang={htmlLang} class="theme-init" data-no-en={noEn ? "" : undefined}>
+<html lang={htmlLang} class="theme-init" data-no-en={noEn ? "" : undefined} data-immersive={immersive ? "" : undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="generator" content={Astro.generator} />
-    {/* 手机浏览器地址栏 / 状态栏配色：默认深色，随主题在下面的内联脚本里同步 */}
-    <meta name="theme-color" content="#0a0908" />
+    {/* 手机浏览器地址栏 / 状态栏配色：默认纸白，随主题在下面的内联脚本里同步 */}
+    <meta name="theme-color" content="#ffffff" />
 
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
@@ -144,10 +147,10 @@ const orgJsonLd = {
           }
 
           // 1) 主题：dark class + 过渡
-          //    深色是站点默认观感；只有用户手动切到浅色（存了 "light"）才走浅色。
+          //    默认是纸白（极简白底），只有用户手动切到深色（存了 "dark"）才走深色。
           //    不跟随系统 prefers-color-scheme —— 否则同一台设备上深浅不一，品牌观感会飘。
           var savedTheme = localStorage.getItem("solhub:theme");
-          var theme = savedTheme === "light" ? "light" : "dark";
+          var theme = savedTheme === "dark" ? "dark" : "light";
           if (theme === "dark") document.documentElement.classList.add("dark");
           // 同步手机浏览器地址栏配色，否则深色页面顶上会挂一条白条
           var tc = document.querySelector('meta[name="theme-color"]');
