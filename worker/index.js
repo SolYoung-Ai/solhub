@@ -547,7 +547,7 @@ async function getSessionUser(request, env) {
 
 /* ---------------- 身份统一（邮箱 or GitHub） ---------------- */
 
-async function getGitHubIdentity(request) {
+async function getGitHubIdentity(request, env) {
   const token = readCookie(request, "solhub_token") || readBearerGithub(request);
   if (!token) return null;
   const res = await fetch(`${API}/user`, {
@@ -555,13 +555,21 @@ async function getGitHubIdentity(request) {
   });
   const user = await res.json();
   if (!user.login) return null;
+  /* 封禁要在身份解析处就拦住：以前只有发帖/评论几处单独判断，
+     被封的 GitHub 账号仍能提交产品、上传工具、改资料。封禁键与后台写入一致
+     （ban:<登录名>），邮箱用户的同类判断在 getSessionUser 里。 */
+  if (env && env.PROFILES) {
+    try {
+      if (await env.PROFILES.get(`ban:${user.login}`)) return null;
+    } catch { /* 存储抖动不阻断登录态解析 */ }
+  }
   return { type: "github", login: user.login, avatar_url: user.avatar_url, token };
 }
 
 async function getIdentity(request, env) {
   const session = await getSessionUser(request, env);
   if (session) return { type: "email", login: session.email, user: session };
-  const gh = await getGitHubIdentity(request);
+  const gh = await getGitHubIdentity(request, env);
   if (gh) return gh;
   return null;
 }
@@ -615,10 +623,21 @@ async function kvPutJSON(env, key, val) {
 
 const RL_PREFIX = "https://rl.solhub.internal/";
 
-/** 取客户端 IP（Cloudflare 注入 CF-Connecting-IP） */
+/** 取客户端 IP。
+ *  Cloudflare 部署时由 CF-Connecting-IP 给出；CloudBase 走 HTTP 网关，
+ *  只能读 X-Forwarded-For —— 这里取**最右一跳**：最左边是客户端自己填的，
+ *  攻击者随手就能伪造成任意值，拿它当限流键等于没有限流。
+ *  （网关会把自己看到的对端地址追加在末尾，最右一跳才是它真实看到的地址。） */
 function clientIp(request) {
-  const raw = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For") || "";
-  return String(raw).split(",")[0].trim().slice(0, 64) || "unknown";
+  const cf = request.headers.get("CF-Connecting-IP") || "";
+  if (cf.trim()) return cf.trim().slice(0, 64);
+  const xff = String(request.headers.get("X-Forwarded-For") || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const last = xff.length ? xff[xff.length - 1] : "";
+  const real = String(request.headers.get("X-Real-IP") || "").trim();
+  return (last || real).slice(0, 64) || "unknown";
 }
 
 /**
@@ -711,6 +730,12 @@ function assertPublicUrl(raw) {
     return { ok: false, error: "不能指向本机或内网地址" };
   }
   return { ok: true, url: u };
+}
+
+/* 站点可达性判定的统一口径：2xx/3xx 都算可达（HEAD 不再自动跟随重定向，
+   3xx 由浏览器自己跳），403 常见于防盗链但站点确实存在，也放过。 */
+function reachableStatus(code) {
+  return code === 403 || (code >= 200 && code < 400);
 }
 
 /* ---------------- 邮件验证码（阿里云 DirectMail） ---------------- */
@@ -1966,6 +1991,17 @@ export default {
       return new Response(null, { status: 204, headers: corsFor(request) });
     }
 
+    /* CSRF 兜底：浏览器跨站发起的写请求一定带 Origin，白名单外直接拒。
+       会话 Cookie 是 SameSite=None（跨站要用），单靠 CORS 只挡「读响应」、
+       挡不住「请求本身被发出去」，这里在入口补一道。
+       非浏览器（curl / 脚本）不带 Origin，那类请求本来也没有受害者 Cookie。 */
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      const origin = request.headers.get("Origin");
+      if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+        return json(request, { error: "bad origin" }, 403);
+      }
+    }
+
     /* ---------- 邮箱验证码 ---------- */
     if (url.pathname === "/auth/send-code" && request.method === "POST") {
       let body;
@@ -2380,17 +2416,31 @@ export default {
 
     /* ---------- GitHub OAuth（保留） ---------- */
     if (url.pathname === "/auth") {
+      /* OAuth state：防「登录 CSRF」——否则攻击者可以把自己的 code 喂给受害者浏览器，
+         让受害者以攻击者身份登录（后续操作全落在攻击者账号里）。
+         state 同时存进一个 HttpOnly Cookie，回调时比对，单次有效。 */
+      const state = toB64(crypto.getRandomValues(new Uint8Array(16)))
+        .replace(/[+/=]/g, "")
+        .slice(0, 24);
       const params = new URLSearchParams({
         client_id: env.GITHUB_CLIENT_ID,
         redirect_uri: env.WORKER_URL + "/callback",
         scope: "public_repo",
+        state,
       });
-      return redirect(request, `${OAUTH_URL}?${params}`);
+      return redirect(request, `${OAUTH_URL}?${params}`, {
+        "Set-Cookie": `solhub_oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`,
+      });
     }
 
     if (url.pathname === "/callback") {
       const code = url.searchParams.get("code");
       if (!code) return json(request, { error: "missing code" }, 400);
+      const wantState = readCookie(request, "solhub_oauth_state") || "";
+      const gotState = url.searchParams.get("state") || "";
+      if (!wantState || !gotState || wantState !== gotState) {
+        return json(request, { error: "登录状态校验失败，请重新登录" }, 400);
+      }
       const tokenRes = await fetch(TOKEN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -2572,7 +2622,7 @@ export default {
 
     /* ---------- 我的 GitHub Issue 投稿（仅 GitHub 登录） ---------- */
     if (url.pathname === "/my-issues") {
-      const gh = await getGitHubIdentity(request);
+      const gh = await getGitHubIdentity(request, env);
       if (!gh) return json(request, []);
       const res = await fetch(`${API}/repos/${REPO}/issues?creator=${encodeURIComponent(gh.login)}&state=all&per_page=50`, {
         headers: { Authorization: `Bearer ${gh.token}`, "User-Agent": "SolHub" },
@@ -2582,7 +2632,7 @@ export default {
     }
 
     if (url.pathname.startsWith("/issues/") && request.method === "PATCH" && !url.pathname.endsWith("/close")) {
-      const gh = await getGitHubIdentity(request);
+      const gh = await getGitHubIdentity(request, env);
       if (!gh) return json(request, { authenticated: false }, 401);
       const number = url.pathname.split("/")[2];
       const body = await request.text();
@@ -2595,7 +2645,7 @@ export default {
     }
 
     if (url.pathname.match(/^\/issues\/\d+\/close$/) && request.method === "POST") {
-      const gh = await getGitHubIdentity(request);
+      const gh = await getGitHubIdentity(request, env);
       if (!gh) return json(request, { authenticated: false }, 401);
       const number = url.pathname.split("/")[2];
       const res = await fetch(`${API}/repos/${REPO}/issues/${number}`, {
@@ -2608,7 +2658,7 @@ export default {
 
     /* ---------- 图标上传（GitHub 登录用户，提交到仓库 icons/） ---------- */
     if (url.pathname === "/upload-icon" && request.method === "POST") {
-      const gh = await getGitHubIdentity(request);
+      const gh = await getGitHubIdentity(request, env);
       if (!gh) return json(request, { error: "not authenticated" }, 401);
       const body = await request.json();
       if (!body.dataUrl) return json(request, { error: "missing dataUrl" }, 400);
@@ -2654,11 +2704,11 @@ export default {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 8000);
         const res = await fetch(guard.url.toString(), {
-          method: "HEAD", redirect: "follow", signal: ctrl.signal,
+          method: "HEAD", redirect: "manual", signal: ctrl.signal,
           headers: { "User-Agent": "SolHub/1.0" },
         });
         clearTimeout(t);
-        if (res.ok || res.status === 301 || res.status === 302 || res.status === 403) {
+        if (reachableStatus(res.status)) {
           return json(request, { ok: true, status: res.status });
         }
         return json(request, { ok: false, status: res.status, error: `网站返回 ${res.status}` });
@@ -3053,11 +3103,11 @@ export default {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 5000);
         const checkRes = await fetch(pubGuard.url.toString(), {
-          method: "HEAD", redirect: "follow", signal: ctrl.signal,
+          method: "HEAD", redirect: "manual", signal: ctrl.signal,
           headers: { "User-Agent": "SolHub/1.0" },
         });
         clearTimeout(t);
-        if (!checkRes.ok && checkRes.status !== 301 && checkRes.status !== 302 && checkRes.status !== 403) {
+        if (!reachableStatus(checkRes.status)) {
           return json(request, { error: `网站 ${websiteUrl} 返回 ${checkRes.status}，无法收录` }, 400);
         }
       } catch {
@@ -3201,11 +3251,11 @@ export default {
               const ctrl = new AbortController();
               const t = setTimeout(() => ctrl.abort(), 5000);
               const checkRes = await fetch(nextGuard.url.toString(), {
-                method: "HEAD", redirect: "follow", signal: ctrl.signal,
+                method: "HEAD", redirect: "manual", signal: ctrl.signal,
                 headers: { "User-Agent": "SolHub/1.0" },
               });
               clearTimeout(t);
-              if (!checkRes.ok && checkRes.status !== 301 && checkRes.status !== 302 && checkRes.status !== 403) {
+              if (!reachableStatus(checkRes.status)) {
                 return json(request, { error: `网站返回 ${checkRes.status}，链接需可正常打开才能保存` }, 400);
               }
             } catch {
@@ -3548,6 +3598,11 @@ export default {
       const headers = {
         ...baseHeaders,
         "Content-Type": m[1],
+        /* 历史数据里可能残留 image/svg+xml：SVG 能带脚本，直接打开这个地址就会
+           在 API 域下执行（同域能带 Cookie 发请求）。这里禁掉嗅探并套一层
+           sandbox，即使被存了 SVG 也跑不了脚本。 */
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
         "Cache-Control": "public, max-age=3600",
         ETag: `W/"${bytes.length}"`,
       };

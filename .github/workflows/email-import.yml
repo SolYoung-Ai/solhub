@@ -1,8 +1,12 @@
 name: Auto-import products from email
 
 on:
-  schedule:
-    - cron: "0 * * * *"  # Every hour
+  # 定时触发已关闭（2026-11-25 安全体检）：这条链路把邮件正文里解析出的字段直接
+  # commit 进 main，等于「任何能给收件箱发信的人都能往站点上塞内容」，而它上线以来
+  # 一次都没有成功产出过提交（git log 里没有 auto: add 记录）。站内 /submit 已经
+  # 是带登录 + 可达性校验的主路径。要临时用可手动 Run workflow。
+  # schedule:
+  #   - cron: "0 * * * *"  # Every hour
   workflow_dispatch:
 
 jobs:
