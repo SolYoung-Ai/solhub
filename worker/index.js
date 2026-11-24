@@ -182,6 +182,19 @@ function fromB64(b64) {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 }
 
+/** 图片魔数校验（PNG / JPEG / GIF / WebP）。
+ *  data URL 里写的 MIME 是客户端自己声明的，落盘到公开仓库前必须按字节再看一遍。 */
+function looksLikeImage(bytes) {
+  if (!bytes || bytes.length < 12) return false;
+  const b = bytes;
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return true; // PNG
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return true; // JPEG
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38) return true; // GIF
+  if (String.fromCharCode(b[0], b[1], b[2], b[3]) === "RIFF"
+      && String.fromCharCode(b[8], b[9], b[10], b[11]) === "WEBP") return true; // WebP
+  return false;
+}
+
 async function hashPassword(password, saltB64) {
   const key = await crypto.subtle.importKey(
     "raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"],
@@ -2667,8 +2680,15 @@ export default {
       if (String(body.dataUrl).length > 2000000) {
         return json(request, { error: "图标文件太大（上限约 1.5MB），请先压缩" }, 413);
       }
-      const m = body.dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
-      if (!m) return json(request, { error: "invalid dataUrl" }, 400);
+      /* 类型白名单 + 真伪校验：这个接口用**用户自己的 GitHub token** 直接往
+         仓库 main 分支提交文件，而 GitHub Pages 会用站点自己的域名发 icons/ 下的
+         任何东西 —— 只要声明成 image/html 塞一段脚本，就是同源存储型 XSS。
+         所以后缀只认四种图片，字节也要过魔数校验。 */
+      const m = body.dataUrl.match(/^data:image\/(png|jpe?g|gif|webp);base64,([A-Za-z0-9+/=]+)$/);
+      if (!m) return json(request, { error: "图标只支持 PNG / JPG / GIF / WebP" }, 400);
+      let iconBytes;
+      try { iconBytes = fromB64(m[2]); } catch { return json(request, { error: "invalid dataUrl" }, 400); }
+      if (!looksLikeImage(iconBytes)) return json(request, { error: "文件内容不是有效的图片" }, 400);
       const ext = m[1] === "jpeg" ? "jpg" : m[1];
       const filename = `icon-${Date.now()}.${ext}`;
       const path = `icons/${filename}`;
@@ -2922,6 +2942,7 @@ export default {
             "Content-Type": lm[1],
             "Cache-Control": "public, max-age=604800",
             "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
           },
         });
       }
