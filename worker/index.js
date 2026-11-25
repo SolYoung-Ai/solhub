@@ -3971,14 +3971,20 @@ export default {
       if (!identity) return json(request, { error: "请先登录" }, 401);
       const sid = identity.sid || identity.login;
       const code = await refCodeOf(env, sid);
-      const [snap, ledger, invited] = await Promise.all([
+      /* 持卡人信息（handle + 认证）随钱包一起回：卡面上要显示黄V/蓝V，
+         不能因为 /me 不带认证字段就一律画成同一个颜色。 */
+      const [snap, ledger, invited, walletUser] = await Promise.all([
         walletSnapshot(env, sid),
         kvGetJSON(env, ledgerKey(sid), []) || [],
         kvGetJSON(env, invitedKey(sid), []) || [],
+        kvGetJSON(env, `user:${sid}`, null, true),
       ]);
       return json(request, {
         ok: true,
         ...snap,
+        handle: (walletUser && walletUser.handle) || handleFromEmail(sid),
+        verified: !!(walletUser && walletUser.verified),
+        official: !!(walletUser && walletUser.official),
         code,
         link: code ? `${SITE_BASE}/join/?ref=${code}` : "",
         invitePoints: INVITE_POINTS,

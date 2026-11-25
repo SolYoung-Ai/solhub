@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
-  BadgeCheck,
   Check,
   Copy,
   Gift,
@@ -14,6 +13,8 @@ import {
 import { fetchMe, type AuthUser } from "@/lib/auth";
 import { cachedWallet, fetchWallet, type WalletData, type WalletLedgerItem } from "@/lib/wallet";
 import { copyText } from "@/lib/utils";
+import GoldBadge from "@/components/GoldBadge";
+import BlueBadge from "@/components/BlueBadge";
 import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 
@@ -89,7 +90,10 @@ export default function Wallet({ locale = "zh" }: Props) {
     window.setTimeout(() => setCopied(""), 1600);
   };
 
-  const holder = useMemo(() => (user?.login ? `@${user.login}` : "—"), [user]);
+  const holder = useMemo(() => {
+    const name = data?.handle || user?.handle || user?.login || "";
+    return name ? `@${name}` : "—";
+  }, [data?.handle, user?.handle, user?.login]);
 
   if (state === "loading" && !data) {
     return (
@@ -187,7 +191,8 @@ export default function Wallet({ locale = "zh" }: Props) {
             <p className="text-[10px] uppercase tracking-[0.16em] text-white/45">{en ? "Holder" : "持卡人"}</p>
             <p className="mt-0.5 flex items-center gap-1.5 truncate text-[13.5px] font-semibold">
               {holder}
-              <BadgeCheck className="h-3.5 w-3.5 text-[#8ec5ff]" aria-hidden="true" />
+              {/* 用户都是黄V；官方账号（编辑部 / 官方号）才是蓝V */}
+              {data.verified && (data.official ? <BlueBadge className="h-3.5 w-3.5" /> : <GoldBadge className="h-3.5 w-3.5" />)}
             </p>
           </div>
           <div className="shrink-0 text-right">

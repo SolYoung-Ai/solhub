@@ -21,6 +21,11 @@ export interface WalletLedgerItem {
 }
 
 export interface WalletData {
+  /** 持卡人的公开标识（可能和登录名不同：改过 handle 的账号） */
+  handle?: string;
+  /** 账号认证：黄V=创作者，蓝V=官方（official） */
+  verified?: boolean;
+  official?: boolean;
   balance: number;
   available: number;
   earned: number;
