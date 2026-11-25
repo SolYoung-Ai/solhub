@@ -2768,6 +2768,10 @@ export default {
         tags: Array.isArray(p.tags) ? p.tags.slice(0, 6) : [],
         kind,
         verification_status: p.verificationStatus || "",
+        /* 小程序详情页要区分「作者」与「收录方」：收录的是别人做的网站时，
+           作者名不能拿去链到收录方主页，两者分开给 */
+        developer: p.developerName || "",
+        curator: p.submittedBy && p.submittedBy !== p.developerLogin ? p.submittedBy : "",
       });
 
       for (const p of index) {
