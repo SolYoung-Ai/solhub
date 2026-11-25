@@ -27,7 +27,9 @@ import { toSimplified, needsT2S } from "./t2s.js";
 const BATCH_SIZE = 8;
 
 /** 翻译请求超时。批量缩到 8 条后，45 秒已留足重试余量。 */
-const LLM_TIMEOUT = 45000;
+/* 8 秒：免费端点在云端经常挂到 40 秒以上，等它等于白烧函数时长。
+   超时就交给 mymemory 兜底，条目仍留在库里下一轮再试。 */
+const LLM_TIMEOUT = 8000;
 const MYMEMORY_TIMEOUT = 10000;
 
 const LLM_ENDPOINT = "https://text.pollinations.ai/openai";

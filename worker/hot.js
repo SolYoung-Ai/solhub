@@ -160,7 +160,9 @@ const CATEGORIES = [
 ];
 
 /** 单次抓取超时。慢源不值得占用整轮函数时长；失败条目下一轮再试。 */
-const FEED_TIMEOUT = 10000;
+/* 7 秒：慢源（海外 RSS 偶尔 10 秒以上）没有等满的价值，超时就当本轮没更新，
+   下一轮还会再来；等满 10 秒会把整批拖慢。 */
+const FEED_TIMEOUT = 7000;
 /** 库里最多保留多少条：首屏与分页只消费前几十条，压缩全量 KV 体积。 */
 const MAX_ITEMS = 300;
 /** 超过这个时长的条目不再保留（源多之后 48 小时已经够 400+ 条） */
@@ -924,8 +926,8 @@ async function translatePending(items, opts = {}) {
   /* 标题与摘要并发翻：串行最坏要 80 秒，并发只要 40 秒左右，
      而函数超时是有限的，能省一半就省一半。 */
   const [titleRes, summaryRes] = await Promise.all([
-    translateBatch(titles, "title", { budgetMs: opts.budgetMs || 15000 }),
-    translateBatch(summaryList, "summary", { budgetMs: opts.budgetMs || 15000 }),
+    translateBatch(titles, "title", { budgetMs: opts.budgetMs || 8000 }),
+    translateBatch(summaryList, "summary", { budgetMs: opts.budgetMs || 8000 }),
   ]);
 
   const summaryOf = new Map();
@@ -967,8 +969,9 @@ async function translatePending(items, opts = {}) {
  */
 async function collectHot(opts = {}) {
   const now = Number(opts.now) || Date.now();
-  /* 8 个一组：见 pool() 的注释。抓取整轮从「34 个同时发」降到 5 批，成功率明显提升。 */
-  const results = await pool(FEEDS, 8, (f) => fetchFeed(f, now));
+  /* 14 个一组（3 批）：42 个源不再排 6 批，单轮耗时可从 25 秒降到 12 秒上下；
+     再高会把出网连接打满、海外源整批失败，实测误差范围内。 */
+  const results = await pool(FEEDS, 14, (f) => fetchFeed(f, now));
   const fresh = results.flatMap((r) => r.items);
   const merged = mergeItems(fresh, opts.old || [], now);
 
