@@ -387,5 +387,53 @@
     "verifiedAt": "2026-11-26",
     "isDemo": false,
     "submittedBy": "solhub_editor"
+  },
+  {
+    "id": "little-alchemy-2",
+    "slug": "little-alchemy-2",
+    "name": "Little Alchemy 2",
+    "icon": "/icons/littlealchemy.png",
+    "shortDescription": "从水、火、土、风四种基础元素开始两两合成，一路合出生命与宇宙的经典合成游戏，网页免费玩。",
+    "description": "Little Alchemy 2 是 Recloak 做的元素合成解谜游戏：开局只有水、火、土、风，把两个元素拖到一起就能合成新东西，从「泥」「金属」一路合到「生命」「时间」「宇宙」，共几百种元素，每个都配一句逗趣的说明。网页版免费直接玩，进度存在本地，也有 iOS / Android 版本。适合开一局就停不下来的摸鱼型解谜。",
+    "websiteUrl": "https://littlealchemy2.com/",
+    "category": "fun-tools",
+    "tags": [
+      "合成游戏",
+      "解谜",
+      "元素",
+      "休闲"
+    ],
+    "developerName": "Recloak",
+    "publishedAt": "2026-11-26",
+    "launchBatch": "Community",
+    "verificationStatus": "verified",
+    "verificationMethod": "人工访问 https://littlealchemy2.com/（HTTP 200），核对页面标题与描述后收录。本条由 SolHub 编辑部收录，非作者本人提交。",
+    "verifiedAt": "2026-11-26",
+    "isDemo": false,
+    "submittedBy": "solhub_editor"
+  },
+  {
+    "id": "bongo-cat",
+    "slug": "bongo-cat",
+    "name": "Bongo Cat",
+    "icon": "/icons/bongocat.png",
+    "shortDescription": "敲键盘就有猫替你打鼓的经典摸鱼页：手鼓、钢琴、沙锤、牛铃都能弹，点屏幕也行。",
+    "description": "Bongo Cat 是那个著名的「猫打鼓」梗的网页版：你敲键盘它就跟着敲，字母键是手鼓，数字键换成钢琴、马林巴、沙锤、牛铃等乐器，空格是猫叫，手机上直接点屏幕也能让它表演。没有任何目标，纯粹解压。美术由 @StrayRogue 绘制，梗来自 @DitzyFlama，网站由 Eric Huber 制作。",
+    "websiteUrl": "https://bongo.cat/",
+    "category": "fun-tools",
+    "tags": [
+      "摸鱼",
+      "音乐",
+      "键盘",
+      "小游戏"
+    ],
+    "developerName": "Eric Huber",
+    "publishedAt": "2026-11-26",
+    "launchBatch": "Community",
+    "verificationStatus": "verified",
+    "verificationMethod": "人工访问 https://bongo.cat/（HTTP 200），核对页面标题与描述后收录。本条由 SolHub 编辑部收录，非作者本人提交。",
+    "verifiedAt": "2026-11-26",
+    "isDemo": false,
+    "submittedBy": "solhub_editor"
   }
 ]
