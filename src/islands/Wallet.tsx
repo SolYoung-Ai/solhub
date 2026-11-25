@@ -126,6 +126,10 @@ export default function Wallet({ locale = "zh" }: Props) {
     );
   }
 
+  /* 后端字段理论上齐全，但老缓存 / 灰度期间可能缺项，这里兜一层，别整页白屏 */
+  const invitedRows = Array.isArray(data.invited) ? data.invited : [];
+  const ledgerRows = Array.isArray(data.ledger) ? data.ledger : [];
+
   return (
     <div className="mx-auto max-w-3xl">
       {/* ---------------- 卡面 ---------------- */}
@@ -249,10 +253,10 @@ export default function Wallet({ locale = "zh" }: Props) {
           </div>
         </div>
 
-        {data.invited.length > 0 && (
+        {invitedRows.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 border-t border-border px-5 py-3.5">
             <span className="text-[11.5px] text-muted-foreground">{en ? "Invited" : "已邀请"}</span>
-            {data.invited.slice(0, 8).map((it) => (
+            {invitedRows.slice(0, 8).map((it) => (
               <a
                 key={it.login + it.at}
                 href={p(`/world/?u=${encodeURIComponent(it.login)}`, locale)}
@@ -281,7 +285,7 @@ export default function Wallet({ locale = "zh" }: Props) {
           <h2 className="font-display text-[15px] font-bold text-foreground">{en ? "Points activity" : "积分明细"}</h2>
           <span className="text-[11px] text-muted-foreground">{en ? "Latest 50" : "最近 50 条"}</span>
         </div>
-        {data.ledger.length === 0 ? (
+        {ledgerRows.length === 0 ? (
           <div className="px-5 py-12 text-center">
             <ShieldCheck className="mx-auto h-7 w-7 text-muted-foreground/50" aria-hidden="true" />
             <p className="mt-2.5 text-[13px] font-medium text-foreground/70">{en ? "No activity yet" : "还没有积分记录"}</p>
@@ -291,7 +295,7 @@ export default function Wallet({ locale = "zh" }: Props) {
           </div>
         ) : (
           <ul className="divide-y divide-border">
-            {data.ledger.map((it: WalletLedgerItem) => (
+            {ledgerRows.map((it: WalletLedgerItem) => (
               <li key={it.id} className="flex items-center gap-3 px-5 py-3">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
                   <Gift className="h-3.5 w-3.5" aria-hidden="true" />
