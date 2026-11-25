@@ -2,6 +2,7 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import JoinSignup from "@/islands/JoinSignup.tsx";
 import { p } from "@/lib/paths";
+import { AppWindow, BadgeCheck, PackagePlus, ShieldCheck } from "lucide-react";
 import type { Locale } from "@/i18n";
 
 interface Props {
@@ -10,65 +11,93 @@ interface Props {
 const locale = Astro.props.locale ?? "zh";
 const en = locale === "en";
 
-const points = [
-  { title: en ? "Editor-curated catalog" : "编辑收录，不靠刷量", desc: en ? "Listed once the link opens — no queue, no paid placement." : "链接能打开就收录，不排队、不买榜。" },
-  { title: en ? "Real verification" : "真实核验", desc: en ? "A green badge means the link was actually checked." : "绿标代表链接被真实打开过，不是自动盖章。" },
-  { title: en ? "Ranked by clicks" : "按点击量排名", desc: en ? "Verified first, then real clicks — rules are public." : "核验优先、再看真实点击，规则公开。" },
+const features = [
+  {
+    icon: PackagePlus,
+    title: en ? "Submit and go live" : "提交即上线",
+    desc: en
+      ? "If your link opens, it's listed — no queue, no review email."
+      : "官网链接能正常打开就自动收录，不用排队等审核。",
+  },
+  {
+    icon: ShieldCheck,
+    title: en ? "Verification that means something" : "核验有据可查",
+    desc: en
+      ? "A green badge means the link was actually opened and checked."
+      : "绿色核验标代表链接被真的打开检查过，不是自动盖章。",
+  },
+  {
+    icon: BadgeCheck,
+    title: en ? "Verified creator badge" : "认证创作者徽章",
+    desc: en
+      ? "Verify your email and the yellow badge lights up on your profile."
+      : "完成邮箱验证，主页上的黄V徽章自动点亮。",
+  },
+  {
+    icon: AppWindow,
+    title: en ? "Tools that actually run" : "工具直接在站内跑",
+    desc: en
+      ? "Upload a self-contained HTML tool and it runs in a sandbox here."
+      : "自带 HTML 的小工具上传后直接在站内沙箱里运行，不用另找托管。",
+  },
 ];
 ---
 
 <BaseLayout
-  title={en ? "Join SolHub · get 100 points" : "加入 SolHub · 领取 100 积分"}
+  title={en ? "Join SolHub" : "加入 SolHub"}
   description={
     en
-      ? "Create a SolHub account and get 100 points — the inviter gets 100 too. Points buy a rail slot for your product."
-      : "注册 SolHub 即得 100 积分，邀请你的人同样得 100。积分可以买右栏广告位。"
+      ? "SolHub is a product catalog and toolbox for independent makers: submit and go live, real verification, click-based ranking, and tools that run in the sandbox."
+      : "SolHub 是面向独立创作者的产品目录与在线工具箱：提交即上线、核验有据可查、按真实点击排名，工具上传后直接在站内沙箱运行。"
   }
   route="/join/"
   locale={locale}
 >
-  <section class="py-10 sm:py-16">
+  <section class="py-10 sm:py-14">
     <div class="container-page">
-      <div class="mx-auto grid max-w-4xl items-start gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
-        <!-- 左：一句话说清 -->
+      <div class="mx-auto grid max-w-5xl items-start gap-8 lg:grid-cols-[minmax(0,1fr)_372px] lg:gap-12">
+        <!-- 左：介绍 -->
         <div>
           <p class="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
-            {en ? "Creator program" : "全球创作者计划"}
+            {en ? "For independent makers" : "全球创作者计划"}
           </p>
-          <h1 class="mt-2 font-display text-[30px] font-extrabold leading-[1.15] tracking-tight text-foreground sm:text-[38px]">
-            {en ? "Join SolHub," : "加入 SolHub，"}
-            <span class="mt-1 block text-accent">{en ? "get 100 points" : "立即领 100 积分"}</span>
+          <h1 class="mt-2 font-display text-[28px] font-extrabold leading-[1.2] tracking-tight text-foreground sm:text-[36px]">
+            {en ? "Good work deserves" : "让认真做的产品，"}
+            <span class="block text-accent">{en ? "to be found." : "被真正看见。"}</span>
           </h1>
-          <p class="mt-3 max-w-md text-[14px] leading-7 text-muted-foreground">
+          <p class="mt-3 max-w-lg text-[14px] leading-7 text-muted-foreground">
             {en
-              ? "One email, no card. Points land in your wallet the moment the account exists, and the person who invited you gets 100 too."
-              : "一个邮箱就能加入，不用信用卡。账号建好积分立刻进钱包，邀请你的人也同样拿到 100。"}
+              ? "SolHub is a product catalog and online toolbox for independent makers worldwide — transparent rankings, verification you can check, and tools that run right in the page."
+              : "SolHub 是一个面向全球独立创作者的产品目录与在线工具箱：排名规则公开、核验能追溯到证据、工具直接在页面里运行。没有广告位竞价，也没有排队等审核。"}
           </p>
 
-          <ul class="mt-6 space-y-2.5">
-            {points.map((it) => (
-              <li class="flex items-start gap-2.5">
-                <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent/70" aria-hidden="true" />
-                <p class="text-[13px] leading-6 text-foreground/85">
-                  <strong class="font-semibold text-foreground">{it.title}</strong>
-                  <span class="text-muted-foreground"> · {it.desc}</span>
-                </p>
-              </li>
+          <div class="mt-6 grid gap-3 sm:grid-cols-2">
+            {features.map((f) => (
+              <div class="rounded-[16px] border border-border bg-card p-4">
+                <span class="flex h-8 w-8 items-center justify-center rounded-[9px] bg-accent/10 text-accent">
+                  <f.icon className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <p class="mt-2.5 text-[13.5px] font-semibold text-foreground">{f.title}</p>
+                <p class="mt-1 text-[12px] leading-5 text-muted-foreground">{f.desc}</p>
+              </div>
             ))}
-          </ul>
+          </div>
 
-          <div class="mt-7 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px]">
-            <a href={p("/wallet/", locale)} class="text-accent hover:underline">
-              {en ? "What is the wallet? →" : "积分能干什么？→"}
+          <div class="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px]">
+            <a href={p("/launches/", locale)} class="text-accent hover:underline">
+              {en ? "Browse the catalog →" : "先逛逛产品目录 →"}
             </a>
-            <a href={p("/launches/", locale)} class="text-muted-foreground hover:text-foreground">
-              {en ? "Browse products" : "先看看产品"}
+            <a href={p("/tools/", locale)} class="text-muted-foreground hover:text-foreground">
+              {en ? "Try the free toolbox" : "试用免费工具箱"}
+            </a>
+            <a href={p("/wallet/", locale)} class="text-muted-foreground hover:text-foreground">
+              {en ? "What points are for" : "积分能干什么"}
             </a>
           </div>
         </div>
 
         <!-- 右：注册卡 -->
-        <div id="signup">
+        <div id="signup" class="lg:sticky lg:top-6">
           <JoinSignup client:load locale={locale} />
         </div>
       </div>

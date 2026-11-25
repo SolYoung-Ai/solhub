@@ -2,51 +2,55 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import JoinSignup from "@/islands/JoinSignup.tsx";
 import { p } from "@/lib/paths";
+import { AppWindow, BadgeCheck, PackagePlus, ShieldCheck } from "lucide-react";
 import type { Locale } from "@/i18n";
 
 const locale: Locale = "en";
 
-const points = [
-  { title: "Editor-curated catalog", desc: "Listed once the link opens — no queue, no paid placement." },
-  { title: "Real verification", desc: "A green badge means the link was actually checked." },
-  { title: "Ranked by clicks", desc: "Verified first, then real clicks — rules are public." },
+const features = [
+  { icon: PackagePlus, title: "Submit and go live", desc: "If your link opens, it's listed — no queue, no review email." },
+  { icon: ShieldCheck, title: "Verification that means something", desc: "A green badge means the link was actually opened and checked." },
+  { icon: BadgeCheck, title: "Verified creator badge", desc: "Verify your email and the yellow badge lights up on your profile." },
+  { icon: AppWindow, title: "Tools that actually run", desc: "Upload a self-contained HTML tool and it runs in a sandbox here." },
 ];
 ---
 
 <BaseLayout
-  title="Join SolHub · get 100 points"
-  description="Create a SolHub account and get 100 points — the inviter gets 100 too. Points buy a rail slot for your product."
+  title="Join SolHub"
+  description="SolHub is a product catalog and toolbox for independent makers: submit and go live, real verification, click-based ranking, and tools that run in the sandbox."
   route="/join/"
   locale={locale}
 >
-  <section class="py-10 sm:py-16">
+  <section class="py-10 sm:py-14">
     <div class="container-page">
-      <div class="mx-auto grid max-w-4xl items-start gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
+      <div class="mx-auto grid max-w-5xl items-start gap-8 lg:grid-cols-[minmax(0,1fr)_372px] lg:gap-12">
         <div>
-          <p class="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">Creator program</p>
-          <h1 class="mt-2 font-display text-[30px] font-extrabold leading-[1.15] tracking-tight text-foreground sm:text-[38px]">
-            Join SolHub, <span class="mt-1 block text-accent">get 100 points</span>
+          <p class="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">For independent makers</p>
+          <h1 class="mt-2 font-display text-[28px] font-extrabold leading-[1.2] tracking-tight text-foreground sm:text-[36px]">
+            Good work deserves
+            <span class="block text-accent">to be found.</span>
           </h1>
-          <p class="mt-3 max-w-md text-[14px] leading-7 text-muted-foreground">
-            One email, no card. Points land in your wallet the moment the account exists, and the person who invited you gets 100 too.
+          <p class="mt-3 max-w-lg text-[14px] leading-7 text-muted-foreground">
+            SolHub is a product catalog and online toolbox for independent makers worldwide — transparent rankings, verification you can check, and tools that run right in the page.
           </p>
-          <ul class="mt-6 space-y-2.5">
-            {points.map((it) => (
-              <li class="flex items-start gap-2.5">
-                <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent/70" aria-hidden="true" />
-                <p class="text-[13px] leading-6 text-foreground/85">
-                  <strong class="font-semibold text-foreground">{it.title}</strong>
-                  <span class="text-muted-foreground"> · {it.desc}</span>
-                </p>
-              </li>
+          <div class="mt-6 grid gap-3 sm:grid-cols-2">
+            {features.map((f) => (
+              <div class="rounded-[16px] border border-border bg-card p-4">
+                <span class="flex h-8 w-8 items-center justify-center rounded-[9px] bg-accent/10 text-accent">
+                  <f.icon className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <p class="mt-2.5 text-[13.5px] font-semibold text-foreground">{f.title}</p>
+                <p class="mt-1 text-[12px] leading-5 text-muted-foreground">{f.desc}</p>
+              </div>
             ))}
-          </ul>
-          <div class="mt-7 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px]">
-            <a href={p("/wallet/", locale)} class="text-accent hover:underline">What is the wallet? →</a>
-            <a href={p("/launches/", locale)} class="text-muted-foreground hover:text-foreground">Browse products</a>
+          </div>
+          <div class="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px]">
+            <a href={p("/launches/", locale)} class="text-accent hover:underline">Browse the catalog →</a>
+            <a href={p("/tools/", locale)} class="text-muted-foreground hover:text-foreground">Try the free toolbox</a>
+            <a href={p("/wallet/", locale)} class="text-muted-foreground hover:text-foreground">What points are for</a>
           </div>
         </div>
-        <div id="signup">
+        <div id="signup" class="lg:sticky lg:top-6">
           <JoinSignup client:load locale={locale} />
         </div>
       </div>

@@ -87,11 +87,11 @@ export default function JoinSignup({ locale = "zh" }: Props) {
         <p className="text-[12.5px] font-medium leading-5 text-foreground/85">
           {inviter
             ? en
-              ? `${inviter.name} invited you — you both get 100 points once you sign up.`
-              : `${inviter.name} 邀请你加入，注册成功你和 TA 各得 100 积分。`
+              ? `${inviter.name} invited you. Signing up credits you 100 points.`
+              : `${inviter.name} 邀请你加入，注册成功你获得 100 积分。`
             : en
-              ? "Sign up and you both get 100 points — credited the moment the account exists."
-              : "注册成功双方各得 100 积分，账号建好就自动到账。"}
+              ? "Signing up credits you 100 points — the account is enough."
+              : "注册成功你获得 100 积分，账号建好就自动到账。"}
         </p>
       </div>
 
@@ -187,7 +187,7 @@ export default function JoinSignup({ locale = "zh" }: Props) {
 
         <button type="submit" disabled={busy} className="btn btn-accent !h-11 w-full gap-1.5 text-sm disabled:opacity-60">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {mode === "register" ? (en ? "Create account · +100 pts" : "注册并领取 100 积分") : en ? "Sign in" : "登录"}
+          {mode === "register" ? (en ? "Create creator account" : "注册成为创作者") : en ? "Sign in" : "登录"}
           {!busy && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
         </button>
       </form>
