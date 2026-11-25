@@ -49,6 +49,10 @@ function dayText(iso: string, en: boolean): string {
 
 function ledgerLabel(type: string, en: boolean): string {
   if (type === "invite") return en ? "Referral" : "邀请奖励";
+  if (type === "signup") return en ? "Welcome" : "注册奖励";
+  if (type === "ad") return en ? "Ad slot" : "广告位";
+  if (type === "signup") return en ? "Welcome" : "注册奖励";
+  if (type === "ad") return en ? "Ad slot" : "广告位";
   if (type === "spend") return en ? "Spend" : "积分消费";
   return en ? "Points" : "积分变动";
 }
@@ -217,12 +221,12 @@ export default function Wallet({ locale = "zh" }: Props) {
           </span>
           <div className="min-w-0">
             <h2 className="font-display text-[15px] font-bold text-foreground">
-              {en ? `Invite a creator, earn ${data.invitePoints} pts` : `每邀请 1 位创作者注册，+${data.invitePoints} 积分`}
+              {en ? `Invite a creator — you both get ${data.invitePoints} pts` : `邀请 1 位创作者，你和 TA 各得 ${data.invitePoints} 积分`}
             </h2>
             <p className="mt-0.5 text-[12px] leading-5 text-muted-foreground">
               {en
-                ? "They sign up with your code, points land in this wallet automatically — one reward per new account."
-                : "对方用你的邀请码注册成功后，积分自动进这张卡；每个新账号只算一次。"}
+                ? "They sign up with your code and both sides are credited automatically — once per new account."
+                : "对方用你的邀请码注册成功后，双方积分都自动到账；每个新账号只算一次。"}
             </p>
           </div>
         </div>
@@ -318,8 +322,8 @@ export default function Wallet({ locale = "zh" }: Props) {
 
       <p className="mt-4 text-center text-[11.5px] leading-5 text-muted-foreground">
         {en
-          ? "Points are kept on SolHub's own backend. Invite rewards are credited once per new account; self-invites and duplicate emails are rejected."
-          : "积分记在 SolHub 自己的后端：每个新账号只发放一次，自邀与重复邮箱都会拒绝。"}
+          ? "Points live on SolHub's backend. Each new account credits 100 to both sides, once; self-invites and duplicate emails are rejected."
+          : "积分记在 SolHub 自己的后端：每个新账号给双方各 100，只发一次；自邀与重复邮箱都会被拒绝。"}
       </p>
     </div>
   );

@@ -1,5 +1,55 @@
 ---
-import JoinPage from "../join.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import JoinSignup from "@/islands/JoinSignup.tsx";
+import { p } from "@/lib/paths";
+import type { Locale } from "@/i18n";
+
+const locale: Locale = "en";
+
+const points = [
+  { title: "Editor-curated catalog", desc: "Listed once the link opens — no queue, no paid placement." },
+  { title: "Real verification", desc: "A green badge means the link was actually checked." },
+  { title: "Ranked by clicks", desc: "Verified first, then real clicks — rules are public." },
+];
 ---
 
-<JoinPage locale="en" />
+<BaseLayout
+  title="Join SolHub · get 100 points"
+  description="Create a SolHub account and get 100 points — the inviter gets 100 too. Points buy a rail slot for your product."
+  route="/join/"
+  locale={locale}
+>
+  <section class="py-10 sm:py-16">
+    <div class="container-page">
+      <div class="mx-auto grid max-w-4xl items-start gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
+        <div>
+          <p class="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">Creator program</p>
+          <h1 class="mt-2 font-display text-[30px] font-extrabold leading-[1.15] tracking-tight text-foreground sm:text-[38px]">
+            Join SolHub, <span class="text-accent">get 100 points</span>
+          </h1>
+          <p class="mt-3 max-w-md text-[14px] leading-7 text-muted-foreground">
+            One email, no card. Points land in your wallet the moment the account exists, and the person who invited you gets 100 too.
+          </p>
+          <ul class="mt-6 space-y-2.5">
+            {points.map((it) => (
+              <li class="flex items-start gap-2.5">
+                <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent/70" aria-hidden="true" />
+                <p class="text-[13px] leading-6 text-foreground/85">
+                  <strong class="font-semibold text-foreground">{it.title}</strong>
+                  <span class="text-muted-foreground"> · {it.desc}</span>
+                </p>
+              </li>
+            ))}
+          </ul>
+          <div class="mt-7 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px]">
+            <a href={p("/wallet/", locale)} class="text-accent hover:underline">What is the wallet? →</a>
+            <a href={p("/launches/", locale)} class="text-muted-foreground hover:text-foreground">Browse products</a>
+          </div>
+        </div>
+        <div id="signup">
+          <JoinSignup client:load locale={locale} />
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

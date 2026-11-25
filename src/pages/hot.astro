@@ -12,6 +12,7 @@
  */
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import HotFeed from "@/islands/HotFeed.tsx";
+import AdRail from "@/islands/AdRail.tsx";
 import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 
@@ -54,7 +55,12 @@ const metaDesc = en
 
   <section class="py-6 sm:py-8">
     <div class="container-page">
-      <HotFeed client:load locale={locale} />
+      <div class="lg:flex lg:items-start lg:gap-6">
+        <div class="min-w-0 flex-1">
+          <HotFeed client:load locale={locale} />
+        </div>
+        <AdRail client:idle locale={locale} />
+      </div>
     </div>
   </section>
 </BaseLayout>

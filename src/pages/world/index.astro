@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import Creators from "@/islands/Creators.tsx";
+import AdRail from "@/islands/AdRail.tsx";
 ---
 
 <BaseLayout
@@ -11,7 +12,12 @@ import Creators from "@/islands/Creators.tsx";
 >
   <section class="py-5 sm:py-7">
     <div class="container-page">
-      <Creators client:load locale="zh" />
+      <div class="lg:flex lg:items-start lg:gap-6">
+        <div class="min-w-0 flex-1">
+          <Creators client:load locale="zh" />
+        </div>
+        <AdRail client:idle locale="zh" />
+      </div>
     </div>
   </section>
 </BaseLayout>

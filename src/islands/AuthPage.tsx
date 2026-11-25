@@ -230,11 +230,11 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
                 <span>
                   {inviter
                     ? en
-                      ? `${inviter.name} (@${inviter.login}) invited you — signing up credits them 100 points.`
-                      : `${inviter.name}（@${inviter.login}）邀请你加入，注册成功后 TA 会得到 100 积分。`
+                      ? `${inviter.name} (@${inviter.login}) invited you — you both get 100 points after signing up.`
+                      : `${inviter.name}（@${inviter.login}）邀请你加入，注册成功后你和 TA 各得 100 积分。`
                     : en
-                      ? `Invite code ${inviteRef} applied — signing up credits the inviter 100 points.`
-                      : `已带入邀请码 ${inviteRef}，注册成功后邀请人会得到 100 积分。`}
+                      ? `Invite code ${inviteRef} applied — you and the inviter both get 100 points.`
+                      : `已带入邀请码 ${inviteRef}，注册成功后你和邀请人各得 100 积分。`}
                 </span>
               </div>
             )}

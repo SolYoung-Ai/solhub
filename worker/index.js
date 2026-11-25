@@ -1127,6 +1127,14 @@ function newId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+/** 目录里的图标是 /icons/x.png 这种相对路径，广告卡要绝对地址才能在任意页面显示 */
+function absIcon(icon) {
+  const v = String(icon || "").trim();
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v)) return v;
+  return SITE_BASE + (v.startsWith("/") ? v : `/${v}`);
+}
+
 /** 取用户展示信息快照（昵称/头像/认证）；login 为公开标识 PID，不含邮箱 */
 async function displayOf(env, identity) {
   if (identity.type === "email") {
@@ -1940,6 +1948,11 @@ const CLICKS_MAX = 400;
    为什么码是「算出来的」而不是随机发：同一个账号无论从哪儿重算都是同一个码，
    不需要额外发码流程，也不会因为清缓存换浏览器就变成另一个码。 */
 const INVITE_POINTS = 100;
+/* 广告位：一周一个档，用户用积分买 */
+const AD_PRICE = 300;
+const AD_DAYS = 7;
+const ADS_KEY = "ads:slots:v1";
+const ADS_MAX_ACTIVE = 2;
 const LEDGER_MAX = 200;
 /** Crockford base32：去掉 I/L/O/U，避免和 1/0 看混 */
 const REF_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -2044,6 +2057,12 @@ async function settleReferral(env, rawCode, inviteeSid, inviteeLogin) {
     type: "invite",
     note: `邀请 @${inviteeLogin} 注册`,
     ref: inviteeSid,
+  });
+  /* 被邀请人同样拿 100：注册即到账，明细里写清楚是「受邀注册奖励」 */
+  await addPoints(env, inviteeSid, INVITE_POINTS, {
+    type: "signup",
+    note: `受邀注册奖励（邀请人 @${inviterLogin}）`,
+    ref: inviterSid,
   });
   const invited = (await kvGetJSON(env, invitedKey(inviterSid), [])) || [];
   invited.unshift({ login: inviteeLogin, at: new Date().toISOString() });
@@ -3814,6 +3833,117 @@ export default {
       }
       await kvPutJSON(env, CLICKS_KEY, { c: top, d: dedupe });
       return json(request, { ok: true, counted: true, count: top[slug] });
+    }
+
+    /* ---------- 广告位（积分购买） ----------
+       右栏赞助位读这里：/ads/active 公开、带缓存，页面不用登录也能看到；
+       购买走 /ads/buy，一周固定 300 积分，从钱包里扣，明细记一条 ad。 */
+    if (url.pathname === "/ads/active" && request.method === "GET") {
+      if (!env.PROFILES) return json(request, { ads: [] });
+      const all = (await kvGetJSON(env, ADS_KEY, [])) || [];
+      const now = Date.now();
+      const ads = (Array.isArray(all) ? all : [])
+        .filter((a) => a && a.endAt && new Date(a.endAt).getTime() > now)
+        .sort((a, b) => new Date(b.endAt).getTime() - new Date(a.endAt).getTime())
+        .slice(0, ADS_MAX_ACTIVE)
+        .map((a) => ({
+          id: a.id,
+          name: a.name,
+          desc: a.desc || "",
+          icon: a.icon || "",
+          url: a.url || "",
+          ownerHandle: a.ownerHandle || "",
+          endAt: a.endAt,
+        }));
+      return json(request, { ok: true, price: AD_PRICE, days: AD_DAYS, ads });
+    }
+
+    /* 我的投放 + 可投放的产品（登录） */
+    if (url.pathname === "/ads/mine" && request.method === "GET") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const sid = identity.login;
+      const u = await kvGetJSON(env, `user:${sid}`, null, true);
+      const handle = (u && u.handle) || handleFromEmail(sid);
+      const [community, index, all, snap] = await Promise.all([
+        readCommunity(env),
+        readProductIndex(env),
+        kvGetJSON(env, ADS_KEY, []) || [],
+        walletSnapshot(env, sid),
+      ]);
+      const mine = (Array.isArray(all) ? all : []).filter((a) => a && a.owner === sid);
+      /* 只允许买自己名下的产品位：社区提交的（submittedBy）或官方目录里登记的开发者 */
+      const options = [
+        ...community
+          .filter((p) => p && p.slug && p.submittedBy === handle)
+          .map((p) => ({ slug: p.slug, name: p.name, desc: p.shortDescription || "", icon: absIcon(p.icon), url: `${SITE_BASE}/products/${p.slug}/` })),
+        ...index
+          .filter((p) => p && p.slug && p.developerLogin === handle)
+          .map((p) => ({ slug: p.slug, name: p.name, desc: p.shortDescription || "", icon: absIcon(p.icon), url: `${SITE_BASE}/products/${p.slug}/` })),
+      ];
+      const seenSlug = new Set();
+      const uniq = options.filter((o) => (seenSlug.has(o.slug) ? false : (seenSlug.add(o.slug), true)));
+      return json(request, {
+        ok: true,
+        price: AD_PRICE,
+        days: AD_DAYS,
+        balance: snap.balance,
+        available: snap.available,
+        ads: mine,
+        options: uniq,
+      });
+    }
+
+    /* 购买广告位：一周 AD_PRICE 积分 */
+    if (url.pathname === "/ads/buy" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      let body = {};
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const slug = String(body.slug || "").trim().slice(0, 60);
+      if (!slug) return json(request, { error: "请选择要投放的产品" }, 400);
+
+      const sid = identity.login;
+      const u = await kvGetJSON(env, `user:${sid}`, null, true);
+      const handle = (u && u.handle) || handleFromEmail(sid);
+      const [community, index, all, snap] = await Promise.all([
+        readCommunity(env),
+        readProductIndex(env),
+        kvGetJSON(env, ADS_KEY, []) || [],
+        walletSnapshot(env, sid),
+      ]);
+      const fromCommunity = community.find((p) => p && p.slug === slug && p.submittedBy === handle);
+      const fromIndex = index.find((p) => p && p.slug === slug && p.developerLogin === handle);
+      const product = fromCommunity || fromIndex;
+      if (!product) return json(request, { error: "只能投放你自己名下的产品" }, 403);
+      if (snap.balance < AD_PRICE) {
+        return json(request, { error: `积分不够：一周需要 ${AD_PRICE} 积分，当前 ${snap.balance}`, balance: snap.balance }, 402);
+      }
+
+      const now = Date.now();
+      const slot = {
+        id: newId(),
+        slug,
+        name: product.name,
+        desc: product.shortDescription || "",
+        icon: absIcon(product.icon),
+        url: `${SITE_BASE}/products/${slug}/`,
+        owner: sid,
+        ownerHandle: handle,
+        startAt: new Date(now).toISOString(),
+        endAt: new Date(now + AD_DAYS * 24 * 3600 * 1000).toISOString(),
+        createdAt: new Date(now).toISOString(),
+      };
+      const next = [slot, ...(Array.isArray(all) ? all : [])].slice(0, 40);
+      await kvPutJSON(env, ADS_KEY, next);
+      const wallet = await addPoints(env, sid, -AD_PRICE, {
+        type: "ad",
+        note: `投放广告位 · ${product.name}（${AD_DAYS} 天）`,
+        ref: slot.id,
+      });
+      return json(request, { ok: true, slot, balance: wallet.balance });
     }
 
     /* ---------- 邀请码解析（公开）：join 页显示「你是由 @x 邀请的」 ---------- */

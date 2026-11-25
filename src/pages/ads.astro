@@ -1,0 +1,37 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import AdsBuy from "@/islands/AdsBuy.tsx";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+---
+
+<BaseLayout
+  title={en ? "Ad slots · SolHub" : "广告位 · SolHub"}
+  description={
+    en
+      ? "Put your product in SolHub's right-hand rail on Discover, Products, Hot and Creators — 300 points per week, paid from your wallet."
+      : "用积分把产品放上 SolHub 右栏：发现、产品、热点、创作者四个页面同时展示，每周 300 积分。"
+  }
+  route="/ads/"
+  locale={locale}
+>
+  <div class="container-page py-8 sm:py-10">
+    <header class="mx-auto mb-5 max-w-3xl">
+      <p class="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">{en ? "Sponsor" : "赞助位"}</p>
+      <h1 class="mt-1 font-display text-2xl font-extrabold tracking-tight text-foreground">
+        {en ? "Put your product in the rail" : "把你的产品放进右栏"}
+      </h1>
+      <p class="mt-1.5 text-[13px] leading-6 text-muted-foreground">
+        {en
+          ? "A compact card on Discover, Products, Hot and Creators — paid with points, nothing else. Invite creators to earn more."
+          : "发现、产品、热点、创作者四个页面的右栏各一张卡，用积分买，只认积分不认钱；不够就去邀请创作者，双方各得 100。"}
+      </p>
+    </header>
+    <AdsBuy client:load locale={locale} />
+  </div>
+</BaseLayout>
