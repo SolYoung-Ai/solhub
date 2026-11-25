@@ -1952,7 +1952,7 @@ const INVITE_POINTS = 100;
 const AD_PRICE = 300;
 const AD_DAYS = 7;
 const ADS_KEY = "ads:slots:v1";
-const ADS_MAX_ACTIVE = 2;
+const ADS_MAX_ACTIVE = 3;
 const LEDGER_MAX = 200;
 /** Crockford base32：去掉 I/L/O/U，避免和 1/0 看混 */
 const REF_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -3855,7 +3855,7 @@ export default {
           ownerHandle: a.ownerHandle || "",
           endAt: a.endAt,
         }));
-      return json(request, { ok: true, price: AD_PRICE, days: AD_DAYS, ads });
+      return json(request, { ok: true, price: AD_PRICE, days: AD_DAYS, slots: ADS_MAX_ACTIVE, ads });
     }
 
     /* 我的投放 + 可投放的产品（登录） */

@@ -28,26 +28,39 @@ export default function AdRail({ locale = "zh" }: { locale?: Locale }) {
   const [ads, setAds] = useState<Ad[]>([]);
   const [price, setPrice] = useState(300);
   const [days, setDays] = useState(7);
+  const [slots, setSlots] = useState(3);
 
   useEffect(() => {
     let alive = true;
-    fetch(`${base()}/ads/active`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!alive || !data) return;
-        if (Array.isArray(data.ads)) setAds(data.ads.filter((a: Ad) => a && a.name));
-        if (Number(data.price) > 0) setPrice(Number(data.price));
-        if (Number(data.days) > 0) setDays(Number(data.days));
-      })
-      .catch(() => {});
+    const load = () => {
+      fetch(`${base()}/ads/active`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!alive || !data) return;
+          if (Array.isArray(data.ads)) setAds(data.ads.filter((a: Ad) => a && a.name));
+          if (Number(data.price) > 0) setPrice(Number(data.price));
+          if (Number(data.days) > 0) setDays(Number(data.days));
+          if (Number(data.slots) > 0) setSlots(Number(data.slots));
+        })
+        .catch(() => {});
+    };
+    load();
+    /* 位置被别人买走 / 自己刚买完，切回这个标签页时自动补上新位置 */
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       alive = false;
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 
+  const slotsLeft = Math.max(0, slots - ads.length);
+
   return (
     <aside className="hidden w-[240px] shrink-0 lg:block" aria-label={en ? "Sponsored" : "赞助位"}>
-      <div className="sticky top-20 space-y-3">
+      <div className="sticky top-4 flex max-h-[calc(100dvh-2rem)] flex-col gap-3 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:thin]">
         {ads.map((ad) => (
           <div key={ad.id} className="overflow-hidden rounded-[16px] border border-border bg-card">
             <div className="px-3.5 pt-3.5">
@@ -100,6 +113,11 @@ export default function AdRail({ locale = "zh" }: { locale?: Locale }) {
             {en
               ? `${price} points per ${days} days · shown on Discover, Products, Hot and Creators.`
               : `每周 ${price} 积分 · 发现 / 产品 / 热点 / 创作者 四个页面同时展示。`}
+            {slotsLeft > 0 && (
+              <span className="mt-1 block text-[10.5px] text-accent">
+                {en ? `${slotsLeft} slot${slotsLeft > 1 ? "s" : ""} left` : `还有 ${slotsLeft} 个位置`}
+              </span>
+            )}
           </p>
           <span className="mt-2 inline-flex items-center gap-0.5 text-[11px] text-accent">
             {en ? "Get this slot" : "购买这个位置"}
