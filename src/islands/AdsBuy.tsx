@@ -93,7 +93,7 @@ export default function AdsBuy({ locale = "zh" }: { locale?: Locale }) {
       }
       setMsg({
         tone: "ok",
-        text: en ? "Slot is live — it appears on Discover, Products, Hot and Creators." : "投放成功，右栏已经显示了，四个页面都能看到。",
+        text: en ? "Slot is live — it shows in the rail on Products, Hot and Creators." : "投放成功，产品 / 热点 / 创作者 三个页面的右栏都已经显示了。",
       });
       setPicked("");
       await load();

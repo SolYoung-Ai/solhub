@@ -9,7 +9,6 @@ import SectionHeading from "@/components/SectionHeading.astro";
 import HeroSearch from "@/islands/HeroSearch.tsx";
 import Typewriter from "@/islands/Typewriter.tsx";
 import HotFeed from "@/islands/HotFeed.tsx";
-import AdRail from "@/islands/AdRail.tsx";
 import type { Locale } from "@/i18n";
 
 interface Props {
@@ -86,8 +85,6 @@ const metaDesc = en
   <!-- ===== 本周精选产品 ===== -->
   <section class="border-t border-border bg-secondary/30 py-10 sm:py-16">
     <div class="container-page">
-      <div class="lg:flex lg:items-start lg:gap-6">
-        <div class="min-w-0 flex-1">
       <SectionHeading
         eyebrow={en ? "Recent · All Products" : "近期 · 全部产品"}
         title={en ? "Recent product launches" : "近期全部产品"}
@@ -106,7 +103,7 @@ const metaDesc = en
           ))
         }
       </div>
-        {/* 热点并排在同一栏里：右侧赞助位可以跨两个区块一直悬在旁边 */}
+        {/* 热点接在产品区下面，同一个浅底区块，中间用细线分隔 */}
         <div class="mt-14 border-t border-border pt-10 sm:mt-16 sm:pt-12">
           <SectionHeading
             eyebrow={en ? "Live" : "实时"}
@@ -119,9 +116,6 @@ const metaDesc = en
           />
           <HotFeed client:visible locale={locale} limit={HOT_PREVIEW} />
         </div>
-        </div>
-        <AdRail client:idle locale={locale} />
-      </div>
     </div>
   </section>
 

@@ -56,8 +56,6 @@ export default function AdRail({ locale = "zh" }: { locale?: Locale }) {
     };
   }, []);
 
-  const slotsLeft = Math.max(0, slots - ads.length);
-
   return (
     <aside className="hidden w-[240px] shrink-0 lg:block" aria-label={en ? "Sponsored" : "赞助位"}>
       <div className="sticky top-4 flex max-h-[calc(100dvh-2rem)] flex-col gap-3 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:thin]">
@@ -111,13 +109,9 @@ export default function AdRail({ locale = "zh" }: { locale?: Locale }) {
           </p>
           <p className="mt-1 text-[11px] leading-[1.5] text-muted-foreground">
             {en
-              ? `${price} points per ${days} days · shown on Discover, Products, Hot and Creators.`
-              : `每周 ${price} 积分 · 发现 / 产品 / 热点 / 创作者 四个页面同时展示。`}
-            {slotsLeft > 0 && (
-              <span className="mt-1 block text-[10.5px] text-accent">
-                {en ? `${slotsLeft} slot${slotsLeft > 1 ? "s" : ""} left` : `还有 ${slotsLeft} 个位置`}
-              </span>
-            )}
+              ? `${price} points per ${days} days · shown on Products, Hot and Creators.`
+              : `每周 ${price} 积分 · 产品 / 热点 / 创作者 三个页面同时展示。`}
+
           </p>
           <span className="mt-2 inline-flex items-center gap-0.5 text-[11px] text-accent">
             {en ? "Get this slot" : "购买这个位置"}
