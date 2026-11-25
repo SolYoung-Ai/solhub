@@ -168,7 +168,9 @@ const MAX_AGE_MS = 48 * 3600 * 1000;
 /** 单一来源最多保留多少条 */
 const MAX_PER_SOURCE = 18;
 /** 未翻译的英文条目最多留多少条，防止翻译服务挂掉时把库塞满 */
-const MAX_PENDING = 40;
+/* 单轮最多翻这么多条：翻译是整轮耗时的大头，40 条能把一轮拖到 90 秒。
+   16 条 × 每 30 分钟一轮 ≈ 每小时 32 条，足够追上新增英文条目，单轮也不再爆时长。 */
+const MAX_PENDING = 16;
 
 /* ---------------------------------------------------------------- 文本处理 */
 
@@ -397,11 +399,28 @@ function pickLink(block, base) {
   return "";
 }
 
-function parseDate(raw) {
+/**
+ * 把源里的时间字符串转成毫秒时间戳。
+ *
+ * 坑：不少中文/台湾源的 pubDate 是「2026-11-25 12:11:58」这种**不带时区**的写法。
+ * 云函数跑在 UTC，JS 会按运行时区（UTC）解析，等于把台北时间当成 UTC，
+ * 结果整整晚 8 小时 —— 条目一入库就「来自未来」，既顶在列表最前面，
+ * 又让 48 小时过期规则算不准。
+ *
+ * 处理：解析结果比现在晚一点点以上，就按 +08:00 回推；回推后仍然超前的
+ * （源写错 / 预告稿）直接压到 now，保证不会出现未来时间。
+ * 带时区（Z / +08:00 / GMT）的写法 Date.parse 本来就对，不动。
+ */
+function parseDate(raw, now) {
   const text = cleanText(raw);
   if (!text) return 0;
   const t = Date.parse(text);
-  return Number.isFinite(t) ? t : 0;
+  if (!Number.isFinite(t)) return 0;
+  const hasZone = /(Z$|GMT|UTC|[+-]\d{2}:?\d{2})/i.test(text);
+  let ts = t;
+  if (!hasZone && now && ts > now + 60 * 1000) ts -= 8 * 3600 * 1000;
+  if (now && ts > now) ts = now;
+  return ts;
 }
 
 /**
@@ -479,7 +498,7 @@ function parseFeed(xml, feed, now) {
 
     const url = pickLink(block, feed.url);
     if (!url) continue;
-    const ts = parseDate(pickTag(block, ["pubDate", "published", "updated", "dc:date"]));
+    const ts = parseDate(pickTag(block, ["pubDate", "published", "updated", "dc:date"]), now);
     const summary = makeSummary(
       pickTag(block, ["description", "summary", "content:encoded"]),
       title,
@@ -523,7 +542,7 @@ function parseHnAlgolia(data, feed, now) {
 
     const url = normalizeUrl(h.url || `https://news.ycombinator.com/item?id=${h.objectID}`, "https://news.ycombinator.com/");
     if (!url) continue;
-    const ts = parseDate(h.created_at || "");
+    const ts = parseDate(h.created_at || "", now);
 
     out.push(makeItem(feed, title, url, "", ts, now));
   }
@@ -592,6 +611,20 @@ async function fetchFeed(feed, now) {
 }
 
 /**
+ * 修正库里已经存错的「未来条目」（parseDate 修之前入库的中文源）。
+ *
+ * 每轮合并时做一次即可：回推 8 小时后就不再是未来时间，下一轮不会再动它，
+ * 所以是幂等的 —— 既不用清 KV，也不用等 48 小时自然淘汰。
+ */
+function fixFutureTime(item, now) {
+  if (!now || !item) return item;
+  const t = Date.parse(item.publishedAt);
+  if (!Number.isFinite(t) || t <= now + 60 * 1000) return item;
+  const shifted = Math.min(t - 8 * 3600 * 1000, now);
+  return { ...item, publishedAt: new Date(shifted).toISOString() };
+}
+
+/**
  * 合并新旧条目：按 id 去重，新的覆盖旧的（标题微调也能同步），
  * 再按发布时间倒序、砍掉过期与超量部分。
  */
@@ -599,7 +632,7 @@ function mergeItems(fresh, old, now) {
   const map = new Map();
   for (const item of old || []) {
     if (!item || !item.id || !item.url) continue;
-    map.set(item.id, item);
+    map.set(item.id, fixFutureTime(item, now));
   }
   for (const item of fresh || []) {
     if (!item || !item.id || !item.url) continue;
@@ -891,8 +924,8 @@ async function translatePending(items, opts = {}) {
   /* 标题与摘要并发翻：串行最坏要 80 秒，并发只要 40 秒左右，
      而函数超时是有限的，能省一半就省一半。 */
   const [titleRes, summaryRes] = await Promise.all([
-    translateBatch(titles, "title", { budgetMs: opts.budgetMs || 90000 }),
-    translateBatch(summaryList, "summary", { budgetMs: opts.budgetMs || 90000 }),
+    translateBatch(titles, "title", { budgetMs: opts.budgetMs || 15000 }),
+    translateBatch(summaryList, "summary", { budgetMs: opts.budgetMs || 15000 }),
   ]);
 
   const summaryOf = new Map();

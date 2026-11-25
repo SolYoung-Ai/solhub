@@ -259,6 +259,21 @@ describe("mergeItems", () => {
     expect(out[0].title).toBe("改过的标题");
   });
 
+  /* 中文源的 pubDate 常不带时区，云函数按 UTC 解析会把时间算晚 8 小时，
+     历史库里因此存了一批「来自未来」的条目。合并时要顺手修正。 */
+  it("库里的未来条目回推 8 小时，且只修一次", () => {
+    const future = { ...mk("f", "来自未来", 0), publishedAt: new Date(now + 3 * 3600 * 1000).toISOString() };
+    const first = mergeItems([], [future], now);
+    expect(first).toHaveLength(1);
+    const t = Date.parse(first[0].publishedAt);
+    expect(t).toBeLessThanOrEqual(now);
+    expect(now - t).toBeCloseTo(5 * 3600 * 1000, -5);
+
+    /* 第二轮读到的是修好的时间，不能再往下减 */
+    const second = mergeItems([], first, now);
+    expect(second[0].publishedAt).toBe(first[0].publishedAt);
+  });
+
   it("超过 48 小时的条目被清掉", () => {
     const out = mergeItems([], [mk("old", "很久以前", 100)], now);
     expect(out).toHaveLength(0);
