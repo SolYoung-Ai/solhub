@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { p, baseUrl } from "@/lib/paths";
 import GoldBadge from "@/components/GoldBadge";
+import BlueBadge from "@/components/BlueBadge";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { fetchMe, type AuthUser } from "@/lib/auth";
 import { copyText, ensureHttps } from "@/lib/utils";
@@ -30,7 +31,6 @@ import {
   fetchCreators,
   fetchProfileResult,
   hostOf,
-  isOfficial,
   toggleFollow,
   type Creator,
   type CreatorFilter,
@@ -392,12 +392,12 @@ export default function Creators({
 
                 <h1 className="mt-3 flex flex-wrap items-center gap-1.5 font-display text-xl font-extrabold tracking-tight text-foreground">
                   {profile.user.name}
-                  {profile.user.verified && <GoldBadge className="h-[17px] w-[17px]" />}
-                  {isOfficial(profile.user.login) && (
-                    <span className="inline-flex items-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-accent-foreground">
-                      {en ? "Official" : "官方"}
-                    </span>
-                  )}
+                  {profile.user.verified &&
+                    (profile.user.official ? (
+                      <BlueBadge className="h-[17px] w-[17px]" />
+                    ) : (
+                      <GoldBadge className="h-[17px] w-[17px]" />
+                    ))}
                 </h1>
                 <p className="text-[13px] text-muted-foreground">@{cleanHandle(profile.user.login)}</p>
                 {profile.user.banned && (
@@ -466,7 +466,7 @@ export default function Creators({
                   </div>
                   <div>
                     <b className="block text-[15px] font-bold tabular-nums text-foreground">{profile.productCount}</b>
-                    <span className="text-[11.5px] text-muted-foreground">{en ? "Products" : "作品"}</span>
+                    <span className="text-[11.5px] text-muted-foreground">{en ? "Listed" : "收录"}</span>
                   </div>
                 </div>
               </div>
@@ -476,14 +476,14 @@ export default function Creators({
             <section className="@container overflow-hidden rounded-[18px] border border-border bg-card">
               <div className="flex items-center gap-2 border-b border-border px-4 py-3.5 sm:px-5">
                 <Package className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                <h2 className="text-[13.5px] font-semibold text-foreground">{en ? "Products" : "作品"}</h2>
+                <h2 className="text-[13.5px] font-semibold text-foreground">{en ? "Listed" : "收录"}</h2>
                 <span className="text-[12px] text-muted-foreground">{profile.products.length}</span>
               </div>
               {profile.products.length === 0 ? (
                 <div className="px-5 py-14 text-center">
                   <Package className="mx-auto h-7 w-7 text-muted-foreground/60" aria-hidden="true" />
                   <p className="mt-2 text-[13px] text-muted-foreground">
-                    {en ? "No products submitted yet." : "还没有提交过作品。"}
+                    {en ? "Nothing listed yet." : "还没有收录任何产品。"}
                   </p>
                 </div>
               ) : (
@@ -588,7 +588,7 @@ export default function Creators({
   const chips: { key: CreatorFilter; label: string; count: number }[] = [
     { key: "all", label: en ? "All" : "全部", count: data.counts.all },
     { key: "verified", label: en ? "Verified" : "已认证", count: data.counts.verified },
-    { key: "products", label: en ? "Has products" : "有作品", count: data.counts.products },
+    { key: "products", label: en ? "Has listings" : "有收录", count: data.counts.products },
   ];
 
   const searching = query.trim().length > 0;
@@ -610,7 +610,7 @@ export default function Creators({
                     : "加载中…"
                   : en
                     ? `${data.counts.all} creators · ranked by products`
-                    : `${data.counts.all} 位创作者 · 按作品数量排序`}
+                    : `${data.counts.all} 位创作者 · 按收录数量排序`}
               </p>
             </div>
             <a
@@ -685,7 +685,7 @@ export default function Creators({
                   : filter === "products"
                     ? en
                       ? "No creators with products yet"
-                      : "还没有提交过作品的创作者"
+                      : "还没有收录任何产品的创作者"
                     : filter === "verified"
                       ? en
                         ? "No verified creators yet"
@@ -719,12 +719,12 @@ export default function Creators({
                         <span className="truncate text-[14.5px] font-semibold text-foreground group-hover:text-accent">
                           {c.name}
                         </span>
-                        {c.verified && <GoldBadge className="h-[15px] w-[15px] shrink-0" />}
-                        {isOfficial(c.login) && (
-                          <span className="inline-flex shrink-0 items-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-accent-foreground">
-                            {en ? "Official" : "官方"}
-                          </span>
-                        )}
+                        {c.verified &&
+                          (c.official ? (
+                            <BlueBadge className="h-[15px] w-[15px] shrink-0" />
+                          ) : (
+                            <GoldBadge className="h-[15px] w-[15px] shrink-0" />
+                          ))}
                         <span className="hidden truncate text-[12.5px] text-muted-foreground sm:inline">
                           @{cleanHandle(c.login)}
                         </span>
@@ -745,7 +745,7 @@ export default function Creators({
                       )}
                       <span
                         className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-1 text-[12px] font-semibold tabular-nums text-foreground"
-                        title={en ? "Products" : "作品数"}
+                        title={en ? "Listings" : "收录数"}
                       >
                         <Package className="h-3.5 w-3.5" aria-hidden="true" />
                         {c.productCount}
@@ -787,11 +787,11 @@ export default function Creators({
       {/* 右栏 */}
       <aside className="sticky top-4 hidden w-[290px] shrink-0 space-y-4 xl:block" aria-label={en ? "Sidebar" : "侧栏"}>
         <section className="rounded-[18px] border border-border bg-card px-4 py-4">
-          <p className="font-display text-[14px] font-bold text-foreground">{en ? "Your product here" : "把你的作品放上来"}</p>
+          <p className="font-display text-[14px] font-bold text-foreground">{en ? "Your product here" : "把你的产品放上来"}</p>
           <p className="mt-1.5 text-[12.5px] leading-6 text-muted-foreground">
             {en
               ? "Submit a product and it shows up on your creator page, the gallery and search. Submit with a verified email and your verified badge lights up automatically."
-              : "提交作品后，它会出现在你的创作者主页、产品列表和搜索结果里。完成邮箱验证后提交产品，认证徽章自动点亮。"}
+              : "提交产品后，它会出现在你的创作者主页、产品列表和搜索结果里。完成邮箱验证后提交产品，认证徽章自动点亮。"}
           </p>
           <a
             href={p("/submit/", locale)}
@@ -827,7 +827,7 @@ export default function Creators({
             <p className="text-[12.5px] leading-6 text-muted-foreground">
               {en
                 ? "A transparent, honest stage for independent makers. Bring your work and let the world find it."
-                : "一个透明、真实的独立创作者舞台。带上你的作品，让全世界看见。"}
+                : "一个透明、真实的独立创作者舞台。带上你的产品，让全世界看见。"}
             </p>
             <a
               href={p("/join/", locale)}

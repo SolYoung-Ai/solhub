@@ -55,8 +55,10 @@ export interface PublicProfile {
     /** 邮箱是否已通过验证码验证（公开邮箱必须已验证） */
     emailVerified?: boolean;
     joinedAt?: string;
-    /** 黄V 认证 */
+    /** 账号认证：黄V=创作者，蓝V=官方（official） */
     verified?: boolean;
+    /** true = 官方账号（蓝V），由站方维护 */
+    official?: boolean;
     /** 已被封禁（主页会提示） */
     banned?: boolean;
   };
@@ -83,8 +85,10 @@ export interface Creator {
   website?: string;
   location?: string;
   joinedAt?: string;
-  /** 黄V 认证 */
+  /** 账号认证：黄V=创作者，蓝V=官方（official） */
   verified?: boolean;
+  /** true = 官方账号（蓝V） */
+  official?: boolean;
   productCount: number;
 }
 

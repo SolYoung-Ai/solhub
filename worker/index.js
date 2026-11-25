@@ -1883,6 +1883,8 @@ async function buildCreatorsList(env, imgBase) {
       location: u.location || "",
       joinedAt: u.createdAt || "",
       verified: !!u.verified,
+      /* 蓝V：官方账号（solhub / solhub_editor），与创作者的黄V分开 */
+      official: !!u.official,
       productCount: products.length + toolCount,
     });
   });
@@ -3940,6 +3942,7 @@ export default {
             emailVerified: !!user?.emailVerified,
             joinedAt: user?.createdAt || "",
             verified: !!user?.verified,
+            official: !!user?.official,
             banned: !!ban,
           },
           followerCount: followers.length,

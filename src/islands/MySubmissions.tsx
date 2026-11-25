@@ -1089,7 +1089,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
               <p className="mt-1 text-xs text-muted-foreground">
                 {tab === "following"
                   ? (en ? "Find creators in the directory and follow them." : "去「创作者」里找到感兴趣的人，点关注即可。")
-                  : (en ? "Submit a product to get discovered." : "提交作品，会有人找到你。")}
+                  : (en ? "Submit a product to get discovered." : "提交产品，会有人找到你。")}
               </p>
               <a href={p("/world/", locale)} className="btn btn-outline mt-4 !h-9 px-5 text-xs">
                 {en ? "Explore creators" : "逛逛创作者"}
