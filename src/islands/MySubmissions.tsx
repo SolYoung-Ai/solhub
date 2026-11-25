@@ -1,6 +1,7 @@
 import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   AppWindow,
+  Bookmark,
   Camera,
   Check,
   ExternalLink,
@@ -13,6 +14,7 @@ import {
   MessageCircle,
   PackagePlus,
   Pencil,
+  Search,
   Share2,
   ShieldCheck,
   Trash2,
@@ -26,6 +28,7 @@ import { copyText, ensureHttps } from "@/lib/utils";
 import { fetchFollowList, fetchProfile, type FollowUser, type PublicProfile } from "@/lib/world";
 import GoldBadge from "@/components/GoldBadge";
 import { base } from "@/lib/api-base";
+import { filterFavorites, readFavorites, removeFavorite, subscribeFavorites, type FavItem } from "@/lib/favorites";
 import type { Locale } from "@/i18n";
 
 interface CommunityProduct {
@@ -126,10 +129,14 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
   const [actionError, setActionError] = useState<string | null>(null);
 
   /* 创作者：我的产品 / 我的托管工具 / 关注 / 粉丝 */
-  const [tab, setTab] = useState<"products" | "hosted" | "following" | "followers">("products");
+  const [tab, setTab] = useState<"products" | "hosted" | "following" | "followers" | "favorites">("products");
   const [world, setWorld] = useState<PublicProfile | null>(null);
   const [followList, setFollowList] = useState<FollowUser[]>([]);
   const [followLoading, setFollowLoading] = useState(false);
+
+  /* 收藏（本机 localStorage，未登录也能收藏，所以这里不依赖 user） */
+  const [favs, setFavs] = useState<FavItem[]>([]);
+  const [favQuery, setFavQuery] = useState("");
 
   /* 托管 HTML 工具 */
   const [hostedTools, setHostedTools] = useState<HostedTool[]>([]);
@@ -206,11 +213,17 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
     void load();
   }, [load]);
 
-  /* 支持 /my-submissions/?tab=hosted 直达托管工具标签 */
+  /* 收藏：进页面读一次，之后跟着本地变化同步（详情页点了收藏，切回来就是最新的） */
+  useEffect(() => {
+    setFavs(readFavorites());
+    return subscribeFavorites(setFavs);
+  }, []);
+
+  /* 支持 /my-submissions/?tab=hosted|favorites 直达对应标签 */
   useEffect(() => {
     try {
       const t = new URLSearchParams(window.location.search).get("tab");
-      if (t === "hosted") setTab(t);
+      if (t === "hosted" || t === "favorites") setTab(t);
     } catch {
       /* 地址栏解析失败时保持默认标签 */
     }
@@ -715,6 +728,7 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
           { key: "hosted", label: en ? "Hosted tools" : "托管工具", count: hostedTools.length },
           { key: "following", label: en ? "Following" : "关注", count: world?.followingCount ?? 0 },
           { key: "followers", label: en ? "Followers" : "粉丝", count: world?.followerCount ?? 0 },
+          { key: "favorites", label: en ? "Saved" : "收藏", count: favs.length },
         ] as const).map((t) => (
           <button
             key={t.key}
@@ -943,6 +957,117 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
           )}
         </>
       )}
+
+      {/* 收藏：本地收藏的网站与工具，带站内搜索 */}
+      {tab === "favorites" && (() => {
+        const list = filterFavorites(favs, favQuery);
+        return (
+          <div className="mt-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-base font-bold text-foreground">
+                {en ? "Saved" : "我的收藏"}
+                <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{favs.length}</span>
+              </h2>
+              <a href={p("/launches/", locale)} className="btn btn-outline !h-8 gap-1.5 px-3 text-xs">
+                <Search className="h-3 w-3" /> {en ? "Discover more" : "去发现更多"}
+              </a>
+            </div>
+            <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+              {en
+                ? "Saved in this browser only — clearing site data removes them. Products and hosted tools both live here."
+                : "收藏只保存在当前浏览器（清缓存会丢）。网站和在线工具都收在这一栏。"}
+            </p>
+
+            <div className="mt-4 flex items-center gap-2 rounded-[10px] border border-border bg-card px-3 py-2">
+              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <input
+                value={favQuery}
+                onChange={(e) => setFavQuery(e.target.value)}
+                placeholder={en ? "Search saved items…" : "搜索收藏的名字、简介或分类"}
+                className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+                aria-label={en ? "Search saved items" : "搜索收藏"}
+              />
+              {favQuery && (
+                <button
+                  type="button"
+                  onClick={() => setFavQuery("")}
+                  className="shrink-0 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  {en ? "Clear" : "清空"}
+                </button>
+              )}
+            </div>
+
+            {favs.length === 0 ? (
+              <div className="mt-4 rounded-[16px] border border-dashed border-border bg-secondary/30 py-14 text-center">
+                <Bookmark className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
+                <p className="mt-3 text-sm font-medium text-foreground/70">{en ? "Nothing saved yet" : "还没有收藏"}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {en
+                    ? "Open any product or tool and hit Save — it shows up here."
+                    : "打开任意产品页或工具页，点「收藏」就会出现在这里。"}
+                </p>
+                <a href={p("/launches/", locale)} className="btn btn-accent mt-4 !h-9 px-5 text-xs">
+                  {en ? "Browse products" : "去逛逛产品"}
+                </a>
+              </div>
+            ) : list.length === 0 ? (
+              <p className="mt-6 py-10 text-center text-xs text-muted-foreground">
+                {en ? "No saved item matches that keyword." : "没有匹配的收藏，换个关键词试试。"}
+              </p>
+            ) : (
+              <ul className="mt-4 grid gap-3">
+                {list.map((f) => (
+                  <li key={f.kind + ":" + f.id} className="card flex items-start gap-3 p-4">
+                    {f.icon ? (
+                      <img
+                        src={f.icon}
+                        alt=""
+                        loading="lazy"
+                        className="h-11 w-11 shrink-0 rounded-[10px] border border-border bg-card object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-border bg-secondary text-sm font-bold text-foreground/70">
+                        {f.name.slice(0, 1)}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <a href={f.href} className="truncate text-sm font-bold text-foreground hover:text-accent">
+                          {f.name}
+                        </a>
+                        <span className="shrink-0 rounded-sm border border-border bg-secondary/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {f.kind === "tool" ? (en ? "Tool" : "工具") : en ? "Website" : "网站"}
+                        </span>
+                        {f.meta && <span className="shrink-0 text-[11px] text-muted-foreground">{f.meta}</span>}
+                      </div>
+                      {f.desc && <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-muted-foreground">{f.desc}</p>}
+                      <div className="mt-2.5 flex flex-wrap gap-2">
+                        <a href={f.href} className="btn btn-outline !h-7 gap-1.5 px-3 text-xs">
+                          {en ? "Open" : "打开"} <ExternalLink className="h-3 w-3" />
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            removeFavorite(f.kind, f.id);
+                            setFavs(readFavorites());
+                          }}
+                          className="btn btn-outline !h-7 gap-1.5 px-3 text-xs text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-3 w-3" /> {en ? "Remove" : "取消收藏"}
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 关注 / 粉丝 */}
       {(tab === "following" || tab === "followers") && (

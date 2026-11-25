@@ -152,9 +152,20 @@ const copy = {
           <a id="tool-full" href="#" class="btn btn-primary !h-11 w-full">
             {en ? "Use full screen" : "全屏使用"}
           </a>
-          <a href={p("/submit/?type=hosted", locale)} class="btn btn-outline !h-11 w-full">
-            {en ? "Upload your own" : "上传我的工具"}
-          </a>
+          {/* 收藏：存在浏览器本地，不登录也能用；状态由页面底部的模块脚本接管 */}
+          <button
+            id="tool-fav"
+            type="button"
+            class="btn btn-outline !h-11 w-full"
+            aria-pressed="false"
+            data-label={en ? "Save" : "收藏"}
+            data-label-on={en ? "Saved" : "已收藏"}
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span id="tool-fav-label">{en ? "Save" : "收藏"}</span>
+          </button>
         </div>
 
         <!-- 工具本体：进页面就自动在沙箱里跑，不用再点一次 -->
@@ -235,6 +246,51 @@ const copy = {
       </aside>
     </div>
   </div>
+<!-- 收藏 + 点击计数：模块脚本（会被打包），只接管状态与事件，不参与页面渲染 -->
+<script>
+  import { isFavorite, toggleFavorite, subscribeFavorites } from "@/lib/favorites";
+  import { recordClick } from "@/lib/clicks";
+  import { base } from "@/lib/api-base";
+
+  const id = (new URLSearchParams(location.search).get("id") || "").trim();
+  const btn = document.getElementById("tool-fav") as HTMLButtonElement | null;
+  const label = document.getElementById("tool-fav-label");
+
+  if (btn && id) {
+    const sync = () => {
+      const on = isFavorite("tool", id);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.classList.toggle("btn-primary", on);
+      btn.classList.toggle("btn-outline", !on);
+      if (label) label.textContent = on ? btn.dataset.labelOn || "已收藏" : btn.dataset.label || "收藏";
+    };
+
+    btn.addEventListener("click", () => {
+      /* 名称 / 简介由页面自身的脚本异步填好，点击时再取，避免依赖加载顺序 */
+      const name = (document.getElementById("tool-name")?.textContent || "").trim() || id;
+      const desc = (document.getElementById("tool-desc")?.textContent || "").trim();
+      const meta = (document.getElementById("tool-category")?.textContent || "").trim();
+      toggleFavorite({
+        kind: "tool",
+        id,
+        name,
+        desc,
+        href: location.pathname + "?id=" + encodeURIComponent(id),
+        icon: base() + "/hosted/logo/" + encodeURIComponent(id),
+        meta,
+      });
+      sync();
+    });
+
+    subscribeFavorites(sync);
+    sync();
+  }
+
+  /* 全屏使用 = 一次真实点击 */
+  const full = document.getElementById("tool-full");
+  if (full) full.addEventListener("click", () => recordClick("tool-" + id));
+</script>
+
 </BaseLayout>
 
 <script type="application/json" id="tool-labels" set:html={JSON.stringify({ catNames, copy })}></script>

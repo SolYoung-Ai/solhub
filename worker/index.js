@@ -1920,6 +1920,24 @@ function hostedToolId() {
 
 /* 托管工具公开目录索引 hosted:index:v1 —— 数组形式，只存元信息（无 html、无 owner）。
    上限 500 条，超出丢最旧的；产品页列表只读这一个键。 */
+const CLICKS_KEY = "stats:clicks:v1";
+/** 单目标去重窗口：同一访客 10 分钟内重复点击只计一次 */
+const CLICK_DEDUPE_MS = 10 * 60 * 1000;
+/** 最多记多少个目标，超出按点击数砍尾部 */
+const CLICKS_MAX = 400;
+
+/** 32 位摘要（FNV-1a + base36）：去重键里存 IP 的摘要而不是原文，
+    够区分不同访客，也无法反推回地址。 */
+function shortHash(text) {
+  let h = 2166136261;
+  const s = String(text || "");
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
 const HOSTED_INDEX_KEY = "hosted:index:v1";
 const HOSTED_INDEX_MAX = 500;
 
@@ -3603,6 +3621,56 @@ export default {
         hasMore: offset + page.length < list.length,
         nextOffset: offset + page.length,
       });
+    }
+
+    /* ---------- 点击量：产品页「按点击量排名」的唯一数据源 ----------
+       只记「打开官网 / 全屏使用」这类真实意向点击，不记列表曝光。
+       去重与计数写在同一个键里（一次写，不用 Cache API —— 那套在 CloudBase
+       上没有 caches 对象，等于不生效）：d 里放「目标 + IP 摘要」的最近点击时间，
+       10 分钟内重复点击直接返回 counted:false。IP 不落库，只存摘要。 */
+    if (url.pathname === "/stats/clicks" && request.method === "GET") {
+      if (!env.PROFILES) return json(request, { clicks: {} });
+      const rec = await kvGetJSON(env, CLICKS_KEY, null);
+      const counts = rec && typeof rec === "object" && rec.c && typeof rec.c === "object" ? rec.c : {};
+      return json(request, { clicks: counts });
+    }
+
+    if (url.pathname === "/stats/click" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { ok: false, error: "storage not configured" }, 500);
+      const body = await request.json().catch(() => null);
+      const slug = String((body && body.slug) || "").trim().toLowerCase().slice(0, 64);
+      if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(slug)) {
+        return json(request, { ok: false, error: "slug 不合法" }, 400);
+      }
+      const now = Date.now();
+      const rec = await kvGetJSON(env, CLICKS_KEY, null);
+      const counts = rec && rec.c && typeof rec.c === "object" ? { ...rec.c } : {};
+      const seen = rec && rec.d && typeof rec.d === "object" ? { ...rec.d } : {};
+
+      /* 去重键优先用前端生成的访客标识（localStorage 里的随机 id）：
+         走 CloudBase 网关时 X-Forwarded-For 最右一跳是网关自己，按 IP 去重
+         会把不同访客算成同一个、也可能把同一访客算成两个，两者都不对。 */
+      const visitor = String((body && body.vid) || "").trim().slice(0, 64);
+      const stamp = `${slug}:${shortHash(visitor || clientIp(request))}`;
+      if (seen[stamp] && now - Number(seen[stamp]) < CLICK_DEDUPE_MS) {
+        return json(request, { ok: true, counted: false, count: Number(counts[slug]) || 0 });
+      }
+      seen[stamp] = now;
+      counts[slug] = (Number(counts[slug]) || 0) + 1;
+
+      /* 去重表只保留窗口内的记录；计数表只留头部，避免这个键无上限膨胀 */
+      const dedupe = {};
+      for (const [k, v] of Object.entries(seen)) {
+        if (now - Number(v) < CLICK_DEDUPE_MS) dedupe[k] = v;
+      }
+      let top = counts;
+      const entries = Object.entries(counts);
+      if (entries.length > CLICKS_MAX) {
+        entries.sort((a, b) => b[1] - a[1]);
+        top = Object.fromEntries(entries.slice(0, CLICKS_MAX));
+      }
+      await kvPutJSON(env, CLICKS_KEY, { c: top, d: dedupe });
+      return json(request, { ok: true, counted: true, count: top[slug] });
     }
 
     if (url.pathname === "/search" && request.method === "GET") {

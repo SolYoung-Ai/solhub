@@ -9,7 +9,7 @@ import { p, absoluteUrl } from "@/lib/paths";
 import Badge from "@/components/Badge.astro";
 import ProductCard from "@/components/ProductCard.astro";
 import AdSlot from "@/components/AdSlot.astro";
-import { ExternalLink, ShieldCheck, AlertCircle, ArrowUpRight } from "lucide-react";
+import { ExternalLink, ShieldCheck, AlertCircle, ArrowUpRight, Bookmark } from "lucide-react";
 import { getDict, translate } from "@/i18n";
 import type { Locale } from "@/i18n";
 import {
@@ -143,6 +143,8 @@ const schemaJsonLd = {
 
         <div class="mt-8 grid gap-4 sm:grid-cols-2">
           <a
+            id="visit-site"
+            data-slug={product.slug}
             href={product.websiteUrl}
             target="_blank"
             rel="noopener noreferrer"
@@ -151,9 +153,25 @@ const schemaJsonLd = {
             {en ? "Visit website" : "访问官网"}
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
           </a>
-          <a href={p("/submit/", locale)} class="btn btn-outline !h-11 w-full">
-            {en ? "Submit your product" : "提交你的产品"}
-          </a>
+          {/* 收藏：本地存储，不登录也能用；状态由下面的内联脚本接管（SSR 不会有水合差） */}
+          <button
+            id="fav-toggle"
+            type="button"
+            class="btn btn-outline !h-11 w-full"
+            aria-pressed="false"
+            data-kind="product"
+            data-id={product.slug}
+            data-name={product.name}
+            data-desc={shortDesc}
+            data-href={p(`/products/${product.slug}/`, locale)}
+            data-icon={product.icon || ""}
+            data-meta={productCategoryNameLocalized(product.category, productCategoryName(product.category), locale)}
+            data-label={en ? "Save" : "收藏"}
+            data-label-on={en ? "Saved" : "已收藏"}
+          >
+            <Bookmark id="fav-icon" class="h-4 w-4" aria-hidden="true" />
+            <span id="fav-label">{en ? "Save" : "收藏"}</span>
+          </button>
         </div>
 
         <!-- 广告位：不打断「关于 → 官网」这段主路径，放在 CTA 之后 -->
@@ -246,4 +264,48 @@ const schemaJsonLd = {
   </div>
 
   <script type="application/ld+json" set:html={JSON.stringify(schemaJsonLd)} />
+
+<script>
+  /* 收藏 + 点击计数：按钮是 SSR 出来的，这里只接管状态与事件，
+     所以无论 JS 是否执行，页面上都有「收藏」这个入口。 */
+  import { isFavorite, toggleFavorite, subscribeFavorites } from "@/lib/favorites";
+  import { recordClick } from "@/lib/clicks";
+
+  const btn = document.getElementById("fav-toggle") as HTMLButtonElement | null;
+  if (btn) {
+    const kind = btn.dataset.kind === "tool" ? "tool" : "product";
+    const id = btn.dataset.id || "";
+    const label = document.getElementById("fav-label");
+    const item = {
+      kind,
+      id,
+      name: btn.dataset.name || id,
+      desc: btn.dataset.desc || "",
+      href: btn.dataset.href || "#",
+      icon: btn.dataset.icon || "",
+      meta: btn.dataset.meta || "",
+    };
+
+    const sync = () => {
+      const on = isFavorite(kind, id);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.classList.toggle("btn-primary", on);
+      btn.classList.toggle("btn-outline", !on);
+      if (label) label.textContent = on ? btn.dataset.labelOn || "已收藏" : btn.dataset.label || "收藏";
+    };
+
+    btn.addEventListener("click", () => {
+      toggleFavorite(item);
+      sync();
+    });
+    subscribeFavorites(sync);
+    sync();
+  }
+
+  /* 访问官网 = 一次真实点击，列表页据此排序（keepalive 保证跳走后也算上） */
+  const visit = document.getElementById("visit-site");
+  if (visit) {
+    visit.addEventListener("click", () => recordClick(visit.dataset.slug || ""));
+  }
+</script>
 </BaseLayout>

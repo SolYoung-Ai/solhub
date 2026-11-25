@@ -9,6 +9,7 @@ import { buildSearchIndex, searchIndex } from "@/lib/search";
 import { cx, getLocale } from "@/lib/utils";
 import { fetchHostedTools, type HostedTool } from "@/lib/hosted";
 import { fetchLiveCommunity } from "@/lib/community";
+import { fetchClicks, type ClickMap } from "@/lib/clicks";
 import type { Locale } from "@/i18n";
 import { getDict, translate } from "@/i18n";
 import { productCategoryNameLocalized, productShortDescription } from "@/i18n/data";
@@ -63,13 +64,25 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
     };
   }, [products]);
 
+  /* 点击量：排序第二优先级（核验等级之后），拿不到就退回精选顺序 */
+  const [clicks, setClicks] = useState<ClickMap>({});
+  useEffect(() => {
+    let alive = true;
+    fetchClicks().then((map) => {
+      if (alive) setClicks(map);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const catalog = useMemo(() => {
     if (!liveCommunity) return products;
     /* 目录收录的（无 submittedBy）留在构建期数据里，社区条目整体换成实时的 */
     return [...products.filter((p) => !p.submittedBy), ...liveCommunity];
   }, [products, liveCommunity]);
 
-  const ranked = useMemo(() => rankProducts(catalog), [catalog]);
+  const ranked = useMemo(() => rankProducts(catalog, clicks), [catalog, clicks]);
   const categories = useMemo(() => {
     const set = new Set(catalog.map((p) => p.category));
     return Array.from(set);
@@ -158,8 +171,14 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
         !q ? true : `${t.name} ${t.description} ${t.tags.join(" ")}`.toLowerCase().includes(q),
       )
       .slice()
-      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  }, [hosted, kind, category, query]);
+      /* 工具与产品同一套口径：先按点击量，再按收录时间 */
+      .sort((a, b) => {
+        const ca = Number(clicks[`tool-${a.id}`]) || 0;
+        const cb = Number(clicks[`tool-${b.id}`]) || 0;
+        if (ca !== cb) return cb - ca;
+        return String(b.createdAt).localeCompare(String(a.createdAt));
+      });
+  }, [hosted, kind, category, query, clicks]);
 
   /* 列表行：产品 + 托管工具合并，按排序规则排列 */
   const rows = useMemo(() => {
