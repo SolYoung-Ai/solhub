@@ -133,12 +133,21 @@ export async function registerEmail(
   displayName?: string,
   handle?: string,
   code?: string,
+  ref?: string,
 ): Promise<AuthResult> {
   try {
     const res = await request(`${base()}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, displayName: displayName || "", handle: handle || "", code: code || "" }),
+      body: JSON.stringify({
+        email,
+        password,
+        displayName: displayName || "",
+        handle: handle || "",
+        code: code || "",
+        /* 邀请码：注册成功后后端给邀请人 +100 积分（一人一次，后端去重） */
+        ref: ref || "",
+      }),
     }, { omitCredentials: true });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `注册失败（${res.status}）` };

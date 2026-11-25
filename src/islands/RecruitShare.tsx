@@ -1,72 +1,68 @@
 import { useEffect, useMemo, useState } from "react";
+import { Check, Copy, Gift, Loader2, LogIn, UserPlus } from "lucide-react";
+import { p } from "@/lib/paths";
+import { fetchMe, type AuthUser } from "@/lib/auth";
+import { cachedWallet, fetchWallet, REF_STORE_KEY, resolveInviter, type WalletData } from "@/lib/wallet";
+import { copyText } from "@/lib/utils";
 
 interface Props {
   locale?: "zh" | "en";
 }
 
-const STORE_KEY = "solhub:recruit-ref";
-
 /**
- * 拉新 / 邀请机制（v1，纯前端）
- * - 读取 URL 上的 ?ref=<code>：若有人通过你的专属链接进来，显示「你是由 XXX 邀请的」横幅；
- * - 生成本机稳定的专属邀请码（首次访问写入 localStorage，之后复用），拼成
- *   `${origin}${pathname}?ref=<code>` 的邀请链接，一键复制。
- *
- * 注意：当前只是「结构上具备 referral 能力」，真正的「邀请归因 / 奖励」需要后端统计，
- * 不在 v1 范围内（后端接入点见 docs/OPERATIONS.md）。前端先把链路跑通，避免将来返工。
+ * 拉新 / 邀请（v2，后端打通）
+ * ---------------------------
+ * - 邀请码不再是本地随机码，而是后端按账号算出来的（同一个号在哪儿都一样）；
+ * - 对方用 ?ref=<code> 进来 → 码存本地（先逛后注册也不丢）→ 注册成功时后端给邀请人 +100；
+ * - 本区块只负责「把码和链接给到用户 + 说清奖励规则」，积分明细在 /wallet/。
  */
-function loadOrCreateCode(): string {
-  try {
-    const existing = localStorage.getItem(STORE_KEY);
-    if (existing) return existing;
-    const code = "SH-" + Math.random().toString(36).slice(2, 8).toUpperCase();
-    localStorage.setItem(STORE_KEY, code);
-    return code;
-  } catch {
-    return "SH-" + Math.random().toString(36).slice(2, 8).toUpperCase();
-  }
-}
-
 export default function RecruitShare({ locale = "zh" }: Props) {
   const en = locale === "en";
-  const [inviter, setInviter] = useState<string | null>(null);
-  const [code, setCode] = useState<string>("");
-  const [copied, setCopied] = useState(false);
+  const [inviter, setInviter] = useState<{ login: string; name: string } | null>(null);
+  const [me, setMe] = useState<AuthUser | null>(null);
+  const [wallet, setWallet] = useState<WalletData | null>(() => cachedWallet());
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState<"" | "code" | "link">("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const ref = params.get("ref");
-    if (ref) setInviter(ref.slice(0, 24));
-    setCode(loadOrCreateCode());
+    const ref = (params.get("ref") || "").trim().toUpperCase();
+    if (ref) {
+      /* 先存下来：对方可能在注册前逛好几页，归因不能丢 */
+      try {
+        localStorage.setItem(REF_STORE_KEY, ref);
+      } catch {
+        /* 私密模式忽略 */
+      }
+      void resolveInviter(ref).then((who) => {
+        if (who) setInviter({ login: who.login, name: who.name });
+      });
+    }
+    let alive = true;
+    (async () => {
+      const [user, res] = await Promise.all([fetchMe().catch(() => null), fetchWallet()]);
+      if (!alive) return;
+      setMe(user);
+      if (res.ok) setWallet(res.data);
+      setLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  const inviteLink = useMemo(() => {
-    if (typeof window === "undefined" || !code) return "";
-    const base = window.location.origin + window.location.pathname;
-    return `${base}?ref=${code}`;
-  }, [code]);
+  const link = useMemo(() => {
+    if (wallet?.link) return wallet.link;
+    return "";
+  }, [wallet]);
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(inviteLink);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      try {
-        const ta = document.createElement("textarea");
-        ta.value = inviteLink;
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1800);
-      } catch {
-        /* 复制失败：保持按钮原样，用户可手动选择 */
-      }
-    }
+  const copy = async (what: "code" | "link") => {
+    const text = what === "code" ? wallet?.code || "" : link;
+    if (!text) return;
+    const ok = await copyText(text);
+    if (!ok) return;
+    setCopied(what);
+    window.setTimeout(() => setCopied(""), 1600);
   };
 
   return (
@@ -76,48 +72,77 @@ export default function RecruitShare({ locale = "zh" }: Props) {
           className="mb-4 flex items-center gap-2 rounded-[16px] border border-accent/25 bg-accent/5 px-3.5 py-2.5 text-[13px] text-foreground/80"
           role="status"
         >
-          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-accent" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M12 21s-7.5-4.6-9.9-9.2C.4 8.4 2 5 5.3 5c2 0 3.4 1.1 4.2 2.4l.5.8.5-.8C11.3 6.1 12.7 5 14.7 5 18 5 19.6 8.4 21.9 11.8 19.5 16.4 12 21 12 21Z"
-            />
-          </svg>
+          <Gift className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
           <span>
             {en
-              ? `You were invited to SolHub by ${inviter}.`
-              : `你是由 ${inviter} 邀请加入 SolHub 的`}
+              ? `${inviter.name} (@${inviter.login}) invited you — sign up and they get 100 points.`
+              : `${inviter.name}（@${inviter.login}）邀请你加入；用这个链接注册，TA 会得到 100 积分。`}
           </span>
         </div>
       )}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="min-w-0 flex-1">
-          <p className="label mb-1.5">
-            {en ? "Your invite link" : "你的专属邀请链接"}
-          </p>
-          <input
-            readOnly
-            value={inviteLink}
-            onFocus={(e) => e.currentTarget.select()}
-            className="input font-mono !text-[12.5px]"
-            aria-label={en ? "Your invite link" : "你的专属邀请链接"}
-          />
+      {loading ? (
+        <div className="flex items-center gap-2 py-6 text-[13px] text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> {en ? "Loading your invite link…" : "正在取你的邀请链接…"}
         </div>
-        <button
-          type="button"
-          onClick={copy}
-          className="btn btn-accent h-10 shrink-0 px-5"
-          aria-live="polite"
-        >
-          {copied ? (en ? "Copied" : "已复制") : en ? "Copy link" : "复制链接"}
-        </button>
-      </div>
+      ) : !me ? (
+        <div className="rounded-[16px] border border-dashed border-border bg-secondary/30 px-4 py-5">
+          <p className="text-[13px] font-medium text-foreground/80">
+            {en ? "Sign in to get your own invite link" : "登录后才有你的专属邀请链接"}
+          </p>
+          <p className="mt-1 text-[12.5px] leading-6 text-muted-foreground">
+            {en
+              ? "Each creator gets one code. Every new account that signs up with it credits you 100 points."
+              : "每位创作者一个专属邀请码；对方用它注册成功后，你得 100 积分。"}
+          </p>
+          <a href={p("/login/?next=/join/", locale)} className="btn btn-accent mt-3 !h-9 gap-1.5 px-4 text-xs">
+            <LogIn className="h-3.5 w-3.5" /> {en ? "Sign in" : "登录领取"}
+          </a>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+            <div className="min-w-0">
+              <p className="label mb-1.5">{en ? "Invite code" : "你的邀请码"}</p>
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded-[10px] border border-border bg-secondary/50 px-3 py-2 font-mono text-[14px] font-bold tracking-[0.14em] text-foreground">
+                  {wallet?.code || "—"}
+                </code>
+                <button type="button" onClick={() => void copy("code")} className="btn btn-outline !h-9 shrink-0 gap-1.5 px-3 text-xs">
+                  {copied === "code" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied === "code" ? (en ? "Copied" : "已复制") : en ? "Copy" : "复制"}
+                </button>
+              </div>
+            </div>
+            <button type="button" onClick={() => void copy("link")} className="btn btn-accent !h-10 shrink-0 gap-1.5 px-5 text-sm">
+              {copied === "link" ? <Check className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+              {copied === "link" ? (en ? "Link copied" : "链接已复制") : en ? "Copy invite link" : "复制邀请链接"}
+            </button>
+          </div>
 
-      <p className="mt-3 text-[12.5px] leading-6 text-muted-foreground">
-        {en
-          ? "Share this link with fellow creators. Referral attribution and rewards are coming — the link already carries your code so nothing breaks later."
-          : "把这个链接分享给更多创作者。邀请归因与奖励功能即将上线——链接已经带上你的专属码，将来接入后端时无需更换。"}
-      </p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12.5px] text-muted-foreground">
+            <span>
+              {en ? "Invited " : "已邀请 "}
+              <strong className="text-foreground">{wallet?.invitedCount ?? 0}</strong>
+              {en ? " creators" : " 位创作者"}
+            </span>
+            <span>
+              {en ? "Earned " : "累计获得 "}
+              <strong className="text-foreground">{wallet?.earned ?? 0}</strong>
+              {en ? " pts" : " 积分"}
+            </span>
+            <a href={p("/wallet/", locale)} className="text-accent hover:underline">
+              {en ? "Open wallet →" : "打开我的钱包 →"}
+            </a>
+          </div>
+
+          <p className="mt-3 text-[12.5px] leading-6 text-muted-foreground">
+            {en
+              ? "Every new creator who signs up with your code adds 100 points to your wallet automatically. One reward per new account — self-invites and duplicate emails are rejected."
+              : "对方用你的邀请码注册成功后，100 积分自动进你的钱包；每个新账号只发一次，自邀和重复邮箱都会被拒绝。"}
+          </p>
+        </>
+      )}
     </div>
   );
 }

@@ -17,6 +17,7 @@ import {
 import { loginEmail, registerEmail } from "@/lib/auth";
 import VerifyCodeField from "@/components/VerifyCodeField";
 import { p, baseUrl } from "@/lib/paths";
+import { REF_STORE_KEY, resolveInviter } from "@/lib/wallet";
 import type { Locale } from "@/i18n";
 
 /**
@@ -27,6 +28,9 @@ import type { Locale } from "@/i18n";
 export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale; next?: string }) {
   const en = locale === "en";
   const [mode, setMode] = useState<"login" | "register">("login");
+  /* 邀请码：URL 上带的优先，其次用浏览时存下的（先逛后注册也不丢） */
+  const [inviteRef, setInviteRef] = useState("");
+  const [inviter, setInviter] = useState<{ login: string; name: string } | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -87,6 +91,22 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
     return null;
   };
 
+  useEffect(() => {
+    const fromUrl = (new URLSearchParams(window.location.search).get("ref") || "").trim().toUpperCase();
+    let stored = "";
+    try {
+      stored = (localStorage.getItem(REF_STORE_KEY) || "").trim().toUpperCase();
+    } catch {
+      /* 私密模式 */
+    }
+    const code = fromUrl || stored;
+    if (!code) return;
+    setInviteRef(code);
+    void resolveInviter(code).then((who) => {
+      if (who) setInviter({ login: who.login, name: who.name });
+    });
+  }, []);
+
   const submit = async () => {
     const v = validate();
     if (v) { setError(v); return; }
@@ -94,11 +114,16 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
     setError(null);
     const result = mode === "login"
       ? await loginEmail(email.trim(), password)
-      : await registerEmail(email.trim(), password, displayName.trim(), handle.trim(), code.trim());
+      : await registerEmail(email.trim(), password, displayName.trim(), handle.trim(), code.trim(), inviteRef);
     setBusy(false);
     if (!result.ok) {
       setError(result.error || (en ? "Something went wrong." : "操作失败，请重试。"));
       return;
+    }
+    try {
+      if (inviteRef) localStorage.removeItem(REF_STORE_KEY);
+    } catch {
+      /* 忽略 */
     }
     window.location.href = safeNext();
   };
@@ -197,6 +222,22 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
                 {en ? "Sign up" : "注册"}
               </button>
             </div>
+
+            {/* 带着邀请码来的：注册即给邀请人 +100，说清楚不要让人以为要给钱 */}
+            {mode === "register" && inviteRef && (
+              <div id="invite-banner" className="flex items-start gap-2 rounded-[12px] border border-accent/25 bg-accent/5 px-3 py-2.5 text-[12.5px] leading-5 text-foreground/80">
+                <span className="mt-0.5 text-accent" aria-hidden="true">✦</span>
+                <span>
+                  {inviter
+                    ? en
+                      ? `${inviter.name} (@${inviter.login}) invited you — signing up credits them 100 points.`
+                      : `${inviter.name}（@${inviter.login}）邀请你加入，注册成功后 TA 会得到 100 积分。`
+                    : en
+                      ? `Invite code ${inviteRef} applied — signing up credits the inviter 100 points.`
+                      : `已带入邀请码 ${inviteRef}，注册成功后邀请人会得到 100 积分。`}
+                </span>
+              </div>
+            )}
 
             <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); void submit(); }} noValidate>
               {mode === "register" && (

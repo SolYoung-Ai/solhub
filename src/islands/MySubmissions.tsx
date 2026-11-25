@@ -6,9 +6,11 @@ import {
   Check,
   ExternalLink,
   Link as LinkIcon,
+  Wallet,
   Loader2,
   LogIn,
   LogOut,
+  ArrowUpRight,
   Mail,
   MapPin,
   MessageCircle,
@@ -720,6 +722,23 @@ function MySubmissions({ locale = "zh" }: { locale?: Locale }) {
         {/* 公开资料卡（名片）：编辑、公开邮箱开关等都在这里；
             账号安全（邮箱安全 / 改密码 / 注销）已独立到 /account/ 页面。 */}
       </div>
+
+      {/* 钱包入口：积分与邀请奖励都在那边，这里只放入口不重复展示 */}
+      <a
+        href={p("/wallet/", locale)}
+        className="mt-6 flex items-center gap-3 rounded-[16px] border border-border bg-card px-4 py-3.5 transition-colors hover:border-accent/40"
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-accent/12 text-accent">
+          <Wallet className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13.5px] font-semibold text-foreground">{en ? "My wallet" : "我的钱包"}</span>
+          <span className="mt-0.5 block text-[11.5px] text-muted-foreground">
+            {en ? "Points, invite code and referral rewards" : "积分余额、邀请码与邀请奖励"}
+          </span>
+        </span>
+        <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      </a>
 
       {/* ---------- 内容 Tab：产品 / 托管工具 / 关注 / 粉丝 ---------- */}
       <div className="mt-8 flex items-center gap-1 overflow-x-auto border-b border-border">

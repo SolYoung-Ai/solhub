@@ -1,0 +1,25 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Wallet from "@/islands/Wallet.tsx";
+import type { Locale } from "@/i18n";
+
+const locale: Locale = "en";
+---
+
+<BaseLayout
+  title="My wallet · SolHub"
+  description="Your SolHub points, invite code and referral rewards — every new creator who signs up with your code adds 100 points."
+  route="/wallet/"
+  locale={locale}
+>
+  <div class="container-page py-8 sm:py-10">
+    <header class="mx-auto mb-5 max-w-3xl">
+      <p class="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Wallet</p>
+      <h1 class="mt-1 font-display text-2xl font-extrabold tracking-tight text-foreground">My wallet</h1>
+      <p class="mt-1.5 text-[13px] leading-6 text-muted-foreground">
+        Points earned by inviting creators. Every successful signup with your code adds 100 points to this card.
+      </p>
+    </header>
+    <Wallet client:load locale={locale} />
+  </div>
+</BaseLayout>

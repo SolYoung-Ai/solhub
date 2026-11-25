@@ -1,0 +1,38 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Wallet from "@/islands/Wallet.tsx";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+const locale = Astro.props.locale ?? "zh";
+---
+
+<BaseLayout
+  title={locale === "en" ? "My wallet · SolHub" : "我的钱包 · SolHub"}
+  description={
+    locale === "en"
+      ? "Your SolHub points, invite code and referral rewards — every new creator who signs up with your code adds 100 points."
+      : "SolHub 积分钱包：余额、可用积分、邀请码与邀请奖励。每邀请一位创作者注册，自动 +100 积分。"
+  }
+  route="/wallet/"
+  locale={locale}
+>
+  <div class="container-page py-8 sm:py-10">
+    <header class="mx-auto mb-5 max-w-3xl">
+      <p class="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">
+        {locale === "en" ? "Wallet" : "钱包"}
+      </p>
+      <h1 class="mt-1 font-display text-2xl font-extrabold tracking-tight text-foreground">
+        {locale === "en" ? "My wallet" : "我的钱包"}
+      </h1>
+      <p class="mt-1.5 text-[13px] leading-6 text-muted-foreground">
+        {locale === "en"
+          ? "Points earned by inviting creators. Every successful signup with your code adds 100 points to this card."
+          : "通过邀请创作者获得的积分。对方用你的邀请码注册成功，这张卡就会自动 +100。"}
+      </p>
+    </header>
+    <Wallet client:load locale={locale} />
+  </div>
+</BaseLayout>

@@ -1928,6 +1928,130 @@ const CLICK_DEDUPE_MS = 10 * 60 * 1000;
 /** 最多记多少个目标，超出按点击数砍尾部 */
 const CLICKS_MAX = 400;
 
+/* ---------------- 积分与邀请（v1） ----------------
+   存储（全部落在 kv，键名带前缀方便按人清理）：
+     ref:code:<CODE>     → 邀请人 sid（反查用，唯一占用）
+     ref:sid:<sid>       → { code } 缓存，避免每次重算
+     ref:claim:<sid>     → 被邀请人的领取标记（一人一生一次，天然去重）
+     ref:invited:<sid>   → 邀请人已拉到的人 [{ login, at }]
+     wallet:<sid>        → { balance, spent, earned }
+     wallet:ledger:<sid> → 明细数组（新的在前，最多 LEDGER_MAX 条）
+
+   为什么码是「算出来的」而不是随机发：同一个账号无论从哪儿重算都是同一个码，
+   不需要额外发码流程，也不会因为清缓存换浏览器就变成另一个码。 */
+const INVITE_POINTS = 100;
+const LEDGER_MAX = 200;
+/** Crockford base32：去掉 I/L/O/U，避免和 1/0 看混 */
+const REF_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const REF_CODE_RE = /^SH-[0-9A-Z]{6}$/;
+
+const walletKey = (sid) => `wallet:${sid}`;
+const ledgerKey = (sid) => `wallet:ledger:${sid}`;
+const claimKey = (sid) => `ref:claim:${sid}`;
+const invitedKey = (sid) => `ref:invited:${sid}`;
+const codeIndexKey = (code) => `ref:code:${code}`;
+const codeOfSidKey = (sid) => `ref:sid:${sid}`;
+
+/** sid → 邀请码：FNV-1a 32 位取 6 位 base32；salt 用于撞码时错位重算 */
+function refCodeFromSid(sid, salt) {
+  let h = 2166136261;
+  const text = `${sid}#${salt || 0}`;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  let v = h >>> 0;
+  let out = "";
+  for (let i = 0; i < 6; i++) {
+    out += REF_ALPHABET[v % 32];
+    v = Math.floor(v / 32);
+  }
+  return "SH-" + out;
+}
+
+/** 取（必要时占用）某个账号的邀请码；同一个账号永远返回同一个码 */
+async function refCodeOf(env, sid) {
+  if (!sid) return "";
+  const cached = await kvGetJSON(env, codeOfSidKey(sid), null, true);
+  if (cached && cached.code) return cached.code;
+  for (let salt = 0; salt < 8; salt++) {
+    const code = refCodeFromSid(sid, salt);
+    const owner = await env.PROFILES.get(codeIndexKey(code), { cacheTtl: 30 });
+    if (owner === sid) {
+      await kvPutJSON(env, codeOfSidKey(sid), { code });
+      return code;
+    }
+    if (!owner) {
+      await env.PROFILES.put(codeIndexKey(code), sid);
+      await kvPutJSON(env, codeOfSidKey(sid), { code });
+      return code;
+    }
+    /* 已被别人占用：换 salt 再来，最多 8 次（概率极低） */
+  }
+  return "";
+}
+
+/** 钱包快照：balance 当前余额，available 可用（预留给冻结/提现），earned 累计获得 */
+async function walletSnapshot(env, sid) {
+  const w = (await kvGetJSON(env, walletKey(sid), null, true)) || {};
+  const balance = Number(w.balance) || 0;
+  const spent = Number(w.spent) || 0;
+  const earned = Number(w.earned) || balance;
+  /* 目前没有冻结/提现，可用即余额；spent 先留着，接入消费后从 available 里扣 */
+  return { balance, available: Math.max(0, balance), spent, earned };
+}
+
+/** 加/减积分并写一条明细。amount 为负数时是消费。 */
+async function addPoints(env, sid, amount, entry) {
+  const w = (await kvGetJSON(env, walletKey(sid), null, true)) || {};
+  const delta = Number(amount) || 0;
+  const balance = (Number(w.balance) || 0) + delta;
+  const earned = (Number(w.earned) || 0) + Math.max(0, delta);
+  const next = { balance, spent: Number(w.spent) || 0, earned, updatedAt: new Date().toISOString() };
+  await kvPutJSON(env, walletKey(sid), next);
+  const ledger = (await kvGetJSON(env, ledgerKey(sid), [])) || [];
+  ledger.unshift({
+    id: newId(),
+    at: next.updatedAt,
+    amount: delta,
+    ...entry,
+  });
+  await kvPutJSON(env, ledgerKey(sid), ledger.slice(0, LEDGER_MAX));
+  return next;
+}
+
+/**
+ * 结算一次邀请：被邀请人注册成功后调用。
+ * - 码无效 / 邀请人不存在 / 自己邀自己 → 静默忽略（注册不能因为推荐失败而失败）
+ * - 同一个被邀请人只发一次（ref:claim:<sid> 是幂等标记）
+ */
+async function settleReferral(env, rawCode, inviteeSid, inviteeLogin) {
+  const code = String(rawCode || "").trim().toUpperCase();
+  if (!REF_CODE_RE.test(code)) return { ok: false, reason: "bad-code" };
+  const inviterSid = await env.PROFILES.get(codeIndexKey(code), { cacheTtl: 30 });
+  if (!inviterSid) return { ok: false, reason: "no-inviter" };
+  if (inviterSid === inviteeSid) return { ok: false, reason: "self" };
+  if (await env.PROFILES.get(claimKey(inviteeSid), { cacheTtl: 30 })) {
+    return { ok: false, reason: "already-claimed" };
+  }
+  await env.PROFILES.put(
+    claimKey(inviteeSid),
+    JSON.stringify({ code, inviter: inviterSid, at: new Date().toISOString() }),
+  );
+  const inviter = await kvGetJSON(env, `user:${inviterSid}`, null, true);
+  const inviterLogin = (inviter && inviter.handle) || handleFromEmail(inviterSid);
+  await addPoints(env, inviterSid, INVITE_POINTS, {
+    type: "invite",
+    note: `邀请 @${inviteeLogin} 注册`,
+    ref: inviteeSid,
+  });
+  const invited = (await kvGetJSON(env, invitedKey(inviterSid), [])) || [];
+  invited.unshift({ login: inviteeLogin, at: new Date().toISOString() });
+  await kvPutJSON(env, invitedKey(inviterSid), invited.slice(0, 200));
+  return { ok: true, inviterSid, inviterLogin, points: INVITE_POINTS };
+}
+
+
 /** 32 位摘要（FNV-1a + base36）：去重键里存 IP 的摘要而不是原文，
     够区分不同访客，也无法反推回地址。 */
 function shortHash(text) {
@@ -2354,8 +2478,21 @@ export default {
       /* 密码凭据单独存一个键：改密码时只写它，不会把资料字段覆盖掉 */
       await writeCredential(env, email, salt, passHash, 0);
       await rateLimitHit(regKey, 3600);
+
+      /* 邀请奖：注册成功后结算给邀请人（+100）。失败一律静默 ——
+         推荐关系出问题不能让人注册不进来。 */
+      let referral = null;
+      try {
+        const settled = await settleReferral(env, body.ref, email, handle);
+        if (settled && settled.ok) {
+          referral = { points: settled.points, inviter: settled.inviterLogin };
+          const rec = await kvGetJSON(env, key, null, true);
+          if (rec) await env.PROFILES.put(key, JSON.stringify({ ...rec, refBy: settled.inviterLogin, refCode: String(body.ref || "").trim().toUpperCase() }));
+        }
+      } catch { /* 忽略 */ }
+
       const { cookie, token } = await createSession(request, env, email, { salt, hash: passHash, ver: 0 });
-      return json(request, { ok: true, token, user: { login: handle, handle, email, displayName, emailVerified } }, 200, cookie);
+      return json(request, { ok: true, token, referral, user: { login: handle, handle, email, displayName, emailVerified } }, 200, cookie);
     }
 
     /* ---------- 邮箱登录 ---------- */
@@ -3677,6 +3814,48 @@ export default {
       }
       await kvPutJSON(env, CLICKS_KEY, { c: top, d: dedupe });
       return json(request, { ok: true, counted: true, count: top[slug] });
+    }
+
+    /* ---------- 邀请码解析（公开）：join 页显示「你是由 @x 邀请的」 ---------- */
+    if (url.pathname === "/ref/resolve" && request.method === "GET") {
+      const code = String(url.searchParams.get("code") || "").trim().toUpperCase();
+      if (!REF_CODE_RE.test(code)) return json(request, { ok: false, error: "邀请码格式不对" }, 400);
+      if (!env.PROFILES) return json(request, { ok: false }, 500);
+      const sid = await env.PROFILES.get(codeIndexKey(code), { cacheTtl: 30 });
+      if (!sid) return json(request, { ok: false, error: "邀请码不存在" }, 404);
+      const u = await publicUser(env, sid);
+      return json(request, {
+        ok: true,
+        inviter: {
+          login: u.login,
+          name: u.name,
+          avatar: avatarUrl(imgBase, u.login, u.avatar, u.hasAvatar),
+        },
+      });
+    }
+
+    /* ---------- 我的钱包（需要登录）：余额 / 邀请码 / 已邀请 / 明细 ---------- */
+    if (url.pathname === "/wallet" && request.method === "GET") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const sid = identity.sid || identity.login;
+      const code = await refCodeOf(env, sid);
+      const [snap, ledger, invited] = await Promise.all([
+        walletSnapshot(env, sid),
+        kvGetJSON(env, ledgerKey(sid), []) || [],
+        kvGetJSON(env, invitedKey(sid), []) || [],
+      ]);
+      return json(request, {
+        ok: true,
+        ...snap,
+        code,
+        link: code ? `${SITE_BASE}/join/?ref=${code}` : "",
+        invitePoints: INVITE_POINTS,
+        invitedCount: invited.length,
+        invited: invited.slice(0, 20),
+        ledger: Array.isArray(ledger) ? ledger.slice(0, 50) : [],
+      });
     }
 
     if (url.pathname === "/search" && request.method === "GET") {
