@@ -323,7 +323,7 @@
     "icon": "/icons/logosystem.png",
     "shortDescription": "1,600+ 个 logo 与动态 logo 的灵感库，可按字标、符号、动效等维度筛选。",
     "description": "Logosystem 把 1600 多个 logo 案例收成一个可筛的库：字标、符号、组合标、动态 logo，按行业与形式过滤，点进去能看原始出处。做品牌识别提案时，比在图片流里翻更集中，也能顺手看同一品类的图形语言怎么分化。",
-    "websiteUrl": "http://logosystem.co/",
+    "websiteUrl": "https://logosystem.co/",
     "category": "design-tools",
     "tags": [
       "Logo",
@@ -335,7 +335,7 @@
     "publishedAt": "2026-11-26",
     "launchBatch": "Community",
     "verificationStatus": "verified",
-    "verificationMethod": "人工访问 http://logosystem.co/（HTTP 200），核对页面标题与描述后收录。本条由 SolHub 编辑部收录，非作者本人提交。",
+    "verificationMethod": "人工访问 https://logosystem.co/（HTTP 200），核对页面标题与描述后收录。本条由 SolHub 编辑部收录，非作者本人提交。",
     "verifiedAt": "2026-11-26",
     "isDemo": false,
     "submittedBy": "solhub_editor"
