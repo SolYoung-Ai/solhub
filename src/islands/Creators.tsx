@@ -785,7 +785,7 @@ export default function Creators({
       </div>
 
       {/* 右栏 */}
-      <aside className="sticky top-4 hidden w-[290px] shrink-0 space-y-4 xl:block" aria-label={en ? "Sidebar" : "侧栏"}>
+      <aside className="sticky top-4 hidden w-[290px] shrink-0 space-y-4 2xl:block" aria-label={en ? "Sidebar" : "侧栏"}>
         <section className="rounded-[18px] border border-border bg-card px-4 py-4">
           <p className="font-display text-[14px] font-bold text-foreground">{en ? "Your product here" : "把你的产品放上来"}</p>
           <p className="mt-1.5 text-[12.5px] leading-6 text-muted-foreground">
