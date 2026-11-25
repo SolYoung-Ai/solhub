@@ -106,7 +106,6 @@ const metaDesc = en
           ))
         }
       </div>
-        </div>
         {/* 热点并排在同一栏里：右侧赞助位可以跨两个区块一直悬在旁边 */}
         <div class="mt-14 border-t border-border pt-10 sm:mt-16 sm:pt-12">
           <SectionHeading
@@ -119,6 +118,7 @@ const metaDesc = en
             actionLabel={en ? "View all" : "查看全部热点"}
           />
           <HotFeed client:visible locale={locale} limit={HOT_PREVIEW} />
+        </div>
         </div>
         <AdRail client:idle locale={locale} />
       </div>
