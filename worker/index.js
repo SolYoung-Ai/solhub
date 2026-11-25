@@ -717,6 +717,19 @@ function reachableStatus(code) {
  *   change    已登录用户验证「新邮箱」（通过后才允许切换）
  *   reset     找回密码
  */
+/* 产品与工具分类的中文名，跟 src/data/product-categories.ts 保持一致。
+   /catalog 要给小程序返回可直接展示的名字，而 Worker 读不了 TS。 */
+const CATEGORY_NAMES = {
+  "creator-space": "个人数字空间",
+  "services": "设计与服务",
+  "ai-tools": "AI 工具",
+  "productivity": "效率工具",
+  "creator-tools": "创作者工具",
+  "fun-tools": "趣味工具",
+  "growth-marketing": "增长营销",
+  "design-tools": "设计工具",
+};
+
 const VCODE_PURPOSES = ["register", "verify", "change", "reset"];
 const VCODE_TTL = 600;            // 验证码有效期 10 分钟
 const VCODE_COOLDOWN = 60;        // 同一邮箱重发冷却（秒）
@@ -2698,6 +2711,70 @@ export default {
           submittedBy: p.submittedBy || "",
         }));
       return json(request, { ok: true, products });
+    }
+
+    /* ---------- 公开目录（小程序 / 第三方客户端） ---------- */
+    /* 网站的产品列表是构建期烘进去的（products.ts + community.json），运行时真源
+       就是这三处：官方目录 KV、社区提交 KV、托管工具索引。小程序要做到「和网站
+       同步」只能读同一份，而不是各自维护一份快照。只返回卡片需要的字段。 */
+    if (url.pathname === "/catalog" && request.method === "GET") {
+      const [index, community, hosted] = await Promise.all([
+        readProductIndex(env),
+        readCommunity(env),
+        hostedIndexRead(env),
+      ]);
+      const abs = (u) => {
+        const v = String(u || "").trim();
+        if (!v) return "";
+        if (/^https?:\/\//i.test(v)) return v;
+        return SITE_BASE + (v.startsWith("/") ? v : `/${v}`);
+      };
+      const seen = new Set();
+      const out = [];
+      const push = (item) => {
+        if (!item || !item.slug || seen.has(item.slug)) return;
+        seen.add(item.slug);
+        out.push({ ...item, sort_rank: out.length });
+      };
+      const card = (p, kind) => ({
+        slug: p.slug,
+        name: p.name || p.slug,
+        short_desc: p.shortDescription || "",
+        description: p.description || "",
+        url: abs(p.websiteUrl),
+        icon: abs(p.icon),
+        category: p.category || "other",
+        category_name: CATEGORY_NAMES[p.category] || p.category || "其他",
+        tags: Array.isArray(p.tags) ? p.tags.slice(0, 6) : [],
+        kind,
+        verification_status: p.verificationStatus || "",
+      });
+
+      for (const p of index) {
+        if (!p || !p.slug) continue;
+        push(card(p, "site"));
+      }
+      for (const p of community) {
+        if (!p || !p.slug || p.hidden) continue;
+        push(card(p, "site"));
+      }
+      for (const t of hosted) {
+        if (!t || !t.id || t.hidden) continue;
+        push({
+          slug: `tool-${t.id}`,
+          name: t.name || t.id,
+          short_desc: t.description || "",
+          description: "",
+          url: `${SITE_BASE}/tools/?id=${encodeURIComponent(t.id)}`,
+          icon: t.hasLogo ? `${imgBase}/hosted/logo/${encodeURIComponent(t.id)}` : "",
+          category: t.category || "productivity",
+          category_name: CATEGORY_NAMES[t.category] || "效率工具",
+          tags: Array.isArray(t.tags) ? t.tags.slice(0, 6) : [],
+          kind: "tool",
+          verification_status: "verified",
+        });
+      }
+      return json(request, { ok: true, count: out.length, products: out });
     }
 
     /* 公开托管工具目录：GET /hosted/list?category=&limit=&offset=
