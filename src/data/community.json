@@ -25,5 +25,31 @@
     "submittedBy": "solyoung",
     "rankPosition": 1,
     "kind": "tool"
+  },
+  {
+    "id": "libraries-dev",
+    "slug": "libraries-dev",
+    "name": "Libraries.dev",
+    "icon": "/icons/libraries-dev.png",
+    "shortDescription": "给 AI 界面用的 UI 效果库与端侧模型：边框光束、思考光球、液态金属、融合效果，React / SwiftUI / React Native 即插即用。",
+    "description": "Libraries.dev 是一套面向下一代界面的开源库加端侧模型合集，由设计师 Jakub Antalik 创建。五个库（Beam 边框光束、Orb 思考光球、Gooey 融合、Metal 液态金属、Image 图像生成）全部 MIT 许可、发布在 npm，官网自述累计安装量超过 2000 万次；另附可在设备上直接运行的 ML 模型，用于思考指示、语音可视化与图像生成。每个库都随附一段 prompt，粘贴给 Claude Code、Cursor、Codex 就能让编码代理装好并接进项目，整套约 83KB gzip，只有图像库额外依赖 three。Pro / Studio 是付费的深度定制与预设层，免费部分已足够上手。",
+    "websiteUrl": "https://libraries.dev",
+    "category": "design-tools",
+    "tags": [
+      "ui-effects",
+      "animation",
+      "react",
+      "swiftui",
+      "ml-models",
+      "mit"
+    ],
+    "developerName": "Jakub Antalik",
+    "publishedAt": "2026-11-25",
+    "launchBatch": "Community",
+    "verificationStatus": "verified",
+    "verificationMethod": "人工访问 https://libraries.dev/（HTTP 200），核对页面标题、MIT 许可与 npm 安装命令说明，并从页脚确认站点由 Jakub Antalik 创建。本条由 SolHub 编辑部收录，非作者本人提交。",
+    "verifiedAt": "2026-11-25",
+    "isDemo": false,
+    "submittedBy": "solhub_editor"
   }
 ]

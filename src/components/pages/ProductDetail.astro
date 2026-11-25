@@ -58,11 +58,15 @@ const related = rankProducts(products)
 const shortDesc = productShortDescription(product.slug, product.shortDescription, locale);
 const fullDesc = productDescription(product.slug, product.description, locale);
 
-/** 开发者账号：目录产品用 developerLogin，社区产品回落到 submittedBy */
-const developerLogin = product.developerLogin || product.submittedBy || "";
-const developerHref = developerLogin
-  ? p(`/world/?u=${encodeURIComponent(developerLogin)}`, locale)
+/** 开发者主页：只有真的登记了开发者账号才链接。
+    社区收录（尤其编辑部收录别人的网站）不能拿 submittedBy 顶替 ——
+    那会把原作者的链接指向收录方主页，等于冒名。 */
+const developerHref = product.developerLogin
+  ? p(`/world/?u=${encodeURIComponent(product.developerLogin)}`, locale)
   : "";
+/** 收录方：由别人代为收录时（提交账号 ≠ 开发者账号）单独标一行，说明「谁收的」 */
+const curatorLogin =
+  product.submittedBy && product.submittedBy !== product.developerLogin ? product.submittedBy : "";
 
 const schemaJsonLd = {
   "@context": "https://schema.org",
@@ -239,6 +243,22 @@ const schemaJsonLd = {
               }
             </dd>
           </div>
+          {
+            curatorLogin && (
+              <div class="flex items-center justify-between py-2">
+                <dt class="text-muted-foreground">{en ? "Curated by" : "收录方"}</dt>
+                <dd class="font-medium text-foreground">
+                  <a
+                    href={p(`/world/?u=${encodeURIComponent(curatorLogin)}`, locale)}
+                    class="inline-flex items-center gap-1 hover:text-accent hover:underline"
+                  >
+                    @{curatorLogin}
+                    <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                  </a>
+                </dd>
+              </div>
+            )
+          }
           <div class="flex items-center justify-between py-2">
             <dt class="text-muted-foreground">{en ? "Added" : "收录时间"}</dt>
             <dd class="font-medium text-foreground">{formatDateZh(product.publishedAt)}</dd>
