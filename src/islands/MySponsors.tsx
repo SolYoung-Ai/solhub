@@ -333,7 +333,7 @@ export default function MySponsors({ locale = "zh" }: Props) {
                     <button
                       type="button"
                       onClick={() => setEditing({ id: slot.id, text: slot.desc || "" })}
-                      disabled={isBusy || !!editing}
+                      disabled={isBusy || !!editing || !liveNow}
                       className="btn btn-outline !h-7 gap-1 px-2.5 text-[11.5px] disabled:opacity-40"
                     >
                       <Pencil className="h-3 w-3" /> {en ? "Edit text" : "改介绍"}
