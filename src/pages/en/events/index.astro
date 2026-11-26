@@ -1,0 +1,15 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Events from "@/islands/Events.tsx";
+
+const locale = "en" as const;
+---
+
+<BaseLayout
+  title="Events & open calls · SolHub"
+  description="Official open calls, meetups and workshops on SolHub — or start one of your own."
+  route="/events/"
+  locale={locale}
+>
+  <Events client:load locale={locale} />
+</BaseLayout>

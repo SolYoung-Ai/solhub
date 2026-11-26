@@ -1,0 +1,15 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import MyEvents from "@/islands/MyEvents.tsx";
+
+const locale = "zh" as const;
+---
+
+<BaseLayout
+  title="我的活动 · SolHub"
+  description="你发起的活动，以及你报名参加的活动。"
+  route="/events/mine/"
+  locale={locale}
+>
+  <MyEvents client:load locale={locale} />
+</BaseLayout>

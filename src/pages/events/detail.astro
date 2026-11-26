@@ -1,0 +1,15 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import EventDetail from "@/islands/EventDetail.tsx";
+
+const locale = "zh" as const;
+---
+
+<BaseLayout
+  title="活动详情 · SolHub"
+  description="查看活动介绍、参加条件与报名方式。"
+  route="/events/detail/"
+  locale={locale}
+>
+  <EventDetail client:load locale={locale} />
+</BaseLayout>

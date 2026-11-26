@@ -1,0 +1,16 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import EventManage from "@/islands/EventManage.tsx";
+
+const locale = "zh" as const;
+---
+
+<BaseLayout
+  title="管理活动 · SolHub"
+  description="审核报名、修改介绍、下架或恢复活动。"
+  route="/events/manage/"
+  locale={locale}
+  noEn
+>
+  <EventManage client:load locale={locale} />
+</BaseLayout>

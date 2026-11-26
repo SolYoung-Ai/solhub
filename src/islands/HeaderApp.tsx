@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
+  CalendarDays,
   ChevronsLeft,
   ChevronsRight,
   Compass,
@@ -81,8 +82,10 @@ export default function HeaderApp({ currentRoute, searchIndex, locale = "zh", no
     /* 热点占的是原来的赞助位。赞助墙 2026-11 已整体下线（页面、首页板块、
        页脚与账号菜单入口一并移除），恢复时把 src/pages/sponsors/ 一起还原。 */
     { label: translate(dict, "nav.hot"), path: "/hot/", icon: Flame, match: (r) => r.startsWith("/hot/") },
+    { label: translate(dict, "nav.events"), path: "/events/", icon: CalendarDays, match: (r) => r.startsWith("/events/") },
     { label: translate(dict, "nav.world"), path: "/world/", icon: Users, match: (r) => r.startsWith("/world/") },
-    { label: translate(dict, "nav.mySubmissions"), path: "/my-submissions/", icon: UserRound, match: (r) => r.startsWith("/my-submissions/") },
+    /* 「我」已从主导航移除（2026-11-26）：和侧栏底部的头像/账号菜单重复，
+       个人中心改为只从账号菜单进入，主导航专注内容栏目。 */
   ];
 
   /* 手机底栏只放主栏目；滑块位置按「当前项在数组里的下标」算，

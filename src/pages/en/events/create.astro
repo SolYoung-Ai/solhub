@@ -1,0 +1,15 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import EventForm from "@/islands/EventForm.tsx";
+
+const locale = "en" as const;
+---
+
+<BaseLayout
+  title="Create an event · SolHub"
+  description="Start a recruiting call, meetup, workshop or contest. Reviewed before it goes public."
+  route="/events/create/"
+  locale={locale}
+>
+  <EventForm client:load locale={locale} />
+</BaseLayout>

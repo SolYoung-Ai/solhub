@@ -1127,6 +1127,118 @@ function newId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+/* ---------------- 活动（官方发布 + 用户投稿审核） ----------------
+   存储继续用 KV，不新建 PG 表：活动量级小（上限 200 场），
+   和 ads / wallet 一样「一条索引 + 若干明细」，读列表只碰索引。
+     events:v1        全部活动的索引（不含正文与报名，列表页只读这一条）
+     event:<id>       单场活动完整内容
+     eventreg:<id>    该场报名记录（邮箱仅主办方与管理员可见）
+   名额不单独存计数器：批准人数由报名列表现算，避免两处数字打架；
+   索引里的 used / regCount 只是列表展示用的缓存，写报名时同步。
+   体验版 KV 最终一致约 30s，所以报名成功后前端本地更新，不立刻回读。 */
+const EVENTS_KEY = "events:v1";
+const EVENTS_MAX = 200;
+const EVENT_CATEGORIES = ["recruit", "meetup", "workshop", "contest", "other"];
+const eventKey = (id) => `event:${id}`;
+const eventRegsKey = (id) => `eventreg:${id}`;
+
+/** 展示状态由时间推算，不靠定时任务改库：published 之外直接返回自身状态 */
+function eventState(e, now = Date.now()) {
+  if (!e) return "draft";
+  if (e.status !== "published") return e.status;
+  const start = Date.parse(e.startAt || "") || 0;
+  const end = Date.parse(e.endAt || "") || 0;
+  if (now < start) return "upcoming";
+  if (now <= end) return "ongoing";
+  return "ended";
+}
+
+function eventSignupOpen(e, now = Date.now()) {
+  if (!e || e.status !== "published") return false;
+  const end = Date.parse(e.endAt || "") || 0;
+  const dl = Date.parse(e.signupDeadline || e.endAt || "") || 0;
+  return now <= end && now <= dl;
+}
+
+function eventSlug(title, id) {
+  const base = String(title || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  return `${base || "event"}-${String(id).slice(-6)}`;
+}
+
+/** 索引条目：字段固定，避免把正文/报名塞进列表 */
+function eventIndexEntry(e) {
+  return {
+    id: e.id,
+    slug: e.slug,
+    title: e.title,
+    summary: e.summary,
+    cover: e.cover,
+    category: e.category,
+    tags: e.tags || [],
+    ownerType: e.ownerType,
+    ownerHandle: e.ownerHandle,
+    ownerName: e.ownerName,
+    startAt: e.startAt,
+    endAt: e.endAt,
+    signupDeadline: e.signupDeadline,
+    capacity: e.capacity,
+    registrationMode: e.registrationMode,
+    status: e.status,
+    reviewStatus: e.reviewStatus,
+    featured: e.featured,
+    used: e.used || 0,
+    regCount: e.regCount || 0,
+    createdAt: e.createdAt,
+  };
+}
+
+function eventIso(v) {
+  const t = Date.parse(String(v || ""));
+  return Number.isFinite(t) ? new Date(t).toISOString() : "";
+}
+
+/** 校验活动输入；返回错误文案，通过返回 "" */
+function eventInputError(body) {
+  const title = String(body.title || "").trim();
+  if (title.length < 4 || title.length > 80) return "标题需要 4–80 个字";
+  const summary = String(body.summary || "").trim();
+  if (summary.length > 120) return "一句话简介不能超过 120 个字";
+  if (String(body.description || "").length > 8000) return "正文不能超过 8000 个字";
+  const start = eventIso(body.startAt);
+  const end = eventIso(body.endAt);
+  if (!start || !end) return "请填写开始和结束时间";
+  if (start >= end) return "结束时间必须晚于开始时间";
+  const deadline = body.signupDeadline ? eventIso(body.signupDeadline) : end;
+  if (!deadline) return "报名截止时间格式不对";
+  if (deadline > end) return "报名截止不能晚于活动结束";
+  const cat = String(body.category || "other");
+  if (!EVENT_CATEGORIES.includes(cat)) return "分类不合法";
+  const cap = Number(body.capacity);
+  if (body.capacity !== "" && body.capacity != null && (!Number.isFinite(cap) || cap < 0 || cap > 10000)) return "名额需要是 0–10000 的整数";
+  const mode = String(body.registrationMode || "open");
+  if (!["open", "approval"].includes(mode)) return "报名方式不合法";
+  return "";
+}
+
+async function eventIndexUpdate(env, id, patch) {
+  const all = (await kvGetJSON(env, EVENTS_KEY, [])) || [];
+  const next = all.map((e) => (e && e.id === id ? { ...e, ...patch } : e));
+  await kvPutJSON(env, EVENTS_KEY, next);
+  return next;
+}
+
+async function findEvent(env, idOrSlug) {
+  const all = (await kvGetJSON(env, EVENTS_KEY, [])) || [];
+  const hit = all.find((e) => e && (e.id === idOrSlug || e.slug === idOrSlug));
+  if (!hit) return null;
+  const full = await kvGetJSON(env, eventKey(hit.id), null, true);
+  return full || hit;
+}
+
 /** 目录里的图标是 /icons/x.png 这种相对路径，广告卡要绝对地址才能在任意页面显示 */
 function absIcon(icon) {
   const v = String(icon || "").trim();
@@ -3944,6 +4056,466 @@ export default {
         balance: wallet.balance,
         message: `兑换成功，+${rec.points} 积分已到账`,
       });
+    }
+
+    /* ---------- 活动：列表（公开） ----------
+       状态不落库：published 的活动按当前时间算 upcoming / ongoing / ended，
+       这样不需要定时任务，也不会出现「cron 没跑状态就不对」。 */
+    if (url.pathname === "/events" && request.method === "GET") {
+      const all = (await kvGetJSON(env, EVENTS_KEY, [])) || [];
+      const now = Date.now();
+      const state = String(url.searchParams.get("state") || "all");
+      const type = String(url.searchParams.get("type") || "all");
+      const cat = String(url.searchParams.get("category") || "");
+      const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
+      const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit")) || 24));
+      const offset = Math.max(0, Number(url.searchParams.get("offset")) || 0);
+
+      let items = all.filter((e) => e && e.status === "published");
+      if (state !== "all") items = items.filter((e) => eventState(e, now) === state);
+      if (type !== "all") items = items.filter((e) => e.ownerType === type);
+      if (cat) items = items.filter((e) => e.category === cat);
+      if (q) {
+        items = items.filter((e) =>
+          `${e.title || ""} ${e.summary || ""} ${(e.tags || []).join(" ")} ${e.ownerName || ""}`
+            .toLowerCase()
+            .includes(q),
+        );
+      }
+
+      const rank = (e) => {
+        const s = eventState(e, now);
+        return s === "ongoing" ? 0 : s === "upcoming" ? 1 : 2;
+      };
+      items.sort(
+        (a, b) =>
+          (b.featured ? 1 : 0) - (a.featured ? 1 : 0) ||
+          rank(a) - rank(b) ||
+          (rank(a) === 2
+            ? (Date.parse(b.endAt) || 0) - (Date.parse(a.endAt) || 0)
+            : (Date.parse(a.startAt) || 0) - (Date.parse(b.startAt) || 0)),
+      );
+
+      const total = items.length;
+      const page = items.slice(offset, offset + limit).map((e) => ({
+        ...eventIndexEntry(e),
+        state: eventState(e, now),
+        signupOpen: eventSignupOpen(e, now),
+      }));
+      return json(request, { ok: true, total, limit, offset, events: page });
+    }
+
+    /* ---------- 活动：我创办的 / 我报名的（登录） ---------- */
+    if (url.pathname === "/events/mine" && request.method === "GET") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const sid = identity.login;
+      const all = ((await kvGetJSON(env, EVENTS_KEY, [])) || []).slice(0, 120);
+      const now = Date.now();
+      const created = all
+        .filter((e) => e && e.owner === sid)
+        .map((e) => ({ ...eventIndexEntry(e), state: eventState(e, now), signupOpen: eventSignupOpen(e, now) }));
+
+      /* 并行读报名表：串行 60 次会逼近体验版 3 秒超时 */
+      const raws = await kvGetMany(env, all.map((e) => eventRegsKey(e.id)));
+      const joined = [];
+      raws.forEach((raw, i) => {
+        if (!raw) return;
+        let regs = [];
+        try { regs = JSON.parse(raw); } catch { return; }
+        if (!Array.isArray(regs)) return;
+        const mine = regs.find((r) => r && r.sid === sid && r.status !== "cancelled");
+        if (!mine) return;
+        const e = all[i];
+        joined.push({
+          event: { ...eventIndexEntry(e), state: eventState(e, now) },
+          reg: { id: mine.id, status: mine.status, at: mine.at },
+        });
+      });
+      return json(request, { ok: true, created, joined });
+    }
+
+    /* ---------- 活动：创建（登录；管理员创建即官方直发） ---------- */
+    if (url.pathname === "/events" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      let body = {};
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const err = eventInputError(body);
+      if (err) return json(request, { error: err }, 400);
+
+      const all = (await kvGetJSON(env, EVENTS_KEY, [])) || [];
+      if (all.length >= EVENTS_MAX) return json(request, { error: "活动数量已达上限，请稍后再试" }, 400);
+
+      const sid = identity.login;
+      const admin = isAdminLogin(env, sid);
+      const u = await kvGetJSON(env, `user:${sid}`, null, true);
+      const handle = (u && u.handle) || identity.user.handle || handleFromEmail(sid);
+      const name = (u && u.displayName) || identity.user.displayName || handle;
+      const id = newId();
+      const nowIso = new Date().toISOString();
+      const submit = !!body.submit;
+      const cap = Number(body.capacity);
+
+      const ev = {
+        id,
+        slug: eventSlug(body.title, id),
+        title: String(body.title).trim(),
+        summary: String(body.summary || "").trim(),
+        description: String(body.description || "").trim(),
+        cover: String(body.cover || "").trim().slice(0, 500),
+        category: String(body.category || "other"),
+        tags: Array.isArray(body.tags) ? body.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 6) : [],
+        ownerType: admin ? "official" : "user",
+        owner: sid,
+        ownerHandle: handle,
+        ownerName: name,
+        startAt: eventIso(body.startAt),
+        endAt: eventIso(body.endAt),
+        signupDeadline: body.signupDeadline ? eventIso(body.signupDeadline) : eventIso(body.endAt),
+        audience: String(body.audience || "").trim().slice(0, 120),
+        eligibility: {
+          requireEmailVerified: !!(body.eligibility && body.eligibility.requireEmailVerified),
+          requireProduct: !!(body.eligibility && body.eligibility.requireProduct),
+          customText: String((body.eligibility && body.eligibility.customText) || "").trim().slice(0, 200),
+        },
+        capacity: Number.isFinite(cap) ? Math.max(0, Math.floor(cap)) : 0,
+        registrationMode: String(body.registrationMode || "open"),
+        status: admin ? "published" : submit ? "pending" : "draft",
+        reviewStatus: admin ? "approved" : submit ? "pending" : "none",
+        reviewReason: "",
+        reviewedBy: "",
+        reviewedAt: "",
+        featured: admin && !!body.featured,
+        location: String(body.location || "").trim().slice(0, 120),
+        contactEmail: String(body.contactEmail || "").trim().slice(0, 160),
+        result: null,
+        used: 0,
+        regCount: 0,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      await kvPutJSON(env, eventKey(id), ev);
+      await kvPutJSON(env, EVENTS_KEY, [eventIndexEntry(ev), ...(Array.isArray(all) ? all : [])]);
+      return json(request, { ok: true, id, slug: ev.slug, status: ev.status });
+    }
+
+    /* ---------- 活动：详情（公开；未发布只有主办方/管理员能看） ---------- */
+    const evDetail = url.pathname.match(/^\/events\/([A-Za-z0-9_-]{3,80})$/);
+    if (evDetail && request.method === "GET") {
+      const ev = await findEvent(env, evDetail[1]);
+      if (!ev) return json(request, { error: "活动不存在或已删除" }, 404);
+      const identity = await getIdentity(request, env);
+      const sid = identity ? identity.login : "";
+      const admin = !!sid && isAdminLogin(env, sid);
+      const canManage = !!sid && (ev.owner === sid || admin);
+      if (ev.status !== "published" && !canManage) return json(request, { error: "活动不存在或尚未发布" }, 404);
+
+      const now = Date.now();
+      const regs = (await kvGetJSON(env, eventRegsKey(ev.id), [])) || [];
+      const mine = sid ? regs.find((r) => r && r.sid === sid && r.status !== "cancelled") : null;
+      const { owner, ...pub } = ev;
+      return json(request, {
+        ok: true,
+        event: {
+          ...pub,
+          state: eventState(ev, now),
+          signupOpen: eventSignupOpen(ev, now),
+          approvedCount: regs.filter((r) => r.status === "approved" || r.status === "won").length,
+          pendingCount: canManage ? regs.filter((r) => r.status === "pending").length : undefined,
+        },
+        canManage,
+        myRegistration: mine
+          ? { id: mine.id, status: mine.status, at: mine.at, note: mine.note || "" }
+          : null,
+      });
+    }
+
+    /* ---------- 活动：编辑 / 提交审核 / 下架 / 恢复 ---------- */
+    const evAction = url.pathname.match(/^\/events\/([^/]+)\/(edit|submit|offline|restore)$/);
+    if (evAction && request.method === "POST") {
+      const ev = await findEvent(env, evAction[1]);
+      if (!ev) return json(request, { error: "活动不存在或已删除" }, 404);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const sid = identity.login;
+      const admin = isAdminLogin(env, sid);
+      if (ev.owner !== sid && !admin) return json(request, { error: "只能管理自己创办的活动" }, 403);
+
+      let body = {};
+      try { body = await request.json(); } catch { body = {}; }
+      const action = evAction[2];
+      const nowIso = new Date().toISOString();
+
+      if (action === "edit") {
+        /* 已发布后只允许改「不影响已报名者预期」的字段：
+           标题/时间/名额/条件/报名方式锁定，想改只能下架后重建。 */
+        const locked = ev.status === "published";
+        const patch = { updatedAt: nowIso };
+        if (body.description != null) patch.description = String(body.description).slice(0, 8000);
+        if (body.cover != null) patch.cover = String(body.cover).trim().slice(0, 500);
+        if (body.summary != null) patch.summary = String(body.summary).trim().slice(0, 120);
+        if (body.location != null) patch.location = String(body.location).trim().slice(0, 120);
+        if (body.contactEmail != null) patch.contactEmail = String(body.contactEmail).trim().slice(0, 160);
+        if (!locked) {
+          const merged = { ...ev, ...body };
+          const err = eventInputError(merged);
+          if (err) return json(request, { error: err }, 400);
+          const cap = Number(merged.capacity);
+          patch.title = String(merged.title).trim();
+          patch.category = String(merged.category || "other");
+          patch.tags = Array.isArray(merged.tags) ? merged.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 6) : [];
+          patch.startAt = eventIso(merged.startAt);
+          patch.endAt = eventIso(merged.endAt);
+          patch.signupDeadline = merged.signupDeadline ? eventIso(merged.signupDeadline) : patch.endAt;
+          patch.audience = String(merged.audience || "").trim().slice(0, 120);
+          patch.eligibility = {
+            requireEmailVerified: !!(merged.eligibility && merged.eligibility.requireEmailVerified),
+            requireProduct: !!(merged.eligibility && merged.eligibility.requireProduct),
+            customText: String((merged.eligibility && merged.eligibility.customText) || "").trim().slice(0, 200),
+          };
+          patch.capacity = Number.isFinite(cap) ? Math.max(0, Math.floor(cap)) : 0;
+          patch.registrationMode = String(merged.registrationMode || "open");
+        } else if (ev.ownerType === "official" && admin && body.featured != null) {
+          patch.featured = !!body.featured;
+        }
+        const next = { ...ev, ...patch };
+        await kvPutJSON(env, eventKey(ev.id), next);
+        await eventIndexUpdate(env, ev.id, eventIndexEntry(next));
+        return json(request, { ok: true, event: next, message: "已保存" });
+      }
+
+      if (action === "submit") {
+        if (ev.status !== "draft" && ev.status !== "rejected") {
+          return json(request, { error: "只有草稿或被驳回的活动需要提交审核" }, 400);
+        }
+        const next = { ...ev, status: "pending", reviewStatus: "pending", reviewReason: "", updatedAt: nowIso };
+        await kvPutJSON(env, eventKey(ev.id), next);
+        await eventIndexUpdate(env, ev.id, eventIndexEntry(next));
+        return json(request, { ok: true, message: "已提交审核，通过后会出现在活动列表" });
+      }
+
+      if (action === "offline") {
+        if (ev.status !== "published") return json(request, { error: "这个活动当前不是已发布状态" }, 400);
+        const next = { ...ev, status: "offline", updatedAt: nowIso };
+        await kvPutJSON(env, eventKey(ev.id), next);
+        await eventIndexUpdate(env, ev.id, eventIndexEntry(next));
+        return json(request, { ok: true, message: "已下架，列表不再展示" });
+      }
+
+      /* restore */
+      if (ev.status !== "offline") return json(request, { error: "只有已下架的活动可以恢复" }, 400);
+      if (Date.parse(ev.endAt || "") <= Date.now()) return json(request, { error: "活动已结束，无法恢复" }, 400);
+      const next = { ...ev, status: "published", updatedAt: nowIso };
+      await kvPutJSON(env, eventKey(ev.id), next);
+      await eventIndexUpdate(env, ev.id, eventIndexEntry(next));
+      return json(request, { ok: true, message: "已恢复展示" });
+    }
+
+    /* ---------- 活动：报名 ---------- */
+    const evRegister = url.pathname.match(/^\/events\/([^/]+)\/register$/);
+    if (evRegister && request.method === "POST") {
+      const ev = await findEvent(env, evRegister[1]);
+      if (!ev) return json(request, { error: "活动不存在或已删除" }, 404);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const sid = identity.login;
+      const now = Date.now();
+      if (ev.status !== "published") return json(request, { error: "这个活动当前不接受报名" }, 400);
+      if (!eventSignupOpen(ev, now)) return json(request, { error: "报名已截止" }, 400);
+
+      const u = await kvGetJSON(env, `user:${sid}`, null, true);
+      const handle = (u && u.handle) || identity.user.handle || handleFromEmail(sid);
+      const name = (u && u.displayName) || identity.user.displayName || handle;
+      const elig = ev.eligibility || {};
+      if (elig.requireEmailVerified && !identity.user.emailVerified) {
+        return json(request, { error: "参加这个活动需要先验证邮箱" }, 403);
+      }
+      if (elig.requireProduct) {
+        const [community, index] = await Promise.all([readCommunity(env), readProductIndex(env)]);
+        const owns =
+          community.some((p) => p && p.submittedBy === handle) ||
+          index.some((p) => p && p.developerLogin === handle);
+        if (!owns) return json(request, { error: "参加这个活动需要先上传一个产品" }, 403);
+      }
+
+      let body = {};
+      try { body = await request.json(); } catch { body = {}; }
+      const note = String(body.note || "").trim().slice(0, 500);
+
+      const regs = (await kvGetJSON(env, eventRegsKey(ev.id), [])) || [];
+      const dup = regs.find((r) => r && r.sid === sid && r.status !== "cancelled");
+      if (dup) return json(request, { error: "你已经报名过这个活动", status: dup.status }, 409);
+
+      const approved = regs.filter((r) => r.status === "approved" || r.status === "won").length;
+      if (ev.capacity > 0 && approved >= ev.capacity) return json(request, { error: "名额已满" }, 400);
+
+      const entry = {
+        id: newId(),
+        sid,
+        handle,
+        name,
+        email: identity.user.email || "",
+        note,
+        status: ev.registrationMode === "approval" ? "pending" : "approved",
+        at: new Date(now).toISOString(),
+        reviewedBy: "",
+        reviewedAt: "",
+      };
+      const next = [...regs, entry];
+      await kvPutJSON(env, eventRegsKey(ev.id), next);
+      const used = next.filter((r) => r.status === "approved" || r.status === "won").length;
+      await eventIndexUpdate(env, ev.id, { used, regCount: next.filter((r) => r.status !== "cancelled").length });
+      return json(request, { ok: true, status: entry.status, id: entry.id, message: entry.status === "pending" ? "已提交，等待主办方确认" : "报名成功" });
+    }
+
+    /* ---------- 活动：取消报名 ---------- */
+    const evCancel = url.pathname.match(/^\/events\/([^/]+)\/cancel$/);
+    if (evCancel && request.method === "POST") {
+      const ev = await findEvent(env, evCancel[1]);
+      if (!ev) return json(request, { error: "活动不存在或已删除" }, 404);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const sid = identity.login;
+      const regs = (await kvGetJSON(env, eventRegsKey(ev.id), [])) || [];
+      const idx = regs.findIndex((r) => r && r.sid === sid && r.status !== "cancelled");
+      if (idx < 0) return json(request, { error: "你没有报名这个活动" }, 404);
+      const next = regs.map((r, i) => (i === idx ? { ...r, status: "cancelled", reviewedAt: new Date().toISOString() } : r));
+      await kvPutJSON(env, eventRegsKey(ev.id), next);
+      const used = next.filter((r) => r.status === "approved" || r.status === "won").length;
+      await eventIndexUpdate(env, ev.id, { used, regCount: next.filter((r) => r.status !== "cancelled").length });
+      return json(request, { ok: true, message: "已取消报名，名额已释放" });
+    }
+
+    /* ---------- 活动：报名名单（主办方 / 管理员） ---------- */
+    const evRegs = url.pathname.match(/^\/events\/([^/]+)\/registrations$/);
+    if (evRegs && request.method === "GET") {
+      const ev = await findEvent(env, evRegs[1]);
+      if (!ev) return json(request, { error: "活动不存在或已删除" }, 404);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const admin = isAdminLogin(env, identity.login);
+      if (ev.owner !== identity.login && !admin) return json(request, { error: "只有主办方可以查看报名名单" }, 403);
+      const regs = (await kvGetJSON(env, eventRegsKey(ev.id), [])) || [];
+      return json(request, {
+        ok: true,
+        event: { id: ev.id, title: ev.title, slug: ev.slug, capacity: ev.capacity, registrationMode: ev.registrationMode },
+        registrations: regs.filter((r) => r.status !== "cancelled"),
+      });
+    }
+
+    /* ---------- 活动：审核某条报名（主办方 / 管理员） ---------- */
+    const evRegReview = url.pathname.match(/^\/events\/([^/]+)\/registrations\/([^/]+)$/);
+    if (evRegReview && request.method === "POST") {
+      const ev = await findEvent(env, evRegReview[1]);
+      if (!ev) return json(request, { error: "活动不存在或已删除" }, 404);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const admin = isAdminLogin(env, identity.login);
+      if (ev.owner !== identity.login && !admin) return json(request, { error: "只有主办方可以审核报名" }, 403);
+      let body = {};
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const action = String(body.action || "");
+      if (!["approve", "reject"].includes(action)) return json(request, { error: "动作不合法" }, 400);
+
+      const regs = (await kvGetJSON(env, eventRegsKey(ev.id), [])) || [];
+      const target = regs.find((r) => r && r.id === evRegReview[2]);
+      if (!target) return json(request, { error: "这条报名不存在" }, 404);
+      if (action === "approve") {
+        const approved = regs.filter((r) => r.status === "approved" || r.status === "won").length;
+        if (ev.capacity > 0 && approved >= ev.capacity && target.status !== "approved") {
+          return json(request, { error: "名额已满，无法再通过" }, 400);
+        }
+      }
+      const status = action === "approve" ? "approved" : "rejected";
+      const next = regs.map((r) =>
+        r.id === target.id ? { ...r, status, reviewedBy: identity.login, reviewedAt: new Date().toISOString() } : r,
+      );
+      await kvPutJSON(env, eventRegsKey(ev.id), next);
+      const used = next.filter((r) => r.status === "approved" || r.status === "won").length;
+      await eventIndexUpdate(env, ev.id, { used, regCount: next.filter((r) => r.status !== "cancelled").length });
+      return json(request, { ok: true, status, message: action === "approve" ? "已通过" : "已拒绝" });
+    }
+
+    /* ---------- 活动：发布结果（主办方 / 管理员） ---------- */
+    const evResult = url.pathname.match(/^\/events\/([^/]+)\/result$/);
+    if (evResult && request.method === "POST") {
+      const ev = await findEvent(env, evResult[1]);
+      if (!ev) return json(request, { error: "活动不存在或已删除" }, 404);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const admin = isAdminLogin(env, identity.login);
+      if (ev.owner !== identity.login && !admin) return json(request, { error: "只有主办方可以发布结果" }, 403);
+      if (eventState(ev) !== "ended") return json(request, { error: "活动结束后才能发布结果" }, 400);
+
+      let body = {};
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const summary = String(body.summary || "").trim().slice(0, 2000);
+      if (!summary) return json(request, { error: "请填写结果说明" }, 400);
+      const winnerIds = Array.isArray(body.winners) ? body.winners.map(String).slice(0, 200) : [];
+
+      const regs = (await kvGetJSON(env, eventRegsKey(ev.id), [])) || [];
+      const next = regs.map((r) => (winnerIds.includes(r.id) ? { ...r, status: "won" } : r));
+      await kvPutJSON(env, eventRegsKey(ev.id), next);
+      const winners = next
+        .filter((r) => r.status === "won")
+        .map((r) => ({ id: r.id, name: r.name, handle: r.handle }));
+      const result = { summary, winners, publishedAt: new Date().toISOString() };
+      const updated = { ...ev, result, updatedAt: new Date().toISOString() };
+      await kvPutJSON(env, eventKey(ev.id), updated);
+      return json(request, { ok: true, result, message: "结果已发布" });
+    }
+
+    /* ---------- 活动：后台审核队列 ---------- */
+    if (url.pathname === "/admin/events" && request.method === "GET") {
+      const auth = await requireAdmin(request, env);
+      if (auth.error) return auth.error;
+      const all = (await kvGetJSON(env, EVENTS_KEY, [])) || [];
+      const now = Date.now();
+      const events = all
+        .filter(Boolean)
+        .map((e) => ({ ...eventIndexEntry(e), state: eventState(e, now) }))
+        .sort((a, b) => {
+          const pa = a.status === "pending" ? 0 : 1;
+          const pb = b.status === "pending" ? 0 : 1;
+          return pa - pb || (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0);
+        });
+      return json(request, {
+        ok: true,
+        total: events.length,
+        pending: events.filter((e) => e.status === "pending").length,
+        events,
+      });
+    }
+
+    const evReview = url.pathname.match(/^\/admin\/events\/([^/]+)\/review$/);
+    if (evReview && request.method === "POST") {
+      const auth = await requireAdmin(request, env);
+      if (auth.error) return auth.error;
+      const ev = await findEvent(env, evReview[1]);
+      if (!ev) return json(request, { error: "活动不存在或已删除" }, 404);
+      let body = {};
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const action = String(body.action || "");
+      if (!["approve", "reject", "offline"].includes(action)) return json(request, { error: "动作不合法" }, 400);
+      const nowIso = new Date().toISOString();
+
+      let patch;
+      if (action === "approve") {
+        patch = { status: "published", reviewStatus: "approved", reviewReason: "", reviewedBy: auth.identity.login, reviewedAt: nowIso, updatedAt: nowIso };
+      } else if (action === "reject") {
+        const reason = String(body.reason || "").trim().slice(0, 300);
+        if (!reason) return json(request, { error: "驳回需要填写理由" }, 400);
+        patch = { status: "rejected", reviewStatus: "rejected", reviewReason: reason, reviewedBy: auth.identity.login, reviewedAt: nowIso, updatedAt: nowIso };
+      } else {
+        patch = { status: "offline", updatedAt: nowIso };
+      }
+      const next = { ...ev, ...patch };
+      await kvPutJSON(env, eventKey(ev.id), next);
+      await eventIndexUpdate(env, ev.id, eventIndexEntry(next));
+      return json(request, { ok: true, status: next.status, message: action === "approve" ? "已通过并发布" : action === "reject" ? "已驳回" : "已下架" });
     }
 
     /* ---------- 广告位（积分购买） ----------

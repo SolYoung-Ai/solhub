@@ -1,0 +1,15 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import MyEvents from "@/islands/MyEvents.tsx";
+
+const locale = "en" as const;
+---
+
+<BaseLayout
+  title="My events · SolHub"
+  description="Events you created and events you joined."
+  route="/events/mine/"
+  locale={locale}
+>
+  <MyEvents client:load locale={locale} />
+</BaseLayout>

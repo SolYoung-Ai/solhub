@@ -1,0 +1,16 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import AdminEvents from "@/islands/AdminEvents.tsx";
+
+const locale = "zh" as const;
+---
+
+<BaseLayout
+  title="活动审核 · SolHub"
+  description="活动审核队列：通过、驳回、下架。"
+  route="/guanli/events/"
+  locale={locale}
+  noEn
+>
+  <AdminEvents client:load locale={locale} />
+</BaseLayout>
