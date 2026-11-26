@@ -213,8 +213,8 @@ export default function MySponsors({ locale = "zh" }: Props) {
           <p className="mt-3 text-[14px] font-semibold text-foreground">{en ? "No slots yet" : "还没有赞助位"}</p>
           <p className="mx-auto mt-1 max-w-sm text-[12.5px] leading-6 text-muted-foreground">
             {en
-              ? `Buy a slot for ${data.price} points and your product shows in the rail on Products, Hot and Creators.`
-              : `${data.price} 积分可以买一周，产品会出现在「产品 / 热点 / 创作者」三个页面的右栏。`}
+              ? `Buy a slot for ${data.price} points and your product shows in the rail across the whole site.`
+              : `${data.price} 积分可以买一周，产品会出现在全站各页面的右栏。`}
           </p>
           <a href={p("/ads/", locale)} className="btn btn-accent mt-5 !h-10 gap-1.5 px-5 text-sm">
             {en ? "Buy a slot" : "去购买赞助位"}

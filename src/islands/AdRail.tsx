@@ -5,7 +5,7 @@ import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 
 /**
- * 右栏赞助位（发现 / 产品 / 热点 / 创作者 共用）
+ * 右栏赞助位（全站带右栏的页面共用：产品 / 热点 / 活动 / 创作者）
  *
  * 只做展示：读 /ads/active，把当前在投的广告渲染成卡片；下面跟一张
  * 「你的产品在这里」的招商卡，点了去 /ads/ 用积分买。
@@ -110,8 +110,8 @@ export default function AdRail({ locale = "zh" }: { locale?: Locale }) {
           </p>
           <p className="mt-1 text-[11px] leading-[1.5] text-muted-foreground">
             {en
-              ? `${price} points per ${days} days · shown on Products, Hot and Creators.`
-              : `每周 ${price} 积分 · 产品 / 热点 / 创作者 三个页面同时展示。`}
+              ? `${price} points per ${days} days · shown across the whole site.`
+              : `每周 ${price} 积分 · 全站赞助位同时展示。`}
 
           </p>
           <span className="mt-2 inline-flex items-center gap-0.5 text-[11px] text-accent">

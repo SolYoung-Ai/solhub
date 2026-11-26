@@ -14,8 +14,8 @@ const en = locale === "en";
   title={en ? "Ad slots · SolHub" : "广告位 · SolHub"}
   description={
     en
-      ? "Put your product in SolHub's right-hand rail on Products, Hot and Creators — 300 points per week, paid from your wallet."
-      : "用积分把产品放上 SolHub 右栏：产品、热点、创作者三个页面同时展示，每周 300 积分。"
+      ? "Put your product in SolHub's right-hand rail across the whole site — 300 points per week, paid from your wallet."
+      : "用积分把产品放上 SolHub 右栏：全站赞助位同时展示，每周 300 积分。"
   }
   route="/ads/"
   locale={locale}
@@ -28,8 +28,8 @@ const en = locale === "en";
       </h1>
       <p class="mt-1.5 text-[13px] leading-6 text-muted-foreground">
         {en
-          ? "A compact card on Products, Hot and Creators — paid with points, nothing else. Invite creators to earn more."
-          : "产品、热点、创作者三个页面的右栏各一张卡，用积分买，只认积分不认钱；不够就去邀请创作者，双方各得 100。"}
+          ? "One compact card in the rail, shown across the whole site — paid with points, nothing else. Invite creators to earn more."
+          : "全站各页面的右栏各一张卡，用积分买，只认积分不认钱；不够就去邀请创作者，双方各得 100。"}
       </p>
     </header>
     <AdsBuy client:load locale={locale} />
