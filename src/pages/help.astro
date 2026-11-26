@@ -1,0 +1,141 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { p } from "@/lib/paths";
+import { Mail, MessageCircleQuestion, ArrowUpRight } from "lucide-react";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+
+const EMAIL = "solyoungwork@qq.com";
+
+const faqs = [
+  {
+    q: "怎么提交自己的产品？",
+    a: "登录后打开「提交」，填官网链接和一句话介绍。链接能正常打开就会自动收录上线，不用等审核；需要人工确认的会标成待核验。",
+    href: p("/submit/", locale),
+    linkText: "去提交",
+  },
+  {
+    q: "认证徽章（黄V）什么时候点亮？",
+    a: "完成邮箱验证，并且提交过一个产品之后，会自动点亮。两者缺一不可——只验邮箱不提交产品不会有徽章。",
+    href: p("/account/", locale),
+    linkText: "账号信息",
+  },
+  {
+    q: "积分怎么获得？",
+    a: "邀请创作者注册，你和对方各得 100 积分；也可以使用兑换码。积分可以用来购买右侧赞助位。",
+    href: p("/wallet/", locale),
+    linkText: "我的钱包",
+  },
+  {
+    q: "兑换码提示不能用？",
+    a: "先在钱包里检查格式（SHUB-XXXX-XXXX，8 位，字母数字）。如果提示「已被使用」，说明这张码已经被兑换过，一张码只能用一次。确实是新码却用不了，把码发邮件给我，我这边查记录。",
+    href: p("/wallet/", locale),
+    linkText: "去兑换",
+  },
+  {
+    q: "产品信息写错了 / 想下架怎么办？",
+    a: "自己的产品可以在「个人中心」里编辑或删除；如果是别人收录了你的网站、你想改或下线，发邮件说明域名即可，我会处理。",
+    href: p("/my-submissions/", locale),
+    linkText: "个人中心",
+  },
+  {
+    q: "赞助位怎么买？",
+    a: "在产品、热点、创作者页右侧的赞助位下方有「购买这个位置」，每周 300 积分，扣的是钱包余额。只能投放你自己名下的产品。",
+    href: p("/ads/", locale),
+    linkText: "广告位",
+  },
+];
+---
+
+<BaseLayout
+  title={en ? "Help & feedback · SolHub" : "帮助与反馈 · SolHub"}
+  description={
+    en
+      ? "Answers to common questions about submitting products, verification, points and sponsored slots — plus how to reach us."
+      : "关于提交产品、认证徽章、积分与赞助位的常见问题，以及联系方式。"
+  }
+  route="/help/"
+  locale={locale}
+>
+  <div class="container-page max-w-3xl py-10 sm:py-14">
+    <header>
+      <p class="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
+        {en ? "Help" : "支持"}
+      </p>
+      <h1 class="mt-1.5 font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-[30px]">
+        {en ? "Help & feedback" : "帮助与反馈"}
+      </h1>
+      <p class="mt-2 text-[13.5px] leading-7 text-muted-foreground">
+        {en
+          ? "Stuck on something, or found a bug? Email is the fastest way to reach me — I read every message."
+          : "遇到问题、发现 bug，或者有想法，直接发邮件最快——每一封我都会看。"}
+      </p>
+    </header>
+
+    <!-- 联系方式 -->
+    <section class="mt-6 overflow-hidden rounded-[18px] border border-border bg-card">
+      <div class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-start gap-3">
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-accent/10 text-accent">
+            <Mail className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div class="min-w-0">
+            <p class="text-[13.5px] font-semibold text-foreground">{en ? "Email" : "邮件联系"}</p>
+            <a
+              href={`mailto:${EMAIL}?subject=${encodeURIComponent(en ? "SolHub feedback" : "SolHub 反馈")}`}
+              class="mt-0.5 block break-all font-mono text-[13px] text-accent hover:underline"
+            >
+              {EMAIL}
+            </a>
+          </div>
+        </div>
+        <a
+          href={`mailto:${EMAIL}?subject=${encodeURIComponent(en ? "SolHub feedback" : "SolHub 反馈")}`}
+          class="btn btn-accent !h-9 shrink-0 gap-1.5 px-4 text-xs"
+        >
+          {en ? "Send email" : "写邮件"}
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </a>
+      </div>
+      <p class="border-t border-border px-5 py-3 text-[11.5px] leading-5 text-muted-foreground">
+        {en
+          ? "Helpful details: the page URL, what you expected, what happened, and your browser (or phone model). Screenshots welcome."
+          : "写邮件时附上：出问题的页面链接、你期望的结果、实际发生了什么、用的浏览器或手机型号。有截图更好。"}
+      </p>
+    </section>
+
+    <!-- FAQ -->
+    <section class="mt-8">
+      <h2 class="flex items-center gap-2 font-display text-[17px] font-bold text-foreground">
+        <MessageCircleQuestion className="h-4 w-4 text-accent" aria-hidden="true" />
+        {en ? "Common questions" : "常见问题"}
+      </h2>
+      <div class="mt-3 divide-y divide-border overflow-hidden rounded-[18px] border border-border bg-card">
+        {faqs.map((f) => (
+          <details class="group px-5 py-4">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-[13.5px] font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+              {f.q}
+              <span class="text-muted-foreground transition-transform duration-200 group-open:rotate-45">＋</span>
+            </summary>
+            <p class="mt-2 text-[12.5px] leading-6 text-muted-foreground">{f.a}</p>
+            <a href={f.href} class="mt-2 inline-flex items-center gap-0.5 text-[12px] text-accent hover:underline">
+              {f.linkText}
+              <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+            </a>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <p class="mt-6 text-center text-[11.5px] leading-5 text-muted-foreground">
+      {en
+        ? "SolHub is run by one person — replies may take a day or two, but nothing gets ignored."
+        : "SolHub 是一个人维护的项目，回复可能慢一两天，但不会没人管。"}
+    </p>
+  </div>
+</BaseLayout>
