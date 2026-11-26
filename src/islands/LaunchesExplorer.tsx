@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from "react";
-import { AppWindow, ArrowRight, Filter, Globe, LayoutGrid, Search, ShieldCheck, X } from "lucide-react";
+import { AppWindow, ArrowRight, Globe, LayoutGrid, Search, ShieldCheck } from "lucide-react";
 import type { Product } from "@/data/types";
 import { rankProducts } from "@/lib/ranking";
 import { productCategories, productCategoryName } from "@/data/product-categories";
@@ -229,64 +229,58 @@ export default function LaunchesExplorer({ products, locale = "zh" }: Props) {
         </div>
       )}
 
-      {/* 一级筛选：网站 / 工具（工具 = 目录工具 + 站内托管 HTML） */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        {kindTabs.map(({ key, label, count, icon: Icon }) => (
+      {/* 一级筛选：网站 / 工具 —— 与活动页同一套分段控件（灰底 + 白胶囊） */}
+      <div className="seg mb-3 inline-flex flex-wrap items-center gap-1 rounded-[12px] p-1">
+        {kindTabs.map(({ key, label, count }) => (
           <button
             key={key}
             type="button"
             onClick={() => setKind(key)}
             aria-pressed={kind === key}
             className={cx(
-              "inline-flex items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-[13px] font-medium transition-all duration-200 active:scale-[0.97]",
-              kind === key
-                ? "border-foreground bg-foreground text-background"
-                : "border-border bg-card text-foreground/70 hover:border-foreground/40",
+              "inline-flex items-center gap-1.5 rounded-[9px] px-3 py-1.5 text-[12.5px] font-medium transition-colors",
+              kind === key ? "seg-thumb text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
             {label}
-            <span className={cx("text-[11px]", kind === key ? "text-background/70" : "text-muted-foreground")}>{count}</span>
+            <span className={cx("text-[11px] tabular-nums", kind === key ? "text-foreground/55" : "text-muted-foreground/70")}>{count}</span>
           </button>
         ))}
       </div>
 
       {/* 筛选与排序工具条 */}
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <Filter className="h-3.5 w-3.5" aria-hidden="true" />
-            {locale === "en" ? "Category" : "分类"}
-          </span>
-          {/* 二级筛选只放分类本身：不再有「全部」chip —— 上面一级筛选已经有一档「全部」，
-              同一个词出现两次会让人分不清哪一层在生效。清空方式：再点一次当前分类。 */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* 分类：与活动页同一套橙描边胶囊；「全部分类」独立成一档，不再靠"再点取消" */}
+          <button
+            type="button"
+            onClick={() => setCategory("all")}
+            aria-pressed={category === "all"}
+            className={cx(
+              "rounded-full border px-3 py-1 text-[12px] font-medium transition-colors",
+              category === "all"
+                ? "border-accent/40 bg-accent/10 text-accent"
+                : "border-border bg-card text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {locale === "en" ? "All categories" : "全部分类"}
+          </button>
           {categoryChips.map((c) => (
             <button
               key={c}
               type="button"
-              onClick={() => setCategory(category === c ? "all" : c)}
+              onClick={() => setCategory(c)}
               aria-pressed={category === c}
-              title={category === c ? (locale === "en" ? "Click again to clear" : "再点一次取消筛选") : undefined}
               className={cx(
-                "rounded-[6px] border px-2.5 py-1 text-xs font-medium transition-all duration-200 active:scale-[0.97]",
+                "rounded-full border px-3 py-1 text-[12px] font-medium transition-colors",
                 category === c
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border bg-card text-foreground/70 hover:border-foreground/40",
+                  ? "border-accent/40 bg-accent/10 text-accent"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground",
               )}
             >
               {productCategoryNameLocalized(c, productCategoryName(c), locale)}
             </button>
           ))}
-          {category !== "all" && (
-            <button
-              type="button"
-              onClick={() => setCategory("all")}
-              className="inline-flex items-center gap-1 rounded-[6px] px-1.5 py-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-accent hover:underline"
-            >
-              <X className="h-3 w-3" aria-hidden="true" />
-              {locale === "en" ? "Clear" : "清除"}
-            </button>
-          )}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">

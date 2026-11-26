@@ -295,8 +295,9 @@ export default function HotFeed({
         <div
           ref={tabsRef}
           /* min-w-0 是关键：flex 子项的 min-width 默认是内容宽度，六个标签
-             会把容器顶到 445px、整行溢出页面，overflow-x 反而永远没有可滚的距离 */
-          className="-mx-1 flex w-full min-w-0 items-center gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:w-auto sm:flex-1"
+             会把容器顶到 445px、整行溢出页面，overflow-x 反而永远没有可滚的距离。
+             样式与活动页 / 产品页统一：灰底分段 + 白胶囊选中。 */
+          className="seg inline-flex max-w-full min-w-0 items-center gap-1 overflow-x-auto rounded-[12px] p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {TABS.map((t) => {
             /* 搜索时不高亮任何分类：结果是跨分类搜出来的，标一个「全部」会让人以为
@@ -312,14 +313,12 @@ export default function HotFeed({
                   setCat(t.id);
                 }}
                 aria-pressed={active}
-                className={`shrink-0 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition sm:px-3 sm:text-xs ${
-                  active
-                    ? "border-transparent bg-accent text-white"
-                    : "border-border bg-card text-muted-foreground hover:text-foreground"
+                className={`shrink-0 rounded-[9px] px-2.5 py-1.5 text-[11.5px] font-medium transition-colors sm:px-3 sm:text-[12px] ${
+                  active ? "seg-thumb text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {en ? t.en : t.zh}
-                <span className={`ml-1.5 text-[10px] font-normal ${active ? "text-white/70" : "text-muted-foreground/70"}`}>
+                <span className={`ml-1.5 text-[10px] font-normal ${active ? "text-foreground/55" : "text-muted-foreground/70"}`}>
                   {n}
                 </span>
               </button>
