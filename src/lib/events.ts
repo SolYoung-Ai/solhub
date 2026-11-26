@@ -37,6 +37,8 @@ export interface EventCard {
   signupDeadline: string;
   capacity: number;
   registrationMode: "open" | "approval";
+  durationDays?: number;
+  price?: number;
   status: string;
   reviewStatus: string;
   featured: boolean;
@@ -113,6 +115,14 @@ export const EVENT_CATEGORIES = [
   { key: "workshop", zh: "工作坊", en: "Workshop" },
   { key: "contest", zh: "比赛", en: "Contest" },
   { key: "other", zh: "其他", en: "Other" },
+] as const;
+
+/** 活动时长与价格：与 worker/index.js 的 EVENT_DURATIONS 必须一致 */
+export const EVENT_PLANS = [
+  { days: 7, price: 500 },
+  { days: 15, price: 1000 },
+  { days: 30, price: 1800 },
+  { days: 60, price: 3000 },
 ] as const;
 
 export function categoryLabel(key: string, en = false): string {
@@ -220,9 +230,7 @@ export interface EventPayload {
   cover: string;
   category: string;
   tags: string[];
-  startAt: string;
-  endAt: string;
-  signupDeadline: string;
+  durationDays: number;
   audience: string;
   eligibility: EventEligibility;
   capacity: number;
@@ -235,7 +243,7 @@ export interface EventPayload {
 }
 
 export function createEvent(payload: EventPayload) {
-  return call<{ id: string; slug: string; status: string }>("/events", {
+  return call<{ id: string; slug: string; status: string; price: number; balance?: number }>("/events", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

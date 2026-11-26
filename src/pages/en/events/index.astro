@@ -1,6 +1,8 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import Events from "@/islands/Events.tsx";
+import AdRail from "@/islands/AdRail.tsx";
+import { p } from "@/lib/paths";
 
 const locale = "en" as const;
 ---
@@ -11,5 +13,32 @@ const locale = "en" as const;
   route="/events/"
   locale={locale}
 >
-  <Events client:load locale={locale} />
+  <section class="border-b border-border bg-secondary/30 py-6 sm:py-8">
+    <div class="container-page">
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">Events</h1>
+        <span class="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] text-muted-foreground">Official</span>
+        <span class="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] text-muted-foreground">Community</span>
+        <span class="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] text-muted-foreground">Reviewed</span>
+        <a
+          href={p("/events/create/", locale)}
+          class="ml-auto inline-flex h-8 items-center gap-1 rounded-full border border-border bg-card px-3 text-[12px] font-medium text-foreground/80 transition-colors hover:border-foreground/25 hover:text-foreground"
+        >
+          <span class="text-[15px] leading-none">+</span>
+          Create event
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="pt-6 pb-8 sm:pt-8 sm:pb-12">
+    <div class="container-page">
+      <div class="lg:flex lg:items-stretch lg:gap-6">
+        <div class="min-w-0 flex-1">
+          <Events client:load locale={locale} />
+        </div>
+        <AdRail client:idle locale={locale} />
+      </div>
+    </div>
+  </section>
 </BaseLayout>

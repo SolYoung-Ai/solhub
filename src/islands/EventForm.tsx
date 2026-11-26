@@ -3,10 +3,12 @@ import { ArrowLeft, GripVertical, Loader2, Plus, Trash2 } from "lucide-react";
 import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
 import { fetchMe, type AuthUser } from "@/lib/auth";
+import { fetchWallet } from "@/lib/wallet";
 import {
   createEvent,
   editEvent,
   EVENT_CATEGORIES,
+  EVENT_PLANS,
   getEvent,
   type EventField,
   type EventPayload,
@@ -31,13 +33,6 @@ function newFieldKey() {
   return "f" + Math.random().toString(36).slice(2, 7);
 }
 
-function toLocal(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 /**
  * 创建 / 编辑活动。
  * 编辑模式由 ?id= 触发：已发布的活动只锁定时间与名额，其余仍可改。
@@ -58,9 +53,8 @@ export default function EventForm({ locale = "zh" }: { locale?: Locale }) {
   const [cover, setCover] = useState("");
   const [category, setCategory] = useState("other");
   const [tags, setTags] = useState("");
-  const [startAt, setStartAt] = useState("");
-  const [endAt, setEndAt] = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [days, setDays] = useState(7);
+  const [balance, setBalance] = useState<number | null>(null);
   const [capacity, setCapacity] = useState("");
   const [mode, setMode] = useState<"open" | "approval">("open");
   const [location, setLocation] = useState("");
@@ -76,6 +70,9 @@ export default function EventForm({ locale = "zh" }: { locale?: Locale }) {
     setEventId(id);
     void fetchMe().then(async (u) => {
       setUser(u);
+      void fetchWallet().then((r) => {
+        if (r.ok && r.data) setBalance(r.data.balance);
+      });
       if (!id) {
         if (u?.email) setContactEmail(u.email);
         setChecking(false);
@@ -95,9 +92,7 @@ export default function EventForm({ locale = "zh" }: { locale?: Locale }) {
         setCover(e.cover || "");
         setCategory(e.category || "other");
         setTags((e.tags || []).join(", "));
-        setStartAt(toLocal(e.startAt));
-        setEndAt(toLocal(e.endAt));
-        setDeadline(e.signupDeadline ? toLocal(e.signupDeadline) : "");
+        setDays(e.durationDays || 7);
         setCapacity(e.capacity ? String(e.capacity) : "");
         setMode(e.registrationMode);
         setLocation(e.location || "");
@@ -115,15 +110,17 @@ export default function EventForm({ locale = "zh" }: { locale?: Locale }) {
     });
   }, [en]);
 
-  const toIso = (v: string) => (v ? new Date(v).toISOString() : "");
-
   async function submit(asDraft: boolean) {
     setError("");
     if (title.trim().length < 4) return setError(en ? "Title needs at least 4 characters" : "标题至少 4 个字");
-    if (!startAt || !endAt) return setError(en ? "Start and end time are required" : "请填写开始和结束时间");
-    if (new Date(startAt) >= new Date(endAt)) return setError(en ? "End must be after start" : "结束时间必须晚于开始时间");
-    if (deadline && new Date(deadline) > new Date(endAt)) {
-      return setError(en ? "Signup deadline cannot be after the end" : "报名截止不能晚于活动结束");
+    const plan = EVENT_PLANS.find((p) => p.days === days);
+    if (!plan) return setError(en ? "Choose a duration" : "请选择活动时长");
+    if (!eventId && !user?.isAdmin && balance !== null && balance < plan.price) {
+      return setError(
+        en
+          ? `Not enough points: ${plan.price} needed, ${balance} available.`
+          : `积分不够：${plan.days} 天的活动需要 ${plan.price} 积分，当前 ${balance}。`,
+      );
     }
     const bad = fields.find((f) => !f.label.trim());
     if (bad) return setError(en ? "Every form field needs a label" : "每个报名字段都要有名称");
@@ -135,9 +132,7 @@ export default function EventForm({ locale = "zh" }: { locale?: Locale }) {
       cover: cover.trim(),
       category,
       tags: tags.split(/[,，\s]+/).map((t) => t.trim()).filter(Boolean).slice(0, 6),
-      startAt: toIso(startAt),
-      endAt: toIso(endAt),
-      signupDeadline: toIso(deadline),
+      durationDays: days,
       audience: audience.trim(),
       eligibility: { requireEmailVerified: true, requireProduct, customText: customText.trim() },
       capacity: Number(capacity) || 0,
@@ -223,8 +218,8 @@ export default function EventForm({ locale = "zh" }: { locale?: Locale }) {
       {locked && (
         <p className="mt-3 rounded-[8px] bg-amber-400/12 px-3 py-2 text-[12px] leading-5 text-amber-800">
           {en
-            ? "Times, signup deadline, capacity and signup mode are locked because the event is already published."
-            : "活动已发布：时间、报名截止、名额和报名方式已锁定，其余内容可以继续修改。"}
+            ? "Duration, capacity and signup mode are locked because the event is already published."
+            : "活动已发布：时长、名额和报名方式已锁定，其余内容可以继续修改。"}
         </p>
       )}
 
@@ -252,16 +247,54 @@ export default function EventForm({ locale = "zh" }: { locale?: Locale }) {
           </Field>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label={en ? "Starts" : "开始时间"} required>
-            <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} disabled={locked} className={input} />
-          </Field>
-          <Field label={en ? "Ends" : "结束时间"} required>
-            <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} disabled={locked} className={input} />
-          </Field>
-          <Field label={en ? "Signup deadline" : "报名截止"} hint={en ? "Defaults to end" : "留空则同结束时间"}>
-            <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} disabled={locked} className={input} />
-          </Field>
+        {/* 时长即价格：起止日期由系统按审核通过时间生成，用户只选档位 */}
+        <div>
+          <p className="mb-2 flex flex-wrap items-baseline gap-x-2 text-[12px] font-medium text-foreground/80">
+            {en ? "Duration" : "活动时长"}
+            <span className="text-[11px] font-normal text-muted-foreground">
+              {en ? "Starts when approved. Signup closes at the end." : "审核通过后开始计时，报名截止与结束时间一致。"}
+            </span>
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {EVENT_PLANS.map((plan) => {
+              const active = days === plan.days;
+              return (
+                <button
+                  key={plan.days}
+                  type="button"
+                  disabled={locked}
+                  onClick={() => setDays(plan.days)}
+                  className={
+                    active
+                      ? "rounded-[10px] border border-accent bg-accent/8 px-3 py-2.5 text-left disabled:opacity-60"
+                      : "rounded-[10px] border border-border bg-background px-3 py-2.5 text-left transition-colors hover:border-foreground/25 disabled:opacity-60"
+                  }
+                >
+                  <span className="block font-display text-[14px] font-bold text-foreground">
+                    {plan.days} {en ? "days" : "天"}
+                  </span>
+                  <span className={active ? "block text-[11.5px] font-medium text-accent" : "block text-[11.5px] text-muted-foreground"}>
+                    {user?.isAdmin ? (en ? "Free (admin)" : "官方免费") : `${plan.price} ${en ? "pts" : "积分"}`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {!user?.isAdmin && (
+            <p className="mt-2 text-[11.5px] text-muted-foreground">
+              {en ? "Balance " : "当前余额 "}
+              <span className="font-semibold tabular-nums text-foreground">{balance ?? "—"}</span>
+              {en ? " pts" : " 积分"}
+              {balance !== null && balance < (EVENT_PLANS.find((x) => x.days === days)?.price || 0) && (
+                <>
+                  <span className="mx-1.5 opacity-40">·</span>
+                  <a href={p("/wallet/", locale)} className="text-accent hover:underline">
+                    {en ? "Top up in wallet" : "去钱包兑换"}
+                  </a>
+                </>
+              )}
+            </p>
+          )}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

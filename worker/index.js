@@ -1139,6 +1139,9 @@ function newId() {
 const EVENTS_KEY = "events:v1";
 const EVENTS_MAX = 200;
 const EVENT_CATEGORIES = ["recruit", "meetup", "workshop", "contest", "other"];
+/* 活动时长与价格：用户不能自定义起止日期，只能选这四档。
+   时间从「审核通过」那一刻起算，避免排队审核把 7 天的活动吃掉一半。 */
+const EVENT_DURATIONS = { 7: 500, 15: 1000, 30: 1800, 60: 3000 };
 const eventKey = (id) => `event:${id}`;
 const eventRegsKey = (id) => `eventreg:${id}`;
 
@@ -1187,6 +1190,8 @@ function eventIndexEntry(e) {
     signupDeadline: e.signupDeadline,
     capacity: e.capacity,
     registrationMode: e.registrationMode,
+    durationDays: e.durationDays,
+    price: e.price,
     status: e.status,
     reviewStatus: e.reviewStatus,
     featured: e.featured,
@@ -1208,13 +1213,8 @@ function eventInputError(body) {
   const summary = String(body.summary || "").trim();
   if (summary.length > 120) return "一句话简介不能超过 120 个字";
   if (String(body.description || "").length > 8000) return "正文不能超过 8000 个字";
-  const start = eventIso(body.startAt);
-  const end = eventIso(body.endAt);
-  if (!start || !end) return "请填写开始和结束时间";
-  if (start >= end) return "结束时间必须晚于开始时间";
-  const deadline = body.signupDeadline ? eventIso(body.signupDeadline) : end;
-  if (!deadline) return "报名截止时间格式不对";
-  if (deadline > end) return "报名截止不能晚于活动结束";
+  const days = Number(body.durationDays);
+  if (!EVENT_DURATIONS[days]) return "请选择活动时长（7 / 15 / 30 / 60 天）";
   const cat = String(body.category || "other");
   if (!EVENT_CATEGORIES.includes(cat)) return "分类不合法";
   const cap = Number(body.capacity);
@@ -4177,8 +4177,25 @@ export default {
       const name = (u && u.displayName) || identity.user.displayName || handle;
       const id = newId();
       const nowIso = new Date().toISOString();
+      const days = Number(body.durationDays);
       const submit = !!body.submit;
       const cap = Number(body.capacity);
+      const fee = admin ? 0 : EVENT_DURATIONS[days];
+      const startMs = Date.now();
+      const endMs = startMs + days * 24 * 3600 * 1000;
+
+      /* 直接提交审核就先确认余额：避免「活动建好了、扣分失败」留下半成品。
+         草稿不收费，提交审核时再扣（见 submit 分支）。 */
+      if (fee > 0 && submit) {
+        const snap = await walletSnapshot(env, sid);
+        if (snap.balance < fee) {
+          return json(request, {
+            error: `积分不够：${days} 天的活动需要 ${fee} 积分，当前 ${snap.balance}`,
+            balance: snap.balance,
+            need: fee,
+          }, 402);
+        }
+      }
 
       const ev = {
         id,
@@ -4193,9 +4210,12 @@ export default {
         owner: sid,
         ownerHandle: handle,
         ownerName: name,
-        startAt: eventIso(body.startAt),
-        endAt: eventIso(body.endAt),
-        signupDeadline: body.signupDeadline ? eventIso(body.signupDeadline) : eventIso(body.endAt),
+        durationDays: days,
+        price: fee,
+        paidPoints: 0,
+        startAt: new Date(startMs).toISOString(),
+        endAt: new Date(endMs).toISOString(),
+        signupDeadline: new Date(endMs).toISOString(),
         audience: String(body.audience || "").trim().slice(0, 120),
         eligibility: {
           requireEmailVerified: true,
@@ -4221,7 +4241,18 @@ export default {
       };
       await kvPutJSON(env, eventKey(id), ev);
       await kvPutJSON(env, EVENTS_KEY, [eventIndexEntry(ev), ...(Array.isArray(all) ? all : [])]);
-      return json(request, { ok: true, id, slug: ev.slug, status: ev.status });
+
+      if (fee > 0 && submit) {
+        const wallet = await addPoints(env, sid, -fee, {
+          type: "event",
+          note: `发起活动 · ${ev.title}（${days} 天）`,
+          ref: id,
+        });
+        ev.paidPoints = fee;
+        await kvPutJSON(env, eventKey(id), ev);
+        return json(request, { ok: true, id, slug: ev.slug, status: ev.status, price: fee, balance: wallet.balance });
+      }
+      return json(request, { ok: true, id, slug: ev.slug, status: ev.status, price: fee });
     }
 
     /* ---------- 活动：详情（公开；未发布只有主办方/管理员能看） ---------- */
@@ -4299,9 +4330,8 @@ export default {
         if (!locked) {
           patch.category = String(merged.category || "other");
           patch.tags = Array.isArray(merged.tags) ? merged.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 6) : [];
-          patch.startAt = eventIso(merged.startAt);
-          patch.endAt = eventIso(merged.endAt);
-          patch.signupDeadline = merged.signupDeadline ? eventIso(merged.signupDeadline) : patch.endAt;
+          patch.durationDays = Number(merged.durationDays) || ev.durationDays;
+          patch.price = admin ? 0 : EVENT_DURATIONS[patch.durationDays] || ev.price || 0;
           patch.capacity = Number.isFinite(cap) ? Math.max(0, Math.floor(cap)) : 0;
           patch.registrationMode = String(merged.registrationMode || "open");
         } else if (ev.ownerType === "official" && admin && body.featured != null) {
@@ -4317,7 +4347,29 @@ export default {
         if (ev.status !== "draft" && ev.status !== "rejected") {
           return json(request, { error: "只有草稿或被驳回的活动需要提交审核" }, 400);
         }
-        const next = { ...ev, status: "pending", reviewStatus: "pending", reviewReason: "", updatedAt: nowIso };
+        /* 草稿免费，提交审核才收钱；重复提交（驳回后）不再收第二次 */
+        const ownerIsAdmin = isAdminLogin(env, ev.owner);
+        const days = Number(ev.durationDays) || 7;
+        const fee = ownerIsAdmin ? 0 : EVENT_DURATIONS[days] || 0;
+        if (fee > 0 && !(Number(ev.paidPoints) > 0)) {
+          const snap = await walletSnapshot(env, ev.owner);
+          if (snap.balance < fee) {
+            return json(request, { error: `积分不够：${days} 天的活动需要 ${fee} 积分，当前 ${snap.balance}`, balance: snap.balance, need: fee }, 402);
+          }
+          await addPoints(env, ev.owner, -fee, {
+            type: "event",
+            note: `发起活动 · ${ev.title}（${days} 天）`,
+            ref: ev.id,
+          });
+        }
+        const next = {
+          ...ev,
+          paidPoints: fee > 0 ? fee : Number(ev.paidPoints) || 0,
+          status: "pending",
+          reviewStatus: "pending",
+          reviewReason: "",
+          updatedAt: nowIso,
+        };
         await kvPutJSON(env, eventKey(ev.id), next);
         await eventIndexUpdate(env, ev.id, eventIndexEntry(next));
         return json(request, { ok: true, message: "已提交审核，通过后会出现在活动列表" });
@@ -4561,11 +4613,48 @@ export default {
 
       let patch;
       if (action === "approve") {
-        patch = { status: "published", reviewStatus: "approved", reviewReason: "", reviewedBy: auth.identity.login, reviewedAt: nowIso, updatedAt: nowIso };
+        /* 审核通过才开始计时：排队越久越不该吃掉用户的付费时长。
+           提交时若没扣过（历史数据/管理员代提），这里补扣一次。 */
+        const ownerIsAdmin = isAdminLogin(env, ev.owner);
+        const days = Number(ev.durationDays) || 7;
+        const fee = ownerIsAdmin ? 0 : EVENT_DURATIONS[days] || 0;
+        if (fee > 0 && !(Number(ev.paidPoints) > 0)) {
+          const snap = await walletSnapshot(env, ev.owner);
+          if (snap.balance < fee) {
+            return json(request, { error: `发起人积分不足：需要 ${fee}，当前 ${snap.balance}`, balance: snap.balance }, 402);
+          }
+          await addPoints(env, ev.owner, -fee, {
+            type: "event",
+            note: `发起活动 · ${ev.title}（${days} 天）`,
+            ref: ev.id,
+          });
+        }
+        const startMs = Date.now();
+        const endMs = startMs + days * 24 * 3600 * 1000;
+        patch = {
+          status: "published",
+          reviewStatus: "approved",
+          reviewReason: "",
+          reviewedBy: auth.identity.login,
+          reviewedAt: nowIso,
+          updatedAt: nowIso,
+          paidPoints: fee > 0 ? fee : Number(ev.paidPoints) || 0,
+          startAt: new Date(startMs).toISOString(),
+          endAt: new Date(endMs).toISOString(),
+          signupDeadline: new Date(endMs).toISOString(),
+        };
       } else if (action === "reject") {
         const reason = String(body.reason || "").trim().slice(0, 300);
         if (!reason) return json(request, { error: "驳回需要填写理由" }, 400);
-        patch = { status: "rejected", reviewStatus: "rejected", reviewReason: reason, reviewedBy: auth.identity.login, reviewedAt: nowIso, updatedAt: nowIso };
+        /* 驳回退全款：审核没通过不该消耗用户的积分 */
+        if (Number(ev.paidPoints) > 0) {
+          await addPoints(env, ev.owner, Number(ev.paidPoints), {
+            type: "event_refund",
+            note: `活动未通过审核，退还积分 · ${ev.title}`,
+            ref: ev.id,
+          });
+        }
+        patch = { status: "rejected", reviewStatus: "rejected", reviewReason: reason, reviewedBy: auth.identity.login, reviewedAt: nowIso, updatedAt: nowIso, paidPoints: 0 };
       } else {
         patch = { status: "offline", updatedAt: nowIso };
       }

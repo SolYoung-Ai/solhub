@@ -66,27 +66,7 @@ export default function Events({ locale = "zh" }: { locale?: Locale }) {
   );
 
   return (
-    <div className="container-page py-8 sm:py-10">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">
-            {en ? "Events" : "活动"}
-          </p>
-          <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-foreground">
-            {en ? "Events & open calls" : "活动与招募"}
-          </h1>
-          <p className="mt-1.5 max-w-xl text-[13px] leading-6 text-muted-foreground">
-            {en
-              ? "Official open calls, meetups and workshops — or start one of your own."
-              : "官方招募、线下聚会、工作坊与比赛。也可以自己发起一场，审核通过后公开。"}
-          </p>
-        </div>
-        <a href={p("/events/create/", locale)} className="btn !h-9 shrink-0 px-4 text-xs">
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          {en ? "Create event" : "发起活动"}
-        </a>
-      </header>
-
+    <div>
       <div className="mb-5 flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="seg flex gap-1 rounded-[12px] p-1" role="tablist" aria-label={en ? "Event state" : "活动状态"}>
@@ -99,28 +79,6 @@ export default function Events({ locale = "zh" }: { locale?: Locale }) {
                 onClick={() => setState(s.key)}
                 className={
                   state === s.key
-                    ? "seg-thumb rounded-[9px] px-3 py-1.5 text-[12.5px] font-medium text-foreground"
-                    : "rounded-[9px] px-3 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"
-                }
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-          <div className="seg flex gap-1 rounded-[12px] p-1" role="tablist" aria-label={en ? "Owner" : "主办方"}>
-            {[
-              { key: "all", label: en ? "All" : "全部" },
-              { key: "official", label: en ? "Official" : "官方" },
-              { key: "user", label: en ? "Community" : "用户" },
-            ].map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                role="tab"
-                aria-selected={type === s.key}
-                onClick={() => setType(s.key)}
-                className={
-                  type === s.key
                     ? "seg-thumb rounded-[9px] px-3 py-1.5 text-[12.5px] font-medium text-foreground"
                     : "rounded-[9px] px-3 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"
                 }
@@ -184,7 +142,7 @@ export default function Events({ locale = "zh" }: { locale?: Locale }) {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             {items.map((e) => (
               <EventCardView key={e.id} event={e} locale={locale} />
             ))}

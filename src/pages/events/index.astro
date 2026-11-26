@@ -1,6 +1,8 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import Events from "@/islands/Events.tsx";
+import AdRail from "@/islands/AdRail.tsx";
+import { p } from "@/lib/paths";
 
 const locale = "zh" as const;
 ---
@@ -11,5 +13,33 @@ const locale = "zh" as const;
   route="/events/"
   locale={locale}
 >
-  <Events client:load locale={locale} />
+  {/* 与 /launches/、/hot/ 同一套页头：标题 + 胶囊 + 底部分界线 */}
+  <section class="border-b border-border bg-secondary/30 py-6 sm:py-8">
+    <div class="container-page">
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="font-display text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">活动</h1>
+        <span class="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] text-muted-foreground">官方招募</span>
+        <span class="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] text-muted-foreground">用户发起</span>
+        <span class="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] text-muted-foreground">报名审核</span>
+        <a
+          href={p("/events/create/", locale)}
+          class="ml-auto inline-flex h-8 items-center gap-1 rounded-full border border-border bg-card px-3 text-[12px] font-medium text-foreground/80 transition-colors hover:border-foreground/25 hover:text-foreground"
+        >
+          <span class="text-[15px] leading-none">+</span>
+          发起活动
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="pt-6 pb-8 sm:pt-8 sm:pb-12">
+    <div class="container-page">
+      <div class="lg:flex lg:items-stretch lg:gap-6">
+        <div class="min-w-0 flex-1">
+          <Events client:load locale={locale} />
+        </div>
+        <AdRail client:idle locale={locale} />
+      </div>
+    </div>
+  </section>
 </BaseLayout>
