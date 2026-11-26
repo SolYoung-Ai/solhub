@@ -27,6 +27,7 @@ const FIELD_TYPES: { value: EventField["type"]; label: string }[] = [
   { value: "email", label: "邮箱" },
   { value: "tel", label: "电话" },
   { value: "number", label: "数字" },
+  { value: "product", label: "选择产品" },
 ];
 
 function newFieldKey() {

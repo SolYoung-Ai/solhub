@@ -1225,7 +1225,7 @@ function eventInputError(body) {
 }
 
 /** 报名表单字段：发起者可自定义 1–8 项，key 用于报名记录取值，必须稳定 */
-const EVENT_FIELD_TYPES = ["text", "textarea", "url", "email", "tel", "number"];
+const EVENT_FIELD_TYPES = ["text", "textarea", "url", "email", "tel", "number", "product"];
 function cleanFormFields(input) {
   if (!Array.isArray(input)) return [];
   return input
@@ -3439,6 +3439,29 @@ export default {
 
       }
 
+      /* 累计提交满 10 个产品，一次性奖励 500 积分（幂等：一个账号只发一次）。
+         口径 = 社区提交 + 官方目录里登记为自己的产品，去重前先合并。 */
+      let milestoneGranted = false;
+      try {
+        if (identity.type === "email") {
+          const idxAll = await readProductIndex(env);
+          const ownedSlugs = new Set([
+            ...community.filter((p) => p && p.submittedBy === who.login).map((p) => p.slug),
+            ...idxAll.filter((p) => p && p.developerLogin === who.login).map((p) => p.slug),
+          ]);
+          const rewardKey = `reward:products10:${identity.login}`;
+          if (ownedSlugs.size >= 10 && !(await env.PROFILES.get(rewardKey))) {
+            await env.PROFILES.put(rewardKey, new Date().toISOString());
+            await addPoints(env, identity.login, 500, {
+              type: "milestone",
+              note: `累计提交满 10 个产品 · 奖励 500 积分`,
+              ref: "products10",
+            });
+            milestoneGranted = true;
+          }
+        }
+      } catch { /* 奖励发放失败不影响提交结果 */ }
+
       /* 尽力同步到仓库（供静态站构建期目录；PAT 缺失或失败不影响提交结果） */
       const synced = await syncCommunityToRepo(env, community, `community: add ${name} by @${who.login}`);
       /* 官方账号自动播报新品（后台执行，不影响提交结果） */
@@ -3449,9 +3472,12 @@ export default {
         product: newProduct,
         synced,
         verifiedGranted,
-        message: verifiedGranted
-          ? "链接检测通过，产品已收录上线；你的认证徽章也已自动点亮"
-          : "链接检测通过，产品已自动收录上线",
+        milestoneGranted,
+        message: milestoneGranted
+          ? "链接检测通过，产品已收录；累计满 10 个产品，500 积分已到账"
+          : verifiedGranted
+            ? "链接检测通过，产品已收录上线；你的认证徽章也已自动点亮"
+            : "链接检测通过，产品已自动收录上线",
       });
     }
 
@@ -4280,6 +4306,7 @@ export default {
           pendingCount: canManage ? regs.filter((r) => r.status === "pending").length : undefined,
         },
         canManage,
+        authenticated: !!identity,
         myRegistration: mine
           ? { id: mine.id, status: mine.status, at: mine.at, note: mine.note || "" }
           : null,
@@ -4416,13 +4443,18 @@ export default {
 
       const elig = ev.eligibility || {};
       const [community, index] = await Promise.all([readCommunity(env), readProductIndex(env)]);
-      const ownedProducts = [
-        ...community.filter((p) => p && p.submittedBy === handle).map((p) => ({ slug: p.slug, name: p.name })),
-        ...index.filter((p) => p && p.developerLogin === handle).map((p) => ({ slug: p.slug, name: p.name })),
-      ].slice(0, 3);
-      if (elig.requireProduct && ownedProducts.length === 0) {
+      const ownedMap = new Map();
+      community
+        .filter((p) => p && p.submittedBy === handle)
+        .forEach((p) => ownedMap.set(p.slug, { slug: p.slug, name: p.name }));
+      index
+        .filter((p) => p && p.developerLogin === handle)
+        .forEach((p) => ownedMap.set(p.slug, { slug: p.slug, name: p.name }));
+      const allOwned = [...ownedMap.values()];
+      if (elig.requireProduct && allOwned.length === 0) {
         return json(request, { error: "参加这个活动需要先上传一个产品" }, 403);
       }
+      const ownedProducts = allOwned.slice(0, 3);
 
       let body = {};
       try { body = await request.json(); } catch { body = {}; }
@@ -4431,8 +4463,19 @@ export default {
       const fields = Array.isArray(ev.formFields) ? ev.formFields : [];
       const rawAnswers = body.answers && typeof body.answers === "object" ? body.answers : {};
       const answers = {};
+      const answerMeta = {};
       for (const f of fields) {
         let v = String(rawAnswers[f.key] == null ? "" : rawAnswers[f.key]).trim().slice(0, 2000);
+        if (f.type === "product") {
+          /* 只接受「自己名下、已提交」的产品 slug：不让任何人拿别人的作品报名 */
+          const hit = v ? allOwned.find((p) => p.slug === v) : null;
+          if (v && !hit) return json(request, { error: "请从你已提交的产品里选择" }, 400);
+          if (f.required && !hit) return json(request, { error: `请选择「${f.label}」` }, 400);
+          if (hit) {
+            answerMeta[f.key] = { slug: hit.slug, name: hit.name };
+            v = hit.name;
+          }
+        }
         if (v && f.type === "url" && !/^https?:\/\//i.test(v)) v = `https://${v.replace(/^\/+/, "")}`;
         if (v && f.type === "email" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) {
           return json(request, { error: `「${f.label}」不是有效邮箱` }, 400);
@@ -4466,6 +4509,7 @@ export default {
         products: ownedProducts,
         note,
         answers,
+        answerMeta,
         status: ev.registrationMode === "approval" ? "pending" : "approved",
         at: new Date(now).toISOString(),
         reviewedBy: "",

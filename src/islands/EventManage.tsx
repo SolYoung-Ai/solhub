@@ -297,7 +297,16 @@ export default function EventManage({ locale = "zh" }: { locale?: Locale }) {
                               return (
                                 <div key={f.key}>
                                   <p className="text-[11px] font-medium text-muted-foreground">{f.label}</p>
-                                  {f.type === "url" ? (
+                                  {f.type === "product" && r.answerMeta?.[f.key] ? (
+                                    <a
+                                      href={p(`/products/${r.answerMeta[f.key].slug}/`, locale)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-[12px] text-accent hover:underline"
+                                    >
+                                      {r.answerMeta[f.key].name}
+                                    </a>
+                                  ) : f.type === "url" ? (
                                     <a href={v} target="_blank" rel="noreferrer" className="break-all text-[12px] text-accent hover:underline">
                                       {v}
                                     </a>

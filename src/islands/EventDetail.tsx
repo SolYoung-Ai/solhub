@@ -16,6 +16,7 @@ import {
   cancelRegistration,
   categoryLabel,
   getEvent,
+  myProducts,
   rangeText,
   registerEvent,
   regStatusLabel,
@@ -31,10 +32,23 @@ import {
  * 报名成功后不重新拉详情（KV 最终一致），直接用返回的 status 更新本地按钮。
  */
 /**
- * 极简 Markdown：只认 `## 小标题` 与 `- 列表`，其余按段落。
+ * 极简 Markdown：`## 小标题`、`- 列表`、行内 `**加粗**`，其余按段落。
  * 不引 markdown 库、也不 dangerouslySetInnerHTML —— 活动正文是用户输入，
  * 走 React 元素渲染可以从根上避开 XSS。
  */
+function inlineBold(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") && part.length > 4 ? (
+      <strong key={i} className="font-semibold text-foreground">
+        {part.slice(2, -2)}
+      </strong>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
+  );
+}
+
 function RichText({ text }: { text: string }) {
   const blocks = String(text).split(/\n{2,}/);
   return (
@@ -53,14 +67,14 @@ function RichText({ text }: { text: string }) {
           return (
             <ul key={i} className="mt-2 list-disc space-y-1.5 pl-5">
               {lines.map((l, j) => (
-                <li key={j}>{l.replace(/^[-•]\s+/, "")}</li>
+                <li key={j}>{inlineBold(l.replace(/^[-•]\s+/, ""))}</li>
               ))}
             </ul>
           );
         }
         return (
           <p key={i} className="mt-3">
-            {lines.join(" ")}
+            {inlineBold(lines.join(" "))}
           </p>
         );
       })}
@@ -80,6 +94,8 @@ export default function EventDetail({ locale = "zh" }: { locale?: Locale }) {
   const [message, setMessage] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [needVerify, setNeedVerify] = useState(false);
+  const [products, setProducts] = useState<{ slug: string; name: string }[]>([]);
+  const [authed, setAuthed] = useState(false);
 
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
@@ -99,6 +115,13 @@ export default function EventDetail({ locale = "zh" }: { locale?: Locale }) {
         setReg(res.data.myRegistration);
         setCanManage(res.data.canManage);
         document.title = `${res.data.event.title} · SolHub`;
+        setAuthed(!!res.data.authenticated);
+        /* 报名表单里有「选择产品」时，才去拉自己名下的产品列表 */
+        if (res.data.authenticated && (res.data.event.formFields || []).some((f) => f.type === "product")) {
+          void myProducts().then((r) => {
+            if (alive && r.ok && r.data) setProducts(r.data.products || []);
+          });
+        }
       }
       setLoading(false);
     });
@@ -375,6 +398,40 @@ export default function EventDetail({ locale = "zh" }: { locale?: Locale }) {
                         placeholder={f.placeholder || ""}
                         className="w-full resize-y rounded-[8px] border border-border bg-background px-2.5 py-2 text-[12.5px] leading-5 text-foreground outline-none placeholder:text-muted-foreground focus:border-accent/60"
                       />
+                    ) : f.type === "product" ? (
+                      !authed ? (
+                        <p className="rounded-[8px] bg-secondary px-2.5 py-2 text-[11.5px] leading-5 text-muted-foreground">
+                          {en ? "Log in to pick one of your submitted products." : "登录后可以从你已提交的产品里选择。"}
+                        </p>
+                      ) : (
+                        <div>
+                          <select
+                            value={answers[f.key] || ""}
+                            onChange={(e) => setAnswers((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                            disabled={products.length === 0}
+                            className="h-9 w-full rounded-[8px] border border-border bg-background px-2.5 text-[12.5px] text-foreground outline-none focus:border-accent/60 disabled:opacity-60"
+                          >
+                            <option value="">{en ? "Select one of your products" : "选择你已提交的产品"}</option>
+                            {products.map((pr) => (
+                              <option key={pr.slug} value={pr.slug}>
+                                {pr.name}
+                              </option>
+                            ))}
+                          </select>
+                          {products.length === 0 && (
+                            <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                              {en ? "No product submitted yet. " : "你还没有提交产品，"}
+                              <a
+                                href={p("/submit/", locale)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-accent hover:underline"
+                              >
+                                {en ? "Submit one first" : "先去提交"}
+                              </a>
+                            </p>
+                          )}
+                        </div>
+                      )
                     ) : (
                       <input
                         type={f.type === "url" ? "url" : f.type === "email" ? "email" : f.type === "number" ? "number" : f.type === "tel" ? "tel" : "text"}

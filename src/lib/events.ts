@@ -60,7 +60,7 @@ export interface EventEligibility {
 export interface EventField {
   key: string;
   label: string;
-  type: "text" | "textarea" | "url" | "email" | "tel" | "number";
+  type: "text" | "textarea" | "url" | "email" | "tel" | "number" | "product";
   required: boolean;
   placeholder?: string;
 }
@@ -105,6 +105,8 @@ export interface RegistrationRecord {
   products?: { slug: string; name: string }[];
   note: string;
   answers?: Record<string, string>;
+  /** product 类型字段的解析结果：显示产品名并链到详情页 */
+  answerMeta?: Record<string, { slug: string; name: string }>;
   status: RegistrationStatus;
   at: string;
 }
@@ -218,7 +220,7 @@ export function listEvents(params: {
 }
 
 export function getEvent(slug: string) {
-  return call<{ event: EventDetailData; canManage: boolean; myRegistration: MyRegistration | null }>(
+  return call<{ event: EventDetailData; canManage: boolean; authenticated?: boolean; myRegistration: MyRegistration | null }>(
     `/events/${encodeURIComponent(slug)}`,
   );
 }
@@ -316,4 +318,9 @@ export function publishEventResult(id: string, summary: string, winners: string[
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ summary, winners }),
   });
+}
+
+/** 报名表单里「选择产品」用：只返回自己名下的产品 */
+export function myProducts() {
+  return call<{ products: { slug: string; name: string; icon?: string }[] }>("/my-products");
 }
