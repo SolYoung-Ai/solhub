@@ -59,7 +59,7 @@ export default function AdRail({ locale = "zh" }: { locale?: Locale }) {
   return (
     <aside className="hidden w-[240px] shrink-0 self-stretch lg:block" aria-label={en ? "Sponsored" : "赞助位"}>
       {/* 与主页面互不影响的独立滚动区：滚这一栏不会带动页面，滚页面也不会带动它 */}
-      <div className="sticky top-4 flex max-h-[calc(100dvh-2rem)] flex-col gap-3 overflow-y-auto overscroll-contain pb-2 pr-0.5 [scrollbar-width:thin]">
+      <div className="sticky top-4 flex h-fit max-h-[calc(100dvh-2rem)] flex-col gap-3 overflow-y-auto overscroll-contain pb-2 pr-0.5 [scrollbar-width:thin]">
         {ads.map((ad) => (
           <div key={ad.id} className="overflow-hidden rounded-[16px] border border-border bg-card">
             <div className="px-3.5 pt-3.5">
