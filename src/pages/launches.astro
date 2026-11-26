@@ -43,7 +43,10 @@ const metaDesc = en
     </div>
   </section>
 
-  <section class="py-8 sm:py-12">
+  {/* 分界线下方留白与 /hot/ 对齐：热点页这里是 py-6 sm:py-8，
+      产品页原来多出 8px/16px，导致同一条线上下的呼吸感不一致。
+      只收顶部，底部仍保留 py-8/py-12 与下方广告位隔开。 */}
+  <section class="pt-6 pb-8 sm:pt-8 sm:pb-12">
     <div class="container-page">
       <div class="lg:flex lg:items-stretch lg:gap-6">
         <div class="min-w-0 flex-1">
