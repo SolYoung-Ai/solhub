@@ -54,6 +54,15 @@ export interface EventEligibility {
   customText?: string;
 }
 
+/** 报名表单字段：发起者自定义，key 由前端生成、后端校验，用于 answers 取值 */
+export interface EventField {
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "url" | "email" | "tel" | "number";
+  required: boolean;
+  placeholder?: string;
+}
+
 export interface EventResult {
   summary: string;
   winners: { id: string; name: string; handle: string }[];
@@ -64,6 +73,7 @@ export interface EventDetailData extends EventCard {
   description: string;
   audience: string;
   eligibility: EventEligibility;
+  formFields?: EventField[];
   location: string;
   contactEmail: string;
   reviewReason: string;
@@ -85,7 +95,14 @@ export interface RegistrationRecord {
   handle: string;
   name: string;
   email: string;
+  /** 报名时已通过邮箱验证（后端强制，恒为 true） */
+  emailVerified?: boolean;
+  avatar?: string;
+  bio?: string;
+  website?: string;
+  products?: { slug: string; name: string }[];
   note: string;
+  answers?: Record<string, string>;
   status: RegistrationStatus;
   at: string;
 }
@@ -210,6 +227,7 @@ export interface EventPayload {
   eligibility: EventEligibility;
   capacity: number;
   registrationMode: "open" | "approval";
+  formFields?: EventField[];
   location: string;
   contactEmail: string;
   submit?: boolean;
@@ -240,13 +258,13 @@ export function eventAction(id: string, action: "submit" | "offline" | "restore"
   });
 }
 
-export function registerEvent(id: string, note = "") {
+export function registerEvent(id: string, answers: Record<string, string> = {}) {
   return call<{ status: RegistrationStatus; message: string }>(
     `/events/${encodeURIComponent(id)}/register`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ note }),
+      body: JSON.stringify({ answers }),
     },
   );
 }

@@ -78,8 +78,8 @@ export default function EventDetail({ locale = "zh" }: { locale?: Locale }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [note, setNote] = useState("");
-  const [showNote, setShowNote] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [needVerify, setNeedVerify] = useState(false);
 
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
@@ -109,25 +109,31 @@ export default function EventDetail({ locale = "zh" }: { locale?: Locale }) {
 
   async function onRegister() {
     if (!event) return;
-    if (!reg && event.registrationMode === "approval" && !showNote) {
-      setShowNote(true);
+    const fields = event.formFields || [];
+    const missing = fields.find((f) => f.required && !String(answers[f.key] || "").trim());
+    if (missing) {
+      setMessage(en ? `Please fill in “${missing.label}”` : `请填写「${missing.label}」`);
       return;
     }
     setBusy(true);
     setMessage("");
-    const res = await registerEvent(event.id, note);
+    setNeedVerify(false);
+    const res = await registerEvent(event.id, answers);
     setBusy(false);
     if (!res.ok) {
       if (res.status === 401) {
         window.location.href = p("/login/", locale);
         return;
       }
-      setMessage(res.error || "报名失败");
+      if (res.status === 403 && /邮箱/.test(res.error || "")) {
+        setNeedVerify(true);
+      }
+      setMessage(res.error || (en ? "Signup failed" : "报名失败"));
       return;
     }
     const status = res.data?.status || "approved";
-    setReg({ id: "", status, at: new Date().toISOString(), note });
-    setMessage(res.data?.message || "报名成功");
+    setReg({ id: "", status, at: new Date().toISOString(), note: "" });
+    setMessage(res.data?.message || (en ? "Signed up" : "报名成功"));
   }
 
   async function onCancel() {
@@ -314,15 +320,20 @@ export default function EventDetail({ locale = "zh" }: { locale?: Locale }) {
             <h2 className="text-[13px] font-semibold text-foreground">{en ? "Sign up" : "报名"}</h2>
 
             {message && (
-              <p
+              <div
                 className={
                   reg
-                    ? "mt-2 rounded-[8px] bg-emerald-500/10 px-2.5 py-1.5 text-[11.5px] text-emerald-700"
-                    : "mt-2 rounded-[8px] bg-destructive/10 px-2.5 py-1.5 text-[11.5px] text-destructive"
+                    ? "mt-2 rounded-[8px] bg-emerald-500/10 px-2.5 py-1.5 text-[11.5px] leading-5 text-emerald-700"
+                    : "mt-2 rounded-[8px] bg-destructive/10 px-2.5 py-1.5 text-[11.5px] leading-5 text-destructive"
                 }
               >
-                {message}
-              </p>
+                <p>{message}</p>
+                {needVerify && (
+                  <a href={p("/account/", locale)} className="mt-1 inline-block font-medium underline">
+                    {en ? "Verify your email →" : "去验证邮箱 →"}
+                  </a>
+                )}
+              </div>
             )}
 
             {reg ? (
@@ -348,17 +359,35 @@ export default function EventDetail({ locale = "zh" }: { locale?: Locale }) {
                 )}
               </div>
             ) : canSignup ? (
-              <div className="mt-3">
-                {event.registrationMode === "approval" && showNote && (
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    maxLength={500}
-                    rows={3}
-                    placeholder={en ? "Tell the host why you want to join (optional)" : "简单介绍你想参加的原因（可选）"}
-                    className="mb-2 w-full resize-none rounded-[8px] border border-border bg-background px-2.5 py-2 text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground focus:border-accent/60"
-                  />
-                )}
+              <div className="mt-3 space-y-2.5">
+                {(event.formFields || []).map((f) => (
+                  <label key={f.key} className="block">
+                    <span className="mb-1 flex items-baseline gap-1 text-[11.5px] font-medium text-foreground/75">
+                      {f.label}
+                      {f.required && <span className="text-accent">*</span>}
+                    </span>
+                    {f.type === "textarea" ? (
+                      <textarea
+                        value={answers[f.key] || ""}
+                        onChange={(e) => setAnswers((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                        rows={3}
+                        maxLength={2000}
+                        placeholder={f.placeholder || ""}
+                        className="w-full resize-y rounded-[8px] border border-border bg-background px-2.5 py-2 text-[12.5px] leading-5 text-foreground outline-none placeholder:text-muted-foreground focus:border-accent/60"
+                      />
+                    ) : (
+                      <input
+                        type={f.type === "url" ? "url" : f.type === "email" ? "email" : f.type === "number" ? "number" : f.type === "tel" ? "tel" : "text"}
+                        value={answers[f.key] || ""}
+                        onChange={(e) => setAnswers((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                        maxLength={2000}
+                        placeholder={f.placeholder || ""}
+                        className="h-9 w-full rounded-[8px] border border-border bg-background px-2.5 text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground focus:border-accent/60"
+                      />
+                    )}
+                  </label>
+                ))}
+
                 <button
                   type="button"
                   onClick={onRegister}
@@ -367,25 +396,21 @@ export default function EventDetail({ locale = "zh" }: { locale?: Locale }) {
                 >
                   {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   {event.registrationMode === "approval"
-                    ? showNote
-                      ? en
-                        ? "Submit request"
-                        : "提交报名申请"
-                      : en
-                        ? "Apply to join"
-                        : "申请参加"
+                    ? en
+                      ? "Submit request"
+                      : "提交报名申请"
                     : en
                       ? "Sign up"
                       : "立即报名"}
                 </button>
-                <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                <p className="text-[11px] leading-5 text-muted-foreground">
                   {event.registrationMode === "approval"
                     ? en
-                      ? "The host reviews every request."
-                      : "主办方会逐条确认，通过后名额才算占用。"
+                      ? "The host reviews every request. Email must be verified."
+                      : "主办方会逐条确认；报名前需先完成邮箱验证。"
                     : en
-                      ? "You are in immediately."
-                      : "报名即通过，名额先到先得。"}
+                      ? "You are in immediately. Email must be verified."
+                      : "报名即通过，名额先到先得；报名前需先完成邮箱验证。"}
                 </p>
               </div>
             ) : (

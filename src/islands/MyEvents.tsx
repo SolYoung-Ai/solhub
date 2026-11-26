@@ -1,8 +1,16 @@
-import { useEffect, useState } from "react";
-import { CalendarDays, Loader2, Plus, Settings2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { CalendarDays, Loader2, Pencil, Plus, Settings2 } from "lucide-react";
 import { p } from "@/lib/paths";
 import type { Locale } from "@/i18n";
-import { myEvents, rangeText, regStatusLabel, stateLabel, type EventCard, type RegistrationStatus } from "@/lib/events";
+import {
+  eventAction,
+  myEvents,
+  rangeText,
+  regStatusLabel,
+  stateLabel,
+  type EventCard,
+  type RegistrationStatus,
+} from "@/lib/events";
 
 /** 我的活动：我创办的（含草稿/审核中/已驳回）+ 我报名的。 */
 export default function MyEvents({ locale = "zh" }: { locale?: Locale }) {
@@ -12,23 +20,35 @@ export default function MyEvents({ locale = "zh" }: { locale?: Locale }) {
   const [joined, setJoined] = useState<{ event: EventCard; reg: { id: string; status: RegistrationStatus; at: string } }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await myEvents();
+    if (!res.ok || !res.data) {
+      setError(res.status === 401 ? "unauth" : res.error || "加载失败");
+    } else {
+      setCreated(res.data.created || []);
+      setJoined(res.data.joined || []);
+      setError("");
+    }
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    let alive = true;
-    void myEvents().then((res) => {
-      if (!alive) return;
-      if (!res.ok || !res.data) {
-        setError(res.status === 401 ? "unauth" : res.error || "加载失败");
-      } else {
-        setCreated(res.data.created || []);
-        setJoined(res.data.joined || []);
-      }
-      setLoading(false);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    void load();
+  }, [load]);
+
+  async function act(id: string, action: "submit" | "offline" | "restore") {
+    setBusyId(id);
+    setNotice("");
+    const res = await eventAction(id, action);
+    setBusyId("");
+    if (!res.ok) return setNotice(res.error || "操作失败");
+    setNotice(res.data?.message || "已更新");
+    await load();
+  }
 
   if (loading) {
     return (
@@ -88,6 +108,7 @@ export default function MyEvents({ locale = "zh" }: { locale?: Locale }) {
       </div>
 
       {error && <p className="mb-3 rounded-[8px] bg-destructive/10 px-3 py-2 text-[12.5px] text-destructive">{error}</p>}
+      {notice && <p className="mb-3 rounded-[8px] bg-secondary px-3 py-2 text-[12.5px] text-foreground/75">{notice}</p>}
 
       {tab === "created" ? (
         created.length === 0 ? (
@@ -124,13 +145,52 @@ export default function MyEvents({ locale = "zh" }: { locale?: Locale }) {
                     {e.regCount > 0 && <span className="ml-1">· {e.regCount} {en ? "signups" : "人报名"}</span>}
                   </p>
                 </div>
-                <a
-                  href={p(`/events/manage/?id=${encodeURIComponent(e.id)}`, locale)}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border border-border px-2.5 text-[11.5px] text-foreground/80 hover:border-foreground/25"
-                >
-                  <Settings2 className="h-3.5 w-3.5" />
-                  {en ? "Manage" : "管理"}
-                </a>
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                  <a
+                    href={p(`/events/edit/?id=${encodeURIComponent(e.id)}`, locale)}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border border-border px-2.5 text-[11.5px] text-foreground/80 hover:border-foreground/25"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    {en ? "Edit" : "编辑"}
+                  </a>
+                  <a
+                    href={p(`/events/manage/?id=${encodeURIComponent(e.id)}`, locale)}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border border-border px-2.5 text-[11.5px] text-foreground/80 hover:border-foreground/25"
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                    {en ? "Manage" : "管理"}
+                  </a>
+                  {(e.status === "draft" || e.status === "rejected") && (
+                    <button
+                      type="button"
+                      onClick={() => act(e.id, "submit")}
+                      disabled={busyId === e.id}
+                      className="inline-flex h-8 items-center rounded-[8px] bg-accent/12 px-2.5 text-[11.5px] font-medium text-accent disabled:opacity-50"
+                    >
+                      {busyId === e.id ? "…" : en ? "Submit" : "发布"}
+                    </button>
+                  )}
+                  {e.status === "published" && (
+                    <button
+                      type="button"
+                      onClick={() => act(e.id, "offline")}
+                      disabled={busyId === e.id}
+                      className="inline-flex h-8 items-center rounded-[8px] bg-secondary px-2.5 text-[11.5px] text-muted-foreground disabled:opacity-50"
+                    >
+                      {en ? "Take down" : "下架"}
+                    </button>
+                  )}
+                  {e.status === "offline" && (
+                    <button
+                      type="button"
+                      onClick={() => act(e.id, "restore")}
+                      disabled={busyId === e.id}
+                      className="inline-flex h-8 items-center rounded-[8px] bg-secondary px-2.5 text-[11.5px] text-muted-foreground disabled:opacity-50"
+                    >
+                      {en ? "Restore" : "恢复"}
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

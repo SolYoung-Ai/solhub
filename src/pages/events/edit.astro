@@ -1,0 +1,16 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import EventForm from "@/islands/EventForm.tsx";
+
+const locale = "zh" as const;
+---
+
+<BaseLayout
+  title="编辑活动 · SolHub"
+  description="修改活动介绍、封面与报名表单。"
+  route="/events/edit/"
+  locale={locale}
+  noEn
+>
+  <EventForm client:load locale={locale} />
+</BaseLayout>

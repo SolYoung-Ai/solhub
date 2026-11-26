@@ -433,6 +433,13 @@ function UserMenuItems({
         <Megaphone className="h-3.5 w-3.5" /> {en ? "My slots" : "我的赞助"}
       </a>
       <a
+        href={p("/events/mine/", locale)}
+        onClick={onNavigate}
+        className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
+      >
+        <CalendarDays className="h-3.5 w-3.5" /> {en ? "My events" : "我的活动"}
+      </a>
+      <a
         href={p("/account/", locale)}
         onClick={onNavigate}
         className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"

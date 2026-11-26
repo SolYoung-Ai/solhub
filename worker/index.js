@@ -1224,6 +1224,27 @@ function eventInputError(body) {
   return "";
 }
 
+/** 报名表单字段：发起者可自定义 1–8 项，key 用于报名记录取值，必须稳定 */
+const EVENT_FIELD_TYPES = ["text", "textarea", "url", "email", "tel", "number"];
+function cleanFormFields(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .slice(0, 8)
+    .map((f, i) => {
+      const rawKey = String((f && f.key) || "");
+      const key = /^[a-z0-9]{2,12}$/.test(rawKey) ? rawKey : `f${Date.now().toString(36).slice(-4)}${i}`;
+      return {
+        key,
+        label: String((f && f.label) || "").trim().slice(0, 40),
+        type: EVENT_FIELD_TYPES.includes(f && f.type) ? f.type : "text",
+        required: !!(f && f.required),
+        placeholder: String((f && f.placeholder) || "").trim().slice(0, 60),
+      };
+    })
+    .filter((f) => f.label)
+    .slice(0, 8);
+}
+
 async function eventIndexUpdate(env, id, patch) {
   const all = (await kvGetJSON(env, EVENTS_KEY, [])) || [];
   const next = all.map((e) => (e && e.id === id ? { ...e, ...patch } : e));
@@ -4177,12 +4198,13 @@ export default {
         signupDeadline: body.signupDeadline ? eventIso(body.signupDeadline) : eventIso(body.endAt),
         audience: String(body.audience || "").trim().slice(0, 120),
         eligibility: {
-          requireEmailVerified: !!(body.eligibility && body.eligibility.requireEmailVerified),
+          requireEmailVerified: true,
           requireProduct: !!(body.eligibility && body.eligibility.requireProduct),
           customText: String((body.eligibility && body.eligibility.customText) || "").trim().slice(0, 200),
         },
         capacity: Number.isFinite(cap) ? Math.max(0, Math.floor(cap)) : 0,
         registrationMode: String(body.registrationMode || "open"),
+        formFields: cleanFormFields(body.formFields),
         status: admin ? "published" : submit ? "pending" : "draft",
         reviewStatus: admin ? "approved" : submit ? "pending" : "none",
         reviewReason: "",
@@ -4250,32 +4272,36 @@ export default {
       const nowIso = new Date().toISOString();
 
       if (action === "edit") {
-        /* 已发布后只允许改「不影响已报名者预期」的字段：
-           标题/时间/名额/条件/报名方式锁定，想改只能下架后重建。 */
+        /* 已发布后锁定「会改变已报名者预期」的四项：时间、报名截止、名额、报名方式；
+           标题/正文/封面/表单字段仍然可改 —— 发起人需要能修错别字、补说明、
+           给后续报名者加一个字段，而不是只能下架重建。 */
         const locked = ev.status === "published";
-        const patch = { updatedAt: nowIso };
-        if (body.description != null) patch.description = String(body.description).slice(0, 8000);
-        if (body.cover != null) patch.cover = String(body.cover).trim().slice(0, 500);
-        if (body.summary != null) patch.summary = String(body.summary).trim().slice(0, 120);
-        if (body.location != null) patch.location = String(body.location).trim().slice(0, 120);
-        if (body.contactEmail != null) patch.contactEmail = String(body.contactEmail).trim().slice(0, 160);
+        const merged = { ...ev, ...body };
+        const err = eventInputError(merged);
+        if (err) return json(request, { error: err }, 400);
+        const cap = Number(merged.capacity);
+        const patch = {
+          updatedAt: nowIso,
+          title: String(merged.title).trim(),
+          summary: String(merged.summary || "").trim().slice(0, 120),
+          description: String(merged.description || "").slice(0, 8000),
+          cover: String(merged.cover || "").trim().slice(0, 500),
+          location: String(merged.location || "").trim().slice(0, 120),
+          contactEmail: String(merged.contactEmail || "").trim().slice(0, 160),
+          audience: String(merged.audience || "").trim().slice(0, 120),
+          formFields: cleanFormFields(merged.formFields),
+          eligibility: {
+            requireEmailVerified: true,
+            requireProduct: !!(merged.eligibility && merged.eligibility.requireProduct),
+            customText: String((merged.eligibility && merged.eligibility.customText) || "").trim().slice(0, 200),
+          },
+        };
         if (!locked) {
-          const merged = { ...ev, ...body };
-          const err = eventInputError(merged);
-          if (err) return json(request, { error: err }, 400);
-          const cap = Number(merged.capacity);
-          patch.title = String(merged.title).trim();
           patch.category = String(merged.category || "other");
           patch.tags = Array.isArray(merged.tags) ? merged.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 6) : [];
           patch.startAt = eventIso(merged.startAt);
           patch.endAt = eventIso(merged.endAt);
           patch.signupDeadline = merged.signupDeadline ? eventIso(merged.signupDeadline) : patch.endAt;
-          patch.audience = String(merged.audience || "").trim().slice(0, 120);
-          patch.eligibility = {
-            requireEmailVerified: !!(merged.eligibility && merged.eligibility.requireEmailVerified),
-            requireProduct: !!(merged.eligibility && merged.eligibility.requireProduct),
-            customText: String((merged.eligibility && merged.eligibility.customText) || "").trim().slice(0, 200),
-          };
           patch.capacity = Number.isFinite(cap) ? Math.max(0, Math.floor(cap)) : 0;
           patch.registrationMode = String(merged.registrationMode || "open");
         } else if (ev.ownerType === "official" && admin && body.featured != null) {
@@ -4329,20 +4355,43 @@ export default {
       const u = await kvGetJSON(env, `user:${sid}`, null, true);
       const handle = (u && u.handle) || identity.user.handle || handleFromEmail(sid);
       const name = (u && u.displayName) || identity.user.displayName || handle;
-      const elig = ev.eligibility || {};
-      if (elig.requireEmailVerified && !identity.user.emailVerified) {
-        return json(request, { error: "参加这个活动需要先验证邮箱" }, 403);
+
+      /* 邮箱验证是**全局硬性条件**：活动可能被用来收联系方式/作品，
+         未验证邮箱的账号无法确认归属，一律挡在报名之外（2026-11-26 起）。 */
+      if (!identity.user.emailVerified && !(u && u.emailVerified)) {
+        return json(request, { error: "报名前需要先完成邮箱验证", needEmailVerify: true }, 403);
       }
-      if (elig.requireProduct) {
-        const [community, index] = await Promise.all([readCommunity(env), readProductIndex(env)]);
-        const owns =
-          community.some((p) => p && p.submittedBy === handle) ||
-          index.some((p) => p && p.developerLogin === handle);
-        if (!owns) return json(request, { error: "参加这个活动需要先上传一个产品" }, 403);
+
+      const elig = ev.eligibility || {};
+      const [community, index] = await Promise.all([readCommunity(env), readProductIndex(env)]);
+      const ownedProducts = [
+        ...community.filter((p) => p && p.submittedBy === handle).map((p) => ({ slug: p.slug, name: p.name })),
+        ...index.filter((p) => p && p.developerLogin === handle).map((p) => ({ slug: p.slug, name: p.name })),
+      ].slice(0, 3);
+      if (elig.requireProduct && ownedProducts.length === 0) {
+        return json(request, { error: "参加这个活动需要先上传一个产品" }, 403);
       }
 
       let body = {};
       try { body = await request.json(); } catch { body = {}; }
+
+      /* 按发起者配置的表单逐项校验：必填为空直接拦，URL 缺协议自动补 https */
+      const fields = Array.isArray(ev.formFields) ? ev.formFields : [];
+      const rawAnswers = body.answers && typeof body.answers === "object" ? body.answers : {};
+      const answers = {};
+      for (const f of fields) {
+        let v = String(rawAnswers[f.key] == null ? "" : rawAnswers[f.key]).trim().slice(0, 2000);
+        if (v && f.type === "url" && !/^https?:\/\//i.test(v)) v = `https://${v.replace(/^\/+/, "")}`;
+        if (v && f.type === "email" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) {
+          return json(request, { error: `「${f.label}」不是有效邮箱` }, 400);
+        }
+        if (v && f.type === "number" && !Number.isFinite(Number(v))) {
+          return json(request, { error: `「${f.label}」需要填数字` }, 400);
+        }
+        if (f.required && !v) return json(request, { error: `请填写「${f.label}」` }, 400);
+        if (v) answers[f.key] = v;
+      }
+      /* 老前端只传 note：当成「报名原因」存下来，详情页仍然能显示 */
       const note = String(body.note || "").trim().slice(0, 500);
 
       const regs = (await kvGetJSON(env, eventRegsKey(ev.id), [])) || [];
@@ -4358,7 +4407,13 @@ export default {
         handle,
         name,
         email: identity.user.email || "",
+        emailVerified: true,
+        avatar: avatarUrl(imgBase, handle, u && u.avatar, u && u.hasAvatar),
+        bio: (u && u.bio) || "",
+        website: (u && u.website) || "",
+        products: ownedProducts,
         note,
+        answers,
         status: ev.registrationMode === "approval" ? "pending" : "approved",
         at: new Date(now).toISOString(),
         reviewedBy: "",
@@ -4402,7 +4457,9 @@ export default {
       return json(request, {
         ok: true,
         event: { id: ev.id, title: ev.title, slug: ev.slug, capacity: ev.capacity, registrationMode: ev.registrationMode },
-        registrations: regs.filter((r) => r.status !== "cancelled"),
+        registrations: regs
+          .filter((r) => r.status !== "cancelled")
+          .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0)),
       });
     }
 
