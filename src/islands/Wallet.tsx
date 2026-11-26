@@ -53,8 +53,7 @@ function ledgerLabel(type: string, en: boolean): string {
   if (type === "invite") return en ? "Referral" : "邀请奖励";
   if (type === "signup") return en ? "Welcome" : "注册奖励";
   if (type === "ad") return en ? "Ad slot" : "广告位";
-  if (type === "signup") return en ? "Welcome" : "注册奖励";
-  if (type === "ad") return en ? "Ad slot" : "广告位";
+  if (type === "redeem") return en ? "Redeem code" : "兑换码";
   if (type === "spend") return en ? "Spend" : "积分消费";
   return en ? "Points" : "积分变动";
 }
