@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
+  Ticket,
   Check,
   Copy,
   Gift,
@@ -11,7 +12,7 @@ import {
   Wallet as WalletIcon,
 } from "lucide-react";
 import { fetchMe, type AuthUser } from "@/lib/auth";
-import { cachedWallet, fetchWallet, type WalletData, type WalletLedgerItem } from "@/lib/wallet";
+import { cachedWallet, fetchWallet, redeemCode, type WalletData, type WalletLedgerItem } from "@/lib/wallet";
 import { copyText } from "@/lib/utils";
 import GoldBadge from "@/components/GoldBadge";
 import BlueBadge from "@/components/BlueBadge";
@@ -64,6 +65,10 @@ export default function Wallet({ locale = "zh" }: Props) {
   const [data, setData] = useState<WalletData | null>(() => cachedWallet());
   const [state, setState] = useState<"loading" | "ready" | "guest" | "error">("loading");
   const [copied, setCopied] = useState<"" | "code" | "link">("");
+  /* 兑换码 */
+  const [redeemInput, setRedeemInput] = useState("");
+  const [redeemBusy, setRedeemBusy] = useState(false);
+  const [redeemMsg, setRedeemMsg] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
 
   const load = useCallback(async () => {
     const me = await fetchMe().catch(() => null);
@@ -88,6 +93,26 @@ export default function Wallet({ locale = "zh" }: Props) {
     if (!ok) return;
     setCopied(what);
     window.setTimeout(() => setCopied(""), 1600);
+  };
+
+  const submitRedeem = async () => {
+    const code = redeemInput.trim();
+    if (!code || redeemBusy) return;
+    setRedeemBusy(true);
+    setRedeemMsg(null);
+    const res = await redeemCode(code);
+    if (!res.ok) {
+      setRedeemBusy(false);
+      setRedeemMsg({ tone: "warn", text: res.error });
+      return;
+    }
+    setRedeemInput("");
+    setRedeemMsg({
+      tone: "ok",
+      text: en ? `+${fmt(res.points)} points added.` : `兑换成功，+${fmt(res.points)} 积分已到账`,
+    });
+    await load();
+    setRedeemBusy(false);
   };
 
   const holder = useMemo(() => {
@@ -323,6 +348,58 @@ export default function Wallet({ locale = "zh" }: Props) {
             ))}
           </ul>
         )}
+      </section>
+
+      {/* ---------------- 兑换码 ---------------- */}
+      <section className="mt-4 overflow-hidden rounded-[20px] border border-border bg-card">
+        <div className="flex items-center gap-2 border-b border-border px-5 py-3.5">
+          <Ticket className="h-4 w-4 text-accent" aria-hidden="true" />
+          <h2 className="font-display text-[15px] font-bold text-foreground">{en ? "Redeem a code" : "兑换码"}</h2>
+        </div>
+        <div className="px-5 py-4">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              value={redeemInput}
+              onChange={(e) => {
+                setRedeemInput(e.target.value.toUpperCase());
+                setRedeemMsg(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void submitRedeem();
+              }}
+              placeholder={en ? "SHUB-XXXX-XXXX" : "输入兑换码，例如 SHUB-XXXX-XXXX"}
+              spellCheck={false}
+              autoCapitalize="characters"
+              autoComplete="off"
+              aria-label={en ? "Redeem code" : "兑换码"}
+              className="input h-10 flex-1 font-mono !text-[13px] tracking-[0.12em]"
+            />
+            <button
+              type="button"
+              onClick={() => void submitRedeem()}
+              disabled={!redeemInput.trim() || redeemBusy}
+              className="btn btn-accent !h-10 shrink-0 px-5 text-sm disabled:opacity-50"
+            >
+              {redeemBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {redeemBusy ? (en ? "Redeeming…" : "兑换中…") : en ? "Redeem" : "兑换"}
+            </button>
+          </div>
+          {redeemMsg && (
+            <p
+              className={`mt-2.5 rounded-[10px] px-3 py-2 text-[12.5px] ${
+                redeemMsg.tone === "ok" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+              }`}
+              role="status"
+            >
+              {redeemMsg.text}
+            </p>
+          )}
+          <p className="mt-2.5 text-[11.5px] leading-5 text-muted-foreground">
+            {en
+              ? "Each code works once. Redeemed points show up in the activity list above right away."
+              : "每张兑换码只能用一次；兑换成功后积分和明细会立刻更新到上面。"}
+          </p>
+        </div>
       </section>
 
       <p className="mt-4 text-center text-[11.5px] leading-5 text-muted-foreground">

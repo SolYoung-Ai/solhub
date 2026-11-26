@@ -1953,6 +1953,26 @@ const AD_PRICE = 300;
 const AD_DAYS = 7;
 const ADS_KEY = "ads:slots:v1";
 const ADS_MAX_ACTIVE = 3;
+
+/* ---------------- 积分兑换码 ----------------
+   存储：
+     redeem:<CODE>    → { code, points, createdAt, createdBy, used, usedBy, usedAt }
+     redeem:index:v1  → 最近生成的码（数组，最新在前，最多 300 条，管理后台列表用）
+   码本身不可猜测（8 位 Crockford base32，约 1.1e12 种），一次性：used 置位后不再发放。 */
+const REDEEM_CODE_RE = /^SHUB-[0-9A-Z]{4}-[0-9A-Z]{4}$/;
+const REDEEM_AMOUNTS = [1000, 3000, 5000];
+const REDEEM_MAX_BATCH = 20;
+const REDEEM_INDEX_MAX = 300;
+const redeemKey = (code) => `redeem:${code}`;
+const REDEEM_INDEX = "redeem:index:v1";
+
+/** 生成一个 SHUB-XXXX-XXXX 兑换码（去掉易混的 I/L/O/U） */
+function makeRedeemCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  let out = "";
+  for (let i = 0; i < 8; i++) out += REF_ALPHABET[bytes[i] % 32];
+  return `SHUB-${out.slice(0, 4)}-${out.slice(4, 8)}`;
+}
 const LEDGER_MAX = 200;
 /** Crockford base32：去掉 I/L/O/U，避免和 1/0 看混 */
 const REF_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -3833,6 +3853,97 @@ export default {
       }
       await kvPutJSON(env, CLICKS_KEY, { c: top, d: dedupe });
       return json(request, { ok: true, counted: true, count: top[slug] });
+    }
+
+    /* ---------- 兑换码：后台生成（需要管理口令） ---------- */
+    if (url.pathname === "/admin/redeem/create" && request.method === "POST") {
+      const gate = await requireAdmin(request, env);
+      if (gate.error) return gate.error;
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      let body = {};
+      try { body = await request.json(); } catch { /* 用默认值 */ }
+      const points = Number(body.points);
+      if (!REDEEM_AMOUNTS.includes(points)) {
+        return json(request, { error: `额度只能是 ${REDEEM_AMOUNTS.join(" / ")}` }, 400);
+      }
+      const count = Math.min(REDEEM_MAX_BATCH, Math.max(1, Number(body.count) || 1));
+      const created = [];
+      for (let i = 0; i < count; i++) {
+        let code = makeRedeemCode();
+        /* 撞码概率极低，但还是校验一下；最多重试 5 次 */
+        for (let t = 0; t < 5; t++) {
+          const exists = await kvGetJSON(env, redeemKey(code), null, true);
+          if (!exists) break;
+          code = makeRedeemCode();
+        }
+        const rec = {
+          code,
+          points,
+          createdAt: new Date().toISOString(),
+          createdBy: (gate.identity && (gate.identity.login || gate.identity.user?.email)) || "admin",
+          used: false,
+          usedBy: "",
+          usedAt: "",
+        };
+        await kvPutJSON(env, redeemKey(code), rec);
+        created.push(rec);
+      }
+      const index = (await kvGetJSON(env, REDEEM_INDEX, [])) || [];
+      await kvPutJSON(env, REDEEM_INDEX, [...created, ...index].slice(0, REDEEM_INDEX_MAX));
+      return json(request, { ok: true, codes: created });
+    }
+
+    /* ---------- 兑换码：后台列表 ---------- */
+    if (url.pathname === "/admin/redeem/list" && request.method === "GET") {
+      const gate = await requireAdmin(request, env);
+      if (gate.error) return gate.error;
+      const list = (await kvGetJSON(env, REDEEM_INDEX, [])) || [];
+      return json(request, { ok: true, total: list.length, codes: list });
+    }
+
+    /* ---------- 兑换码：用户兑换（登录） ---------- */
+    if (url.pathname === "/redeem" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const sid = identity.login;
+      let body = {};
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const code = String(body.code || "").trim().toUpperCase().replace(/\s+/g, "");
+      if (!code) return json(request, { error: "请输入兑换码" }, 400);
+      if (!REDEEM_CODE_RE.test(code)) return json(request, { error: "兑换码格式不对，应形如 SHUB-XXXX-XXXX" }, 400);
+
+      const rec = await kvGetJSON(env, redeemKey(code), null, true);
+      if (!rec) return json(request, { error: "兑换码不存在，请检查是否输错" }, 404);
+      if (rec.used) {
+        /* 不告诉尝试者「谁用过」：那是别人的账号信息，没理由泄露给下一个试码的人 */
+        return json(request, { error: "这个兑换码已经被使用过", used: true }, 409);
+      }
+
+      /* 先占位再发分：KV 没有 CAS，并发下仍有极小概率双发，
+         但 used 一旦写回，后续请求都会被挡住。 */
+      const now = new Date().toISOString();
+      const next = { ...rec, used: true, usedBy: sid, usedAt: now };
+      await kvPutJSON(env, redeemKey(code), next);
+
+      const index = (await kvGetJSON(env, REDEEM_INDEX, [])) || [];
+      await kvPutJSON(
+        env,
+        REDEEM_INDEX,
+        index.map((it) => (it.code === code ? next : it)),
+      );
+
+      const wallet = await addPoints(env, sid, rec.points, {
+        type: "redeem",
+        note: `兑换码 ${code}`,
+        ref: code,
+      });
+      return json(request, {
+        ok: true,
+        points: rec.points,
+        balance: wallet.balance,
+        message: `兑换成功，+${rec.points} 积分已到账`,
+      });
     }
 
     /* ---------- 广告位（积分购买） ----------

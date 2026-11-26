@@ -187,3 +187,26 @@ export const adminVerifyProduct = (slug: string, verified: boolean) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ verified }),
   });
+
+/* ---------------- 积分兑换码 ---------------- */
+
+export interface AdminRedeemCode {
+  code: string;
+  points: number;
+  createdAt: string;
+  createdBy: string;
+  used: boolean;
+  usedBy: string;
+  usedAt: string;
+}
+
+/** 生成兑换码（额度只能是 1000 / 3000 / 5000，单次最多 20 张） */
+export const adminRedeemCreate = (points: number, count = 1) =>
+  call<{ codes: AdminRedeemCode[] }>("/admin/redeem/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ points, count }),
+  });
+
+/** 最近生成的兑换码（含使用状态） */
+export const adminRedeemList = () => call<{ total: number; codes: AdminRedeemCode[] }>("/admin/redeem/list");

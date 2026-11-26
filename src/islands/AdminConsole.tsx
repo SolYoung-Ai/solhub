@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   BadgeCheck,
   Ban,
+  Copy,
   KeyRound,
   Loader2,
   Lock,
@@ -9,17 +10,21 @@ import {
   Package,
   Search,
   ShieldCheck,
+  Ticket,
   Trash2,
   UserRound,
 } from "lucide-react";
 import { p } from "@/lib/paths";
 import GoldBadge from "@/components/GoldBadge";
+import { copyText } from "@/lib/utils";
 import {
   adminBan,
   adminDeletePost,
   adminDeleteUser,
   adminPosts,
   adminProducts,
+  adminRedeemCreate,
+  adminRedeemList,
   adminResetPassword,
   adminStats,
   adminUsers,
@@ -28,6 +33,7 @@ import {
   setAdminKey,
   unlockAdmin,
   type AdminPost,
+  type AdminRedeemCode,
   type AdminProduct,
   type AdminStats,
   type AdminUser,
@@ -74,11 +80,17 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
   const [passBusy, setPassBusy] = useState(false);
   const [passErr, setPassErr] = useState<string | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
-  const [tab, setTab] = useState<"users" | "posts" | "products">("users");
+  const [tab, setTab] = useState<"users" | "posts" | "products" | "redeem">("users");
   const [q, setQ] = useState("");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [posts, setPosts] = useState<AdminPost[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
+  /* 兑换码生成 */
+  const [redeemPoints, setRedeemPoints] = useState(1000);
+  const [redeemCount, setRedeemCount] = useState(1);
+  const [redeemBusy, setRedeemBusy] = useState(false);
+  const [redeemCodes, setRedeemCodes] = useState<AdminRedeemCode[]>([]);
+  const [freshCodes, setFreshCodes] = useState<AdminRedeemCode[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -86,6 +98,29 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
   const flash = (msg: string) => {
     setNotice(msg);
     window.setTimeout(() => setNotice(null), 4000);
+  };
+
+  const loadRedeem = useCallback(async () => {
+    const res = await adminRedeemList();
+    if (res.status !== "ok" || !res.data) {
+      setError(res.error || "兑换码列表加载失败");
+      return;
+    }
+    setRedeemCodes(res.data.codes || []);
+  }, []);
+
+  const createRedeem = async () => {
+    setRedeemBusy(true);
+    setError(null);
+    const res = await adminRedeemCreate(redeemPoints, redeemCount);
+    setRedeemBusy(false);
+    if (res.status !== "ok" || !res.data) {
+      setError(res.error || "生成失败");
+      return;
+    }
+    setFreshCodes(res.data.codes || []);
+    flash(`已生成 ${(res.data.codes || []).length} 张 ${redeemPoints} 积分兑换码`);
+    void loadRedeem();
   };
 
   const loadStats = useCallback(async () => {
@@ -168,6 +203,7 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
     if (tab === "users") void loadUsers(q);
     if (tab === "posts") void loadPosts(q);
     if (tab === "products") void loadProducts();
+    if (tab === "redeem") void loadRedeem();
   }, [gate, tab, q, loadUsers, loadPosts, loadProducts]);
 
   const run = async (fn: () => Promise<{ status: string; error?: string }>, okMsg: string, after?: () => void) => {
@@ -263,6 +299,7 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
     { key: "users" as const, label: "用户", icon: UserRound },
     { key: "posts" as const, label: "帖子", icon: Search },
     { key: "products" as const, label: "产品", icon: Package },
+    { key: "redeem" as const, label: "兑换码", icon: Ticket },
   ];
 
   return (
@@ -317,7 +354,7 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
       </div>
 
       {/* 搜索（帖子/用户） */}
-      {tab !== "products" && (
+      {tab !== "products" && tab !== "redeem" && (
         <div className="py-3">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -489,6 +526,110 @@ export default function AdminConsole({ locale = "zh" }: { locale?: "zh" | "en" }
       )}
 
       {/* 产品列表 */}
+      {/* 兑换码 */}
+      {tab === "redeem" && (
+        <div className="border-t border-border pt-4">
+          <div className="rounded-[14px] border border-border bg-card p-4">
+            <p className="text-[13px] font-semibold text-foreground">生成积分兑换码</p>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">
+              选额度 → 生成 → 复制发给用户。每张码只能用一次，用户兑换后自动进钱包明细。
+            </p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {[1000, 3000, 5000].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setRedeemPoints(v)}
+                  className={`rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium transition-colors ${
+                    redeemPoints === v
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border text-muted-foreground hover:border-accent/40 hover:text-foreground"
+                  }`}
+                >
+                  {v} 积分
+                </button>
+              ))}
+              <span className="ml-1 text-[12px] text-muted-foreground">数量</span>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={redeemCount}
+                onChange={(e) => setRedeemCount(Math.min(20, Math.max(1, Number(e.target.value) || 1)))}
+                className="w-16 rounded-[8px] border border-border bg-secondary/40 px-2 py-1.5 text-center text-[12.5px] outline-none focus:border-accent"
+              />
+              <button type="button" onClick={() => void createRedeem()} disabled={redeemBusy} className="btn btn-accent !h-8 gap-1.5 px-4 text-xs">
+                {redeemBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ticket className="h-3.5 w-3.5" />}
+                {redeemBusy ? "生成中…" : "生成"}
+              </button>
+            </div>
+
+            {freshCodes.length > 0 && (
+              <div className="mt-4 rounded-[10px] border border-success/30 bg-success/5 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[12px] font-semibold text-success">刚生成的 {freshCodes.length} 张（{freshCodes[0].points} 积分 / 张）</p>
+                  <button
+                    type="button"
+                    onClick={() => void copyText(freshCodes.map((c) => c.code).join("\n")).then((ok) => ok && flash("已复制全部兑换码"))}
+                    className="btn btn-outline !h-7 gap-1 px-2.5 text-[11px]"
+                  >
+                    <Copy className="h-3 w-3" /> 复制全部
+                  </button>
+                </div>
+                <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                  {freshCodes.map((c) => (
+                    <li key={c.code} className="flex items-center justify-between gap-2 rounded-[8px] border border-border bg-card px-2.5 py-1.5">
+                      <code className="font-mono text-[12.5px] tracking-wide text-foreground">{c.code}</code>
+                      <button
+                        type="button"
+                        onClick={() => void copyText(c.code).then((ok) => ok && flash("已复制 " + c.code))}
+                        className="text-muted-foreground hover:text-accent"
+                        aria-label="复制兑换码"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[13px] font-semibold text-foreground">最近生成</p>
+              <button type="button" onClick={() => void loadRedeem()} className="text-[11.5px] text-accent hover:underline">
+                刷新
+              </button>
+            </div>
+            {redeemCodes.length === 0 ? (
+              <p className="py-10 text-center text-[12.5px] text-muted-foreground">还没有生成过兑换码</p>
+            ) : (
+              <ul className="mt-2 divide-y divide-border border-y border-border">
+                {redeemCodes.map((c) => (
+                  <li key={c.code} className="flex items-center gap-3 py-2.5">
+                    <code className="shrink-0 font-mono text-[12.5px] tracking-wide text-foreground">{c.code}</code>
+                    <span className="shrink-0 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10.5px] text-accent">{c.points}</span>
+                    <span className="min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground">
+                      {c.used ? `已使用 · @${c.usedBy.split("@")[0]}` : "未使用"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void copyText(c.code).then((ok) => ok && flash("已复制 " + c.code))}
+                      className="shrink-0 text-muted-foreground hover:text-accent"
+                      aria-label="复制兑换码"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
       {tab === "products" && (
         <ul className="divide-y divide-border border-t border-border">
           {busy && products.length === 0 && (

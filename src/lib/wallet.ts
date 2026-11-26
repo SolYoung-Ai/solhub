@@ -94,3 +94,37 @@ export async function resolveInviter(
 
 /** 邀请码在本地留一份：先点邀请链接、后来才注册也不丢归因 */
 export const REF_STORE_KEY = "solhub:ref";
+
+/* ---------------- 兑换码 ---------------- */
+
+export type RedeemResult =
+  | { ok: true; points: number; balance: number; message: string }
+  | { ok: false; error: string };
+
+/** 用一张兑换码加积分。错误信息直接用后端文案（格式错 / 不存在 / 已被使用）。 */
+export async function redeemCode(raw: string): Promise<RedeemResult> {
+  const code = String(raw || "").trim().toUpperCase();
+  if (!code) return { ok: false, error: "请输入兑换码" };
+  try {
+    const res = await request(
+      `${base()}/redeem`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code }),
+      },
+      { retries: 0 },
+    );
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      points?: number;
+      balance?: number;
+      message?: string;
+      error?: string;
+    };
+    if (!res.ok || !data.ok) return { ok: false, error: data.error || `兑换失败（${res.status}）` };
+    return { ok: true, points: Number(data.points) || 0, balance: Number(data.balance) || 0, message: data.message || "兑换成功" };
+  } catch {
+    return { ok: false, error: "网络错误，请稍后重试" };
+  }
+}
