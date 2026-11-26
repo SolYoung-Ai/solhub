@@ -3983,7 +3983,15 @@ export default {
         kvGetJSON(env, ADS_KEY, []) || [],
         walletSnapshot(env, sid),
       ]);
-      const mine = (Array.isArray(all) ? all : []).filter((a) => a && a.owner === sid);
+      const nowMs = Date.now();
+      const mine = (Array.isArray(all) ? all : [])
+        .filter((a) => a && a.owner === sid)
+        .map((a) => ({
+          ...a,
+          status: new Date(a.endAt).getTime() > nowMs ? "live" : a.offlineAt ? "offline" : "ended",
+          daysLeft: Math.max(0, Math.ceil((new Date(a.endAt).getTime() - nowMs) / 86400000)),
+        }));
+
       /* 只允许买自己名下的产品位：社区提交的（submittedBy）或官方目录里登记的开发者 */
       const options = [
         ...community
@@ -4004,6 +4012,94 @@ export default {
         ads: mine,
         options: uniq,
       });
+    }
+
+    /* ---------- 赞助位管理：续费 ----------
+       只能续自己名下的位置；费用与首次投放一致（一周 AD_PRICE 积分），
+       已过期的从「现在」开始算，没到期的在原到期时间上叠加。 */
+    if (url.pathname === "/ads/renew" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const sid = identity.login;
+      let body = {};
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const id = String(body.id || "").trim();
+      if (!id) return json(request, { error: "缺少赞助位 id" }, 400);
+
+      const all = (await kvGetJSON(env, ADS_KEY, [])) || [];
+      const slot = all.find((a) => a && a.id === id);
+      if (!slot) return json(request, { error: "这个赞助位不存在或已被清理" }, 404);
+      if (slot.owner !== sid) return json(request, { error: "只能管理自己投放的赞助位" }, 403);
+      /* 只有「正在展示」的位置能续费：已下架 / 已过期的请重新投放，
+         否则续费会把下架状态悄悄改回在投，用户会看不懂。 */
+      if (!slot.offlineAt && new Date(slot.endAt).getTime() <= Date.now()) {
+        return json(request, { error: "这个位置已经到期，请重新投放" }, 400);
+      }
+      if (slot.offlineAt) {
+        return json(request, { error: "已下架的赞助位不能续费，请重新投放" }, 400);
+      }
+
+      const snap = await walletSnapshot(env, sid);
+      if (snap.balance < AD_PRICE) {
+        return json(request, { error: `积分不够：续费需要 ${AD_PRICE} 积分，当前 ${snap.balance}`, balance: snap.balance }, 402);
+      }
+
+      const nowMs = Date.now();
+      const base = Math.max(nowMs, new Date(slot.endAt).getTime() || 0);
+      const next = { ...slot, endAt: new Date(base + AD_DAYS * 24 * 3600 * 1000).toISOString(), offlineAt: "" };
+      await kvPutJSON(env, ADS_KEY, all.map((a) => (a && a.id === id ? next : a)));
+      const wallet = await addPoints(env, sid, -AD_PRICE, {
+        type: "ad",
+        note: `续费赞助位 · ${slot.name}（${AD_DAYS} 天）`,
+        ref: id,
+      });
+      return json(request, { ok: true, slot: next, balance: wallet.balance, message: `已续费 ${AD_DAYS} 天` });
+    }
+
+    /* ---------- 赞助位管理：改介绍 ---------- */
+    if (url.pathname === "/ads/update" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const sid = identity.login;
+      let body = {};
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const id = String(body.id || "").trim();
+      const desc = String(body.desc || "").trim().slice(0, 90);
+      if (!id) return json(request, { error: "缺少赞助位 id" }, 400);
+      if (!desc) return json(request, { error: "介绍不能为空" }, 400);
+
+      const all = (await kvGetJSON(env, ADS_KEY, [])) || [];
+      const slot = all.find((a) => a && a.id === id);
+      if (!slot) return json(request, { error: "这个赞助位不存在或已被清理" }, 404);
+      if (slot.owner !== sid) return json(request, { error: "只能管理自己投放的赞助位" }, 403);
+
+      const next = { ...slot, desc };
+      await kvPutJSON(env, ADS_KEY, all.map((a) => (a && a.id === id ? next : a)));
+      return json(request, { ok: true, slot: next, message: "介绍已更新" });
+    }
+
+    /* ---------- 赞助位管理：下架（立即失效，不退积分） ---------- */
+    if (url.pathname === "/ads/offline" && request.method === "POST") {
+      if (!env.PROFILES) return json(request, { error: "storage not configured" }, 500);
+      const identity = await getIdentity(request, env);
+      if (!identity) return json(request, { error: "请先登录" }, 401);
+      const sid = identity.login;
+      let body = {};
+      try { body = await request.json(); } catch { return json(request, { error: "invalid json" }, 400); }
+      const id = String(body.id || "").trim();
+      if (!id) return json(request, { error: "缺少赞助位 id" }, 400);
+
+      const all = (await kvGetJSON(env, ADS_KEY, [])) || [];
+      const slot = all.find((a) => a && a.id === id);
+      if (!slot) return json(request, { error: "这个赞助位不存在或已被清理" }, 404);
+      if (slot.owner !== sid) return json(request, { error: "只能管理自己投放的赞助位" }, 403);
+
+      const nowIso = new Date().toISOString();
+      const next = { ...slot, endAt: nowIso, offlineAt: nowIso };
+      await kvPutJSON(env, ADS_KEY, all.map((a) => (a && a.id === id ? next : a)));
+      return json(request, { ok: true, slot: next, message: "已下架，右栏不再显示" });
     }
 
     /* 购买广告位：一周 AD_PRICE 积分 */

@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Sun,
   Users,
+  Megaphone,
   UserCog,
   UserRound,
   Wallet,
@@ -420,6 +421,13 @@ function UserMenuItems({
         className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
       >
         <Wallet className="h-3.5 w-3.5" /> {en ? "My wallet" : "我的钱包"}
+      </a>
+      <a
+        href={p("/ads/mine/", locale)}
+        onClick={onNavigate}
+        className="flex items-center gap-2 px-3 py-2 text-[13px] text-foreground/80 hover:bg-secondary"
+      >
+        <Megaphone className="h-3.5 w-3.5" /> {en ? "My slots" : "我的赞助"}
       </a>
       <a
         href={p("/account/", locale)}

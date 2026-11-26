@@ -246,9 +246,14 @@ export default function AdsBuy({ locale = "zh" }: { locale?: Locale }) {
       <section className="mt-6 overflow-hidden rounded-[20px] border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
           <h2 className="font-display text-[15px] font-bold text-foreground">{en ? "My slots" : "我的投放"}</h2>
-          <a href={p("/wallet/", locale)} className="inline-flex items-center gap-0.5 text-[11.5px] text-accent">
-            {en ? "Points history" : "积分明细"} <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-          </a>
+          <span className="inline-flex items-center gap-3">
+            <a href={p("/ads/mine/", locale)} className="inline-flex items-center gap-0.5 text-[11.5px] text-accent">
+              {en ? "Manage slots" : "管理我的赞助"} <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+            </a>
+            <a href={p("/wallet/", locale)} className="inline-flex items-center gap-0.5 text-[11.5px] text-muted-foreground hover:text-accent">
+              {en ? "Points" : "积分明细"}
+            </a>
+          </span>
         </div>
         {data.ads.length === 0 ? (
           <p className="px-5 py-10 text-center text-[12.5px] text-muted-foreground">

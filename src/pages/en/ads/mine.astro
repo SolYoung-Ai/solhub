@@ -1,0 +1,29 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import MySponsors from "@/islands/MySponsors.tsx";
+import { p } from "@/lib/paths";
+import type { Locale } from "@/i18n";
+
+const locale: Locale = "en";
+---
+
+<BaseLayout
+  title="My sponsored slots · SolHub"
+  description="Manage the sponsored slots you bought: status, renewal, description and taking them down."
+  route="/ads/mine/"
+  locale={locale}
+>
+  <div class="container-page py-8 sm:py-10">
+    <header class="mx-auto mb-5 flex max-w-3xl items-end justify-between gap-4">
+      <div>
+        <p class="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Sponsored</p>
+        <h1 class="mt-1 font-display text-2xl font-extrabold tracking-tight text-foreground">My sponsored slots</h1>
+        <p class="mt-1.5 max-w-xl text-[13px] leading-6 text-muted-foreground">
+          Everything you bought in one place: what is live, when it ends, renew or take it down.
+        </p>
+      </div>
+      <a href={p("/ads/", locale)} class="btn btn-outline !h-9 shrink-0 px-4 text-xs">Buy a slot</a>
+    </header>
+    <MySponsors client:load locale={locale} />
+  </div>
+</BaseLayout>

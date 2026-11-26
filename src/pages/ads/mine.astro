@@ -1,0 +1,43 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import MySponsors from "@/islands/MySponsors.tsx";
+import { p } from "@/lib/paths";
+import type { Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+const locale = Astro.props.locale ?? "zh";
+const en = locale === "en";
+---
+
+<BaseLayout
+  title={en ? "My sponsored slots · SolHub" : "我的赞助 · SolHub"}
+  description={
+    en
+      ? "Manage the sponsored slots you bought: status, renewal, description and taking them down."
+      : "管理你购买的赞助位：查看状态、续费、修改介绍、下架。"
+  }
+  route="/ads/mine/"
+  locale={locale}
+>
+  <div class="container-page py-8 sm:py-10">
+    <header class="mx-auto mb-5 flex max-w-3xl items-end justify-between gap-4">
+      <div>
+        <p class="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">{en ? "Sponsored" : "赞助"}</p>
+        <h1 class="mt-1 font-display text-2xl font-extrabold tracking-tight text-foreground">
+          {en ? "My sponsored slots" : "我的赞助"}
+        </h1>
+        <p class="mt-1.5 max-w-xl text-[13px] leading-6 text-muted-foreground">
+          {en
+            ? "Everything you bought in one place: what is live, when it ends, renew or take it down."
+            : "你买过的位置都在这里：在投状态、到期时间，随时续费、改介绍或下架。"}
+        </p>
+      </div>
+      <a href={p("/ads/", locale)} class="btn btn-outline !h-9 shrink-0 px-4 text-xs">
+        {en ? "Buy a slot" : "购买赞助位"}
+      </a>
+    </header>
+    <MySponsors client:load locale={locale} />
+  </div>
+</BaseLayout>
