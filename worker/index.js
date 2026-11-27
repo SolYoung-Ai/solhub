@@ -50,6 +50,7 @@
  */
 
 import { searchHotItems } from "./hot-search.js";
+import { collectHot } from "./hot.js";
 
 const REPO = "SolYoung-Ai/solhub";
 const SITE_BASE = "https://solhub.solyoung.top";
@@ -2278,6 +2279,47 @@ async function hostedIndexAdd(env, rec) {
 async function hostedIndexRemove(env, id) {
   const list = (await hostedIndexRead(env)).filter((t) => t && t.id !== id);
   await kvPutJSON(env, HOSTED_INDEX_KEY, list);
+}
+
+/* ---------------- 热点抓取（定时任务调用） ----------------
+   聚合 39 家媒体的 RSS，合并进 kv 的 hot:v1。合并而不是覆盖：
+   某个源临时 502 时，已展示的内容不该当场消失。
+   全部源都失败时不写库 —— 写进去就是一次清空。 */
+async function runHotCollect(env) {
+  const KEY = "hot:v1";
+  let old = [];
+  try {
+    const raw = await env.PROFILES.get(KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.items)) old = parsed.items;
+    }
+  } catch (err) {
+    console.error("[hot] 读取旧数据失败:", err && err.message ? err.message : err);
+  }
+
+  const result = await collectHot({ old });
+  const okFeeds = result.feeds.filter((f) => f.ok);
+  if (!okFeeds.length) {
+    console.error("[hot] 所有源都抓取失败，保留旧数据");
+    return { ok: false };
+  }
+
+  /* 写全量：items 只含可展示的中文条目，allItems 还含本轮没翻完的英文条目，
+     不写进去下一轮就没原文可翻，那些内容会永远消失。 */
+  await env.PROFILES.put(
+    KEY,
+    JSON.stringify({
+      fetchedAt: result.fetchedAt,
+      total: result.total,
+      items: result.allItems || result.items,
+    }),
+  );
+  console.log(
+    `[hot] 写入 ${result.stored} 条（可展示 ${result.total}，待翻 ${result.pending}），` +
+      `${okFeeds.length}/${result.feeds.length} 源成功`,
+  );
+  return { ok: true, total: result.total };
 }
 
 export default {
@@ -5416,8 +5458,17 @@ export default {
     return json(request, { error: "not found" }, 404);
   },
 
-  /** 定时任务：每天两次（UTC 02:00 / 12:00 = 北京时间 10:00 / 20:00）随机推荐一个社区产品 */
+  /** 定时任务（每 30 分钟）：抓一轮热点 + 每日推荐配额内挑一个社区产品 */
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(suggestWithDailyQuota(env).catch(() => {}));
+    ctx.waitUntil(
+      (async () => {
+        try {
+          await runHotCollect(env);
+        } catch (err) {
+          console.error("[hot] 抓取失败:", err && err.message ? err.message : err);
+        }
+        await suggestWithDailyQuota(env).catch(() => {});
+      })(),
+    );
   },
 };
