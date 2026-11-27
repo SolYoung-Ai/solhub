@@ -11,6 +11,9 @@ export const productCategories: { slug: string; name: string; description: strin
   { slug: "fun-tools", name: "趣味工具", description: "测试、娱乐与轻量交互产品。" },
   { slug: "growth-marketing", name: "增长营销", description: "获客、推广与增长相关产品。" },
   { slug: "design-tools", name: "设计工具", description: "视觉与设计相关产品。" },
+  { slug: "ui-galleries", name: "界面灵感库", description: "收集真实产品界面、CTA 与页脚的灵感画廊。" },
+  { slug: "motion-effects", name: "动效与着色器", description: "滚动动效、WebGL 着色器与可复用的动态素材。" },
+  { slug: "ai-design", name: "AI 设计素材", description: "喂给 AI 的设计参考、提示词与规范文件。" },
 ];
 
 export function productCategoryName(slug: string): string {

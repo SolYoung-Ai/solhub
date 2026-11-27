@@ -68,6 +68,9 @@ export const productCatEn: Record<string, { name: string; description: string }>
   "fun-tools": { name: "Fun Tools", description: "Tests, entertainment and light interactive products." },
   "growth-marketing": { name: "Growth & Marketing", description: "Acquisition, promotion and growth products." },
   "design-tools": { name: "Design Tools", description: "Visual and design products." },
+  "ui-galleries": { name: "UI Galleries", description: "Curated collections of real interfaces, CTAs and footers." },
+  "motion-effects": { name: "Motion & Shaders", description: "Scroll effects, WebGL shaders and reusable dynamic assets." },
+  "ai-design": { name: "AI Design Assets", description: "References, prompts and spec files made for AI." },
 };
 
 /* ---------------- 产品 ---------------- */
