@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { base } from "@/lib/api-base";
+import { base, hotBase } from "@/lib/api-base";
 
 interface HotItem {
   id: string;
@@ -154,7 +154,7 @@ export default function HotFeed({
        分类标签上。分类过滤留在后端，前端不做第二套规则。 */
     const params = new URLSearchParams({ cat: targetQuery ? "all" : targetCat, limit: String(FEED_LIMIT) });
     if (targetQuery) params.set("q", targetQuery);
-    const res = await fetch(`${base()}/hot?${params.toString()}`, {
+    const res = await fetch(`${hotBase()}/hot?${params.toString()}`, {
       headers: { accept: "application/json" },
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

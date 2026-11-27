@@ -21,3 +21,20 @@ export const API_BASE =
 export function base(): string {
   return API_BASE.replace(/\/$/, "");
 }
+
+/**
+ * 热点接口基址（可以是另一个后端）
+ * ================================
+ *
+ * /hot 是纯读接口：数据每 30 分钟由定时任务整批覆盖，读慢了只是内容旧一点，
+ * 不涉及登录态和写入。所以它可以单独指向 Cloudflare Worker（境外节点便宜），
+ * 而登录、报名、钱包这些必须走 CloudBase 上海（快、稳）。
+ *
+ * 默认回退到 API_BASE —— 没配置时就还是单后端，行为与以前完全一致。
+ */
+export const HOT_API_BASE =
+  (import.meta.env.PUBLIC_SOLHUB_HOT_API as string | undefined) || API_BASE;
+
+export function hotBase(): string {
+  return HOT_API_BASE.replace(/\/$/, "");
+}
