@@ -36,6 +36,9 @@ jobs:
           PUBLIC_ADSENSE_CLIENT: ${{ vars.PUBLIC_ADSENSE_CLIENT }}
           PUBLIC_ADSENSE_SLOT_ARTICLE: ${{ vars.PUBLIC_ADSENSE_SLOT_ARTICLE }}
           PUBLIC_ADSENSE_SLOT_LIST: ${{ vars.PUBLIC_ADSENSE_SLOT_LIST }}
+          # 热点接口单独指向 Cloudflare Worker（纯读、可容忍延迟），
+          # 登录/报名/钱包仍走 CloudBase 上海。留空则回退到主 API。
+          PUBLIC_SOLHUB_HOT_API: https://solhub-auth.solyoung.top
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
