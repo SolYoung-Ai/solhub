@@ -915,5 +915,53 @@
     "verifiedAt": "2026-11-26",
     "isDemo": false,
     "submittedBy": "solhub_editor"
+  },
+  {
+    "id": "aileak-free",
+    "slug": "aileak-free",
+    "name": "aileak.zip /free",
+    "icon": "/icons/aileak-free.png",
+    "shortDescription": "收罗全网免费 AI 替代：66 个条目按「能干什么活」排列，不是跑分排行。",
+    "description": "把付费 AI 产品对应的「活」拆出来，逐条给出能顶上的免费额度或开源工具，覆盖对话、写代码、出图、配音、音乐、视频、写作、搜索与笔记九类。可按分类筛选，也能按显存或「本地能跑」过滤，适合预算为零、又想把活干完的人。",
+    "websiteUrl": "https://aileak.zip/free",
+    "category": "ai-tools",
+    "tags": [
+      "AI",
+      "免费额度",
+      "工具目录",
+      "开源"
+    ],
+    "developerName": "aileak.zip /free",
+    "publishedAt": "2026-11-28",
+    "launchBatch": "Community",
+    "verificationStatus": "verified",
+    "verificationMethod": "人工访问 https://aileak.zip/free（HTTP 200），核对页面标题「Every free AI alternative on the internet (66)」与九类分类后收录。本条由 SolHub 编辑部收录，非作者本人提交。",
+    "verifiedAt": "2026-11-28",
+    "isDemo": false,
+    "submittedBy": "solhub_editor"
+  },
+  {
+    "id": "stringers-appdb",
+    "slug": "stringers-appdb",
+    "name": "App 库 · 什么值得做",
+    "icon": "/icons/stringers-appdb.png",
+    "shortDescription": "App Store / Google Play 的市场情报库：估算月收入、增长、评分，还能让 AI 帮你挑赛道。",
+    "description": "按品类列出在架的 App，给出估算月收入、增长趋势与评分，点开能看到同一开发者的其它产品、同品类体量接近的对手。配了一个对话助手：说一句需求，它就从库里筛出值得做的赛道并给切入角度，适合找选题的独立开发者。",
+    "websiteUrl": "https://stringers.io/appdb",
+    "category": "growth-marketing",
+    "tags": [
+      "App 市场",
+      "竞品分析",
+      "选品",
+      "AI 助手"
+    ],
+    "developerName": "App 库 · 什么值得做",
+    "publishedAt": "2026-11-28",
+    "launchBatch": "Community",
+    "verificationStatus": "verified",
+    "verificationMethod": "人工访问 https://stringers.io/appdb（HTTP 200），核对标题「App 库 · 什么值得做」与收入/增长字段后收录。本条由 SolHub 编辑部收录，非作者本人提交。",
+    "verifiedAt": "2026-11-28",
+    "isDemo": false,
+    "submittedBy": "solhub_editor"
   }
 ]
