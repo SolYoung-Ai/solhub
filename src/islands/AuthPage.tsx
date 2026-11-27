@@ -10,6 +10,7 @@ import {
   Mail,
   Pencil,
   ShieldCheck,
+  Ticket,
   User,
   UserPlus,
   Zap,
@@ -30,6 +31,7 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
   const [mode, setMode] = useState<"login" | "register">("login");
   /* 邀请码：URL 上带的优先，其次用浏览时存下的（先逛后注册也不丢） */
   const [inviteRef, setInviteRef] = useState("");
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [inviter, setInviter] = useState<{ login: string; name: string } | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -309,6 +311,34 @@ export default function AuthPage({ locale = "zh", next = "" }: { locale?: Locale
                   locale={locale}
                   optional
                 />
+              )}
+
+              {/* 邀请码：手填或从 ?ref= 带入。留空表示不填，不影响注册。 */}
+              {mode === "register" && !inviteRef && (
+                <button
+                  type="button"
+                  onClick={() => setInviteOpen(true)}
+                  className="flex items-center gap-1 text-[12px] text-muted-foreground transition-colors hover:text-accent"
+                >
+                  <Ticket className="h-3.5 w-3.5" aria-hidden="true" />
+                  {en ? "Have an invite code?" : "有邀请码？"}
+                </button>
+              )}
+              {mode === "register" && inviteOpen && (
+                <label className="block">
+                  <span className="label">{en ? "Invite code (optional)" : "邀请码（可选）"}</span>
+                  <div className="relative mt-1.5">
+                    <Ticket className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                    <input
+                      type="text"
+                      value={inviteRef}
+                      onChange={(e) => { setInviteRef(e.target.value.toUpperCase()); setError(null); }}
+                      placeholder={en ? "e.g. ABCD2345" : "例如 ABCD2345"}
+                      maxLength={12}
+                      className="input !h-11 !pl-9 uppercase tracking-wide"
+                    />
+                  </div>
+                </label>
               )}
 
               <label className="block">

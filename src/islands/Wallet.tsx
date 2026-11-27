@@ -400,12 +400,6 @@ export default function Wallet({ locale = "zh" }: Props) {
           </p>
         </div>
       </section>
-
-      <p className="mt-4 text-center text-[11.5px] leading-5 text-muted-foreground">
-        {en
-          ? "Points live on SolHub's backend. Each new account credits 100 to both sides, once; self-invites and duplicate emails are rejected."
-          : "积分记在 SolHub 自己的后端：每个新账号给双方各 100，只发一次；自邀与重复邮箱都会被拒绝。"}
-      </p>
     </div>
   );
 }
